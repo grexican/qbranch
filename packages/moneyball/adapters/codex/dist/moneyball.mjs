@@ -3,8 +3,8 @@
 import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);
 
 // packages/moneyball/bin/moneyball.mjs
-import fs6 from "node:fs";
-import path8 from "node:path";
+import fs8 from "node:fs";
+import path10 from "node:path";
 
 // packages/core/src/project.mjs
 import fs from "node:fs";
@@ -225,6 +225,26 @@ function createStats({ tool, fresh, dayFresh, derive }) {
   };
 }
 
+// packages/core/src/frontmatter.mjs
+function parseFrontmatter(text) {
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!m) return { meta: {}, body: text };
+  const meta = {};
+  const lines = m[1].split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const kv = lines[i].match(/^([A-Za-z_-]+):\s*(.*)$/);
+    if (!kv) continue;
+    let [, k, v] = kv;
+    if (/^[|>][-+]?$/.test(v.trim())) {
+      const buf = [];
+      while (i + 1 < lines.length && /^(\s+|$)/.test(lines[i + 1])) buf.push(lines[++i].trim());
+      v = buf.join(" ").trim();
+    }
+    meta[k] = v.replace(/^["']|["']$/g, "").trim();
+  }
+  return { meta, body: m[2] };
+}
+
 // packages/core/src/embed.mjs
 import os from "node:os";
 import path3 from "node:path";
@@ -366,6 +386,13 @@ function db(cfg) {
       redo integer, fail_words integer, ok integer, explored integer default 0, mtime real);
     create table if not exists classes (id integer primary key, label text, key text unique, n integer default 0, prior text);
     create table if not exists meta (k text primary key, v text);`);
+  if (d.prepare("select v from meta where k = 'schema'").get()?.v !== "2") {
+    for (const c of ["startup_tokens integer default 0", "credit real default 0"]) try {
+      d.exec(`alter table runs add column ${c}`);
+    } catch {
+    }
+    d.exec("delete from runs; insert or replace into meta values ('schema', '2')");
+  }
   dbs.set(cfg.dataDir, d);
   return d;
 }
@@ -389,6 +416,13 @@ function classify(cfg, agentType, desc) {
 }
 
 // packages/moneyball/src/scan.mjs
+var promptTokens = (u) => (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+var MAX_CARRY = 50;
+function delegationCredit({ startup, peak, report = "", parent }) {
+  if (!parent?.model || !startup) return 0;
+  const kept = Math.max(0, peak - startup - Math.ceil(report.length / 4));
+  return kept * Math.min(parent.turns, MAX_CARRY) * (PRICES[modelId(parent.model)]?.[3] || 0) / 1e6;
+}
 var FAIL = /\b(could not|couldn't|unable to|failed to|did not complete|blocked( on)?|gave up|not able to|cannot proceed|no access|timed out)\b/i;
 var REDO_WINDOW_MS = 30 * 6e4;
 var words = (t) => new Set(t.toLowerCase().split(/[^a-z0-9#]+/).filter(Boolean));
@@ -405,10 +439,18 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
   const d = db(cfg);
   const known = new Set(d.prepare("select id from runs").all().map((r) => r.id));
   const parentReports = /* @__PURE__ */ new Map();
+  const parentAfter = /* @__PURE__ */ new Map();
   const subs = [];
   for (const s of sessions({ root: allProjects ? null : cfg.root, days })) {
     if (s.kind === "main") {
-      for (const e of s.events()) if (e.t === "result") parentReports.set(e.id, e.text);
+      const tools = [], models = {};
+      for (const e of s.events()) {
+        if (e.t === "result") parentReports.set(e.id, e.text);
+        else if (e.t === "tool") tools.push(e.id);
+        else if (e.t === "usage") models[e.model] = (models[e.model] || 0) + 1;
+      }
+      const model = Object.entries(models).sort((a, b) => b[1] - a[1])[0]?.[0];
+      tools.forEach((id, i) => parentAfter.set(id, { turns: tools.length - 1 - i, model }));
       continue;
     }
     subs.push(s);
@@ -419,13 +461,16 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
     const id = `${s.platform}:${s.id}`;
     if (known.has(id)) continue;
     const models = {};
-    let cost = 0, calls = 0, toolCalls = 0, toolErrors = 0;
+    let cost = 0, calls = 0, toolCalls = 0, toolErrors = 0, startup = null, peak = 0;
     for (const e of s.events()) {
       if (e.t === "usage") {
         const m = modelId(e.model);
         models[m] = (models[m] || 0) + 1;
         cost += costOf(e.model, e.usage);
         calls++;
+        const ctx = promptTokens(e.usage);
+        startup ??= ctx;
+        peak = Math.max(peak, ctx);
       } else if (e.t === "tool") toolCalls++;
       else if (e.t === "result" && e.isError) toolErrors++;
     }
@@ -446,7 +491,9 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
       tool_calls: toolCalls,
       tool_errors: toolErrors,
       fail_words: FAIL.test(report.slice(-1500)) ? 1 : 0,
-      mtime: s.mtime
+      mtime: s.mtime,
+      startup_tokens: startup || 0,
+      credit: delegationCredit({ startup, peak, report, parent: parentAfter.get(s.meta.toolUseId) })
     });
     onProgress?.(rows.length);
   }
@@ -463,11 +510,30 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
     });
   }
   const ins = d.prepare(`insert or replace into runs (id, session, platform, agent_type, description, class_id, model, tier, cost, calls,
-    tool_calls, tool_errors, redo, fail_words, ok, mtime) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    tool_calls, tool_errors, redo, fail_words, ok, mtime, startup_tokens, credit) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   d.exec("begin");
   for (const r of rows) {
     const ok = !r.redo && !r.fail_words && !(r.tool_calls >= 4 && r.tool_errors / r.tool_calls > 0.5) ? 1 : 0;
-    ins.run(r.id, r.session, r.platform, r.agent_type, r.description, r.class_id, r.model, r.tier, r.cost, r.calls, r.tool_calls, r.tool_errors, r.redo || 0, r.fail_words, ok, r.mtime);
+    ins.run(
+      r.id,
+      r.session,
+      r.platform,
+      r.agent_type,
+      r.description,
+      r.class_id,
+      r.model,
+      r.tier,
+      r.cost,
+      r.calls,
+      r.tool_calls,
+      r.tool_errors,
+      r.redo || 0,
+      r.fail_words,
+      ok,
+      r.mtime,
+      r.startup_tokens,
+      r.credit
+    );
     added++;
   }
   for (const c of d.prepare("select class_id, count(*) n from runs group by class_id").all()) d.prepare("update classes set n = ? where id = ?").run(c.n, c.class_id);
@@ -479,14 +545,15 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
 // packages/moneyball/src/recommend.mjs
 function classStats(cfg) {
   const d = db(cfg);
-  const rows = d.prepare(`select c.id, c.label, c.prior, r.tier, count(*) n, sum(r.ok) ok, sum(r.cost) cost
+  const rows = d.prepare(`select c.id, c.label, c.prior, r.tier, count(*) n, sum(r.ok) ok, sum(r.cost) cost, sum(coalesce(r.credit, 0)) credit
     from runs r join classes c on c.id = r.class_id group by c.id, r.tier`).all();
   const classes = /* @__PURE__ */ new Map();
   for (const r of rows) {
-    const c = classes.get(r.id) || classes.set(r.id, { id: r.id, label: r.label, prior: r.prior, tiers: {}, n: 0, cost: 0 }).get(r.id);
-    c.tiers[r.tier] = { n: r.n, ok: r.ok, rate: r.ok / r.n, cost: r.cost, perTask: r.ok ? r.cost / r.ok : Infinity };
+    const c = classes.get(r.id) || classes.set(r.id, { id: r.id, label: r.label, prior: r.prior, tiers: {}, n: 0, cost: 0, credit: 0 }).get(r.id);
+    c.tiers[r.tier] = { n: r.n, ok: r.ok, rate: r.ok / r.n, cost: r.cost, credit: r.credit, perTask: r.ok ? (r.cost - r.credit) / r.ok : Infinity };
     c.n += r.n;
     c.cost += r.cost;
+    c.credit += r.credit;
   }
   return [...classes.values()];
 }
@@ -555,20 +622,26 @@ var upsertFile = createStats({
   tool: "moneyball",
   fresh: () => ({
     totals: { dispatches_seen: 0, explicit_model: 0, matched_class: 0, suggestions: 0, rewrites: 0, explored: 0, scans: 0 },
-    last_scan: null
-    // { runs, classes, spend, graduate, explore, est_monthly_saving }
+    last_scan: null,
+    // { runs, classes, spend, credit, graduate, explore, est_saving }
+    overhead: null,
+    // { at, days, sessions, subagents: {n, median, p90}, startup_usd, total_usd, share, attribution? }
+    last_experiment: null
+    // { at, tasks, variants, recommended: [ids], spent }
   }),
   dayFresh: () => ({ dispatches: 0, rewrites: 0, explored: 0 })
 });
 var upsert = (cfg, mutate) => upsertFile(cfg.root, cfg.stats, mutate);
 function summarize(s) {
-  const t = s.totals, l = s.last_scan;
+  const t = s.totals, l = s.last_scan, o = s.overhead, x = s.last_experiment;
   return [
     `moneyball stats since ${s.since.slice(0, 10)} (updated ${s.updated.slice(0, 16).replace("T", " ")})`,
     `subagent dispatches seen ${t.dispatches_seen} | caller pinned a model ${t.explicit_model} | matched a measured class ${t.matched_class}`,
     `suggestions ${t.suggestions} | rewrites (enforce) ${t.rewrites} | exploration trials ${t.explored}`,
-    l ? `last scan: ${l.runs} runs in ${l.classes} classes, $${l.spend.toFixed(2)} measured; ${l.graduate} graduated, ${l.explore} exploring; est. saving $${l.est_saving.toFixed(2)} over the window` : "no scan yet (run: moneyball scan)"
-  ].join("\n");
+    l ? `last scan: ${l.runs} runs in ${l.classes} classes, $${l.spend.toFixed(2)} measured; ${l.graduate} graduated, ${l.explore} exploring; est. saving $${l.est_saving.toFixed(2)} over the window` : "no scan yet (run: moneyball scan)",
+    o ? `startup tax (${o.at.slice(0, 10)}): median ${o.subagents.median} tokens per subagent, ${o.sessions.median} per session; $${o.startup_usd.toFixed(2)} = ${(o.share * 100).toFixed(1)}% of spend` : "startup tax not measured yet (run: moneyball overhead)",
+    x ? `last experiment (${x.at.slice(0, 10)}): ${x.variants} variants over ${x.tasks} tasks, $${x.spent.toFixed(2)} spent; recommended: ${x.recommended.join(", ") || "none"}` : null
+  ].filter(Boolean).join("\n");
 }
 
 // packages/moneyball/src/route.mjs
@@ -626,6 +699,466 @@ async function sessionStart(cfg, script, now = Date.now()) {
   return null;
 }
 
+// packages/moneyball/src/overhead.mjs
+import fs6 from "node:fs";
+import os3 from "node:os";
+import path8 from "node:path";
+import { execFileSync } from "node:child_process";
+var tok = (s) => Math.ceil((s || "").length / 4);
+var promptTokens2 = (u) => (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+function quantile(xs, q) {
+  if (!xs.length) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.floor(q * s.length))];
+}
+var MCP_TOOL = /^mcp__(.+?)__/;
+var dist = (xs) => ({ n: xs.length, median: quantile(xs, 0.5), p90: quantile(xs, 0.9), mean: xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0 });
+function measureOverhead({ root, days = 30 }) {
+  const rows = [], mcpCalls = {};
+  let totalUsd = 0;
+  for (const s of sessions({ root, days })) {
+    let first = null, firstText = null;
+    for (const e of s.events()) {
+      if (e.t === "user" && firstText === null) firstText = e.text;
+      const mm = e.t === "tool" && MCP_TOOL.exec(e.name);
+      if (mm) mcpCalls[mm[1]] = (mcpCalls[mm[1]] || 0) + 1;
+      if (e.t === "usage") {
+        first ??= e;
+        totalUsd += costOf(e.model, e.usage);
+      }
+    }
+    if (!first) continue;
+    const u = first.usage, all = promptTokens2(u);
+    const fixed = Math.max(0, all - tok(firstText));
+    const inUsd = costOf(first.model, { input_tokens: u.input_tokens, cache_creation_input_tokens: u.cache_creation_input_tokens, cache_read_input_tokens: u.cache_read_input_tokens });
+    rows.push({ kind: s.kind, model: modelId(first.model), tokens: fixed, usd: all ? inUsd * fixed / all : 0 });
+  }
+  const pick = (k) => rows.filter((r) => r.kind === k);
+  const byModel = {};
+  for (const r of rows) (byModel[r.model] ||= []).push(r.tokens);
+  const startupUsd = rows.reduce((a, r) => a + r.usd, 0);
+  return {
+    days,
+    sessions: dist(pick("main").map((r) => r.tokens)),
+    subagents: dist(pick("subagent").map((r) => r.tokens)),
+    byModel: Object.fromEntries(Object.entries(byModel).map(([m, xs]) => [m, dist(xs)])),
+    startupUsd,
+    totalUsd,
+    share: totalUsd ? startupUsd / totalUsd : 0,
+    mcpCalls
+  };
+}
+var exists = (p) => {
+  try {
+    return fs6.statSync(p);
+  } catch {
+    return null;
+  }
+};
+var read = (p) => {
+  try {
+    return fs6.readFileSync(p, "utf8");
+  } catch {
+    return "";
+  }
+};
+var home = () => process.env.CLAUDE_CONFIG_DIR || path8.join(os3.homedir(), ".claude");
+function instructionFiles(root) {
+  const out = [], seen = /* @__PURE__ */ new Set();
+  const add = (file, kind, depth = 0) => {
+    const f = path8.resolve(file);
+    if (seen.has(f) || !exists(f)?.isFile()) return;
+    seen.add(f);
+    const text = read(f);
+    out.push({ kind, path: f, tokens: tok(text) });
+    if (depth >= 4) return;
+    for (const m of text.matchAll(/(?:^|\s)@((?:~[\\/]|\.{1,2}[\\/]|[\w-])[^\s`]*)/gm)) {
+      const p = m[1].replace(/^~(?=[\\/])/, os3.homedir());
+      add(path8.resolve(path8.dirname(f), p), "import", depth + 1);
+    }
+  };
+  for (let d = path8.resolve(root); ; d = path8.dirname(d)) {
+    for (const n of ["CLAUDE.md", "CLAUDE.local.md", path8.join(".claude", "CLAUDE.md")]) add(path8.join(d, n), d === path8.resolve(root) ? "project" : "ancestor");
+    if (path8.dirname(d) === d) break;
+  }
+  add(path8.join(home(), "CLAUDE.md"), "user");
+  return out;
+}
+var walk = (dir, test, acc = []) => {
+  for (const e of exists(dir)?.isDirectory() ? fs6.readdirSync(dir, { withFileTypes: true }) : []) {
+    const p = path8.join(dir, e.name);
+    if (e.isDirectory()) walk(p, test, acc);
+    else if (test(p)) acc.push(p);
+  }
+  return acc;
+};
+var listingTokens = (file) => {
+  const { meta } = parseFrontmatter(read(file));
+  return tok(`- ${meta.name || path8.basename(file)}: ${meta.description || ""}`);
+};
+function enabledPlugins(root) {
+  const on = {};
+  for (const f of [path8.join(home(), "settings.json"), path8.join(root, ".claude", "settings.json"), path8.join(root, ".claude", "settings.local.json")]) Object.assign(on, readJson(f, {}).enabledPlugins || {});
+  const installed = readJson(path8.join(home(), "plugins", "installed_plugins.json"), {}).plugins || {};
+  return Object.entries(on).filter(([, v]) => v).map(([id]) => {
+    const inst = (installed[id] || []).find((i) => !i.projectPath || path8.resolve(i.projectPath) === path8.resolve(root)) || (installed[id] || [])[0];
+    return { id, dir: inst?.installPath };
+  });
+}
+function mcpServers(root) {
+  const servers = {};
+  for (const n of Object.keys(readJson(path8.join(root, ".mcp.json"), {}).mcpServers || {})) servers[n] = ".mcp.json";
+  const user = readJson(process.env.CLAUDE_CONFIG_DIR ? path8.join(process.env.CLAUDE_CONFIG_DIR, ".claude.json") : path8.join(os3.homedir(), ".claude.json"), {});
+  for (const n of Object.keys(user.mcpServers || {})) servers[n] ??= "user";
+  const proj = Object.entries(user.projects || {}).find(([p]) => path8.resolve(p) === path8.resolve(root))?.[1];
+  for (const n of Object.keys(proj?.mcpServers || {})) servers[n] ??= "local";
+  return servers;
+}
+var mcpKey = (name) => name.replace(/[^A-Za-z0-9_-]/g, "_");
+function staticContributors(root, usage = null) {
+  const rows = instructionFiles(root).map((f) => ({ ...f, label: f.path }));
+  for (const [kind, dir] of [["rules", path8.join(root, ".claude", "rules")], ["rules", path8.join(home(), "rules")]]) {
+    for (const f of walk(dir, (p) => p.endsWith(".md"))) rows.push({ kind, label: f, tokens: tok(read(f)) });
+  }
+  const listing = (kind, label, files) => files.length && rows.push({ kind, label, count: files.length, tokens: files.reduce((a, f) => a + listingTokens(f), 0) });
+  const skillFiles = (d) => walk(d, (p) => path8.basename(p) === "SKILL.md");
+  const mdFiles = (d) => walk(d, (p) => p.endsWith(".md"));
+  listing("skills", path8.join(root, ".claude", "skills"), skillFiles(path8.join(root, ".claude", "skills")));
+  listing("skills", path8.join(home(), "skills"), skillFiles(path8.join(home(), "skills")));
+  listing("commands", path8.join(root, ".claude", "commands"), mdFiles(path8.join(root, ".claude", "commands")));
+  listing("commands", path8.join(home(), "commands"), mdFiles(path8.join(home(), "commands")));
+  listing("agents", path8.join(root, ".claude", "agents"), mdFiles(path8.join(root, ".claude", "agents")));
+  listing("agents", path8.join(home(), "agents"), mdFiles(path8.join(home(), "agents")));
+  for (const p of enabledPlugins(root)) {
+    if (!p.dir || !exists(p.dir)) {
+      rows.push({ kind: "plugin", label: `${p.id} (enabled, not installed)`, tokens: 0 });
+      continue;
+    }
+    const manifest = readJson(path8.join(p.dir, ".claude-plugin", "plugin.json"), {});
+    const dirs = (k) => [manifest[k] ?? k].flat().map((d) => path8.join(p.dir, d));
+    const files = [...dirs("skills").flatMap(skillFiles), ...dirs("commands").flatMap(mdFiles), ...dirs("agents").flatMap(mdFiles)];
+    rows.push({ kind: "plugin", label: p.id, count: files.length, tokens: files.reduce((a, f) => a + listingTokens(f), 0) });
+  }
+  const configured = mcpServers(root);
+  for (const [name, from] of Object.entries(configured)) {
+    rows.push({ kind: "mcp", label: `${name} (${from})`, server: name, tokens: null, calls: usage ? usage[mcpKey(name)] || 0 : void 0 });
+  }
+  const known = new Set(Object.keys(configured).map(mcpKey));
+  for (const [key, calls] of Object.entries(usage || {})) if (!known.has(key)) rows.push({ kind: "mcp", label: `${key} (seen in transcripts)`, server: key, tokens: null, calls });
+  return rows;
+}
+var STARTUP = ["CLAUDE.md", "CLAUDE.local.md", ".mcp.json", ...["CLAUDE.md", "settings.json", "settings.local.json", "rules", "skills", "commands", "agents", "output-styles"].map((n) => path8.join(".claude", n))];
+var INSTRUCTIONS = ["CLAUDE.md", "CLAUDE.local.md", path8.join(".claude", "CLAUDE.md"), path8.join(".claude", "rules")];
+function sandbox(root, { instructions = true } = {}) {
+  const dir = fs6.mkdtempSync(path8.join(os3.tmpdir(), "moneyball-probe-"));
+  const copy = (rel) => {
+    const src = path8.join(root, rel);
+    if (exists(src)) fs6.cpSync(src, path8.join(dir, rel), { recursive: true });
+  };
+  for (const rel of STARTUP) if (instructions || !INSTRUCTIONS.includes(rel)) copy(rel);
+  if (instructions) for (const f of instructionFiles(root)) {
+    const rel = path8.relative(root, f.path);
+    if (f.kind === "import" && !rel.startsWith("..") && !path8.isAbsolute(rel)) copy(rel);
+  }
+  return dir;
+}
+function probeSet(root) {
+  const off = Object.fromEntries(enabledPlugins(root).map((p) => [p.id, false]));
+  const NO_MCP = ["--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}'];
+  return [
+    { id: "full", label: "everything (sandboxed project)" },
+    { id: "instructions", label: "project instruction files (CLAUDE.md, rules, imports)", instructions: false },
+    { id: "mcp", label: "MCP tool schemas", args: NO_MCP },
+    { id: "skills", label: "skills + slash commands listing", args: ["--disable-slash-commands"] },
+    { id: "plugins", label: "enabled plugins", settings: { enabledPlugins: off } },
+    { id: "hooks", label: "hook-injected context", settings: { disableAllHooks: true } },
+    { id: "user", label: "user-level settings (user plugins, user MCP, user hooks)", args: ["--setting-sources", "project,local"] },
+    {
+      id: "floor",
+      label: "all of the above off: system prompt + built-in tools",
+      instructions: false,
+      args: [...NO_MCP, "--disable-slash-commands", "--setting-sources", "project,local"],
+      settings: { enabledPlugins: off, disableAllHooks: true }
+    }
+  ];
+}
+function claudeProbe(args, cwd, input = null) {
+  const opts = { cwd, encoding: "utf8", timeout: 18e4, windowsHide: true, stdio: [input == null ? "ignore" : "pipe", "pipe", "pipe"], ...input == null ? {} : { input } };
+  let out;
+  try {
+    out = execFileSync("claude", args, opts);
+  } catch (e) {
+    if (e.code !== "ENOENT" || process.platform !== "win32") throw e;
+    out = execFileSync("claude.cmd", args.map((a) => /[\s"{}&|<>^]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a), { ...opts, shell: true });
+  }
+  return JSON.parse(out.trim().split("\n").reverse().find((l) => l.startsWith("{")) || "{}");
+}
+async function attribute(root, { budget, model = "haiku", run = claudeProbe, probes = probeSet(root) } = {}) {
+  if (!(budget > 0)) throw new Error("probes spend money: pass --budget <usd>");
+  const results = {};
+  let spent = 0, dearest = 0;
+  for (const p of probes) {
+    if (spent + Math.max(dearest, 0.01) > budget) {
+      results[p.id] = { skipped: "budget" };
+      continue;
+    }
+    const dir = sandbox(root, { instructions: p.instructions !== false });
+    try {
+      const args = [
+        "-p",
+        "Reply with just OK. Do not use any tools.",
+        "--output-format",
+        "json",
+        "--model",
+        model,
+        "--no-session-persistence",
+        "--max-budget-usd",
+        (budget - spent).toFixed(4),
+        ...p.args || [],
+        ...p.settings ? ["--settings", JSON.stringify(p.settings)] : []
+      ];
+      const r = await run(args, dir);
+      const u = r.usage?.iterations?.[0] || r.usage || {};
+      const cost = Number(r.total_cost_usd) || 0;
+      spent += cost;
+      dearest = Math.max(dearest, cost);
+      if (r.is_error || !promptTokens2(u)) throw new Error(`probe failed: ${String(r.result || r.subtype || "no usage in output").slice(0, 120)}`);
+      results[p.id] = { tokens: promptTokens2(u), cost };
+    } catch (e) {
+      results[p.id] = { error: String(e.message || e).slice(0, 200) };
+    } finally {
+      fs6.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+  const full = results.full?.tokens;
+  const parts = probes.filter((p) => p.id !== "full").map((p) => {
+    const r = results[p.id];
+    const tokens = full != null && r?.tokens != null ? p.id === "floor" ? r.tokens : full - r.tokens : null;
+    return { id: p.id, label: p.label, tokens, ...r?.skipped || r?.error ? { note: r.skipped || r.error } : {} };
+  });
+  return { model, full: full ?? null, parts, spent };
+}
+
+// packages/moneyball/src/experiments.mjs
+import fs7 from "node:fs";
+import os4 from "node:os";
+import path9 from "node:path";
+var expDir = (cfg) => path9.join(cfg.dataDir, "experiments");
+var read2 = (p) => {
+  try {
+    return fs7.readFileSync(p, "utf8");
+  } catch {
+    return null;
+  }
+};
+var isDir = (p) => {
+  try {
+    return fs7.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+};
+var slug = (s) => s.toLowerCase().replace(/^[\d.\s]+/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "section";
+var posix = (p) => p.split(path9.sep).join("/");
+function sections(md) {
+  const out = [{ title: null, text: "" }];
+  let fence = false;
+  for (const l of md.split(/(?<=\n)/)) {
+    if (/^(```|~~~)/.test(l)) fence = !fence;
+    if (!fence && /^## /.test(l)) out.push({ title: l.slice(3).trim(), text: "" });
+    out.at(-1).text += l;
+  }
+  return out;
+}
+function deriveVariants(root, { condensed = null, usage = null } = {}) {
+  const out = [];
+  const claudeMd = read2(path9.join(root, "CLAUDE.md"));
+  if (claudeMd != null) {
+    const secs = sections(claudeMd);
+    secs.forEach((s, i) => {
+      if (!s.title) return;
+      const content = secs.filter((_, j) => j !== i).map((x) => x.text).join("");
+      out.push({ id: `drop-${slug(s.title)}`, kind: "drop-section", description: `CLAUDE.md without section "${s.title}"`, estTokensSaved: tok(s.text), ops: [{ op: "write", path: "CLAUDE.md", content }] });
+    });
+    if (condensed) out.push({ id: "condensed", kind: "condensed", description: "model-written condensed CLAUDE.md", estTokensSaved: tok(claudeMd) - tok(condensed), ops: [{ op: "write", path: "CLAUDE.md", content: condensed }] });
+  }
+  const instr = ["CLAUDE.md", "CLAUDE.local.md", ".claude/CLAUDE.md", ".claude/rules"].filter((p) => fs7.existsSync(path9.join(root, p)));
+  if (instr.length) out.push({
+    id: "fresh-start",
+    kind: "fresh-start",
+    description: "no project instruction files (CLAUDE.md, CLAUDE.local.md, rules)",
+    estTokensSaved: instr.reduce((a, p) => a + sizeOf(path9.join(root, p)), 0),
+    ops: instr.map((p) => ({ op: "remove", path: p }))
+  });
+  const skills = path9.join(root, ".claude", "skills");
+  if (isDir(skills) && fs7.readdirSync(skills).length) out.push({
+    id: "no-project-skills",
+    kind: "trim-skills",
+    description: "no project skills in the startup listing (load them just in time instead, e.g. headjack)",
+    estTokensSaved: null,
+    ops: [{ op: "remove", path: ".claude/skills" }]
+  });
+  const mcpFile = path9.join(root, ".mcp.json");
+  const mcp = JSON.parse(read2(mcpFile) || "{}");
+  if (usage && mcp.mcpServers) {
+    const unused = Object.keys(mcp.mcpServers).filter((n) => !usage[mcpKey(n)]);
+    const drop = (names) => JSON.stringify({ ...mcp, mcpServers: Object.fromEntries(Object.entries(mcp.mcpServers).filter(([n]) => !names.includes(n))) }, null, 2) + "\n";
+    for (const n of unused) out.push({ id: `drop-mcp-${slug(n)}`, kind: "drop-mcp", description: `drop MCP server "${n}" (0 tool calls in the window)`, estTokensSaved: null, ops: [{ op: "write", path: ".mcp.json", content: drop([n]) }] });
+    if (unused.length > 1) out.push({ id: "drop-unused-mcp", kind: "drop-mcp", description: `drop all ${unused.length} unused MCP servers`, estTokensSaved: null, ops: [{ op: "write", path: ".mcp.json", content: drop(unused) }] });
+  }
+  return out;
+}
+var sizeOf = (p) => isDir(p) ? walk2(p).reduce((a, f) => a + tok(read2(f)), 0) : tok(read2(p));
+var walk2 = (d) => fs7.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk2(path9.join(d, e.name)) : [path9.join(d, e.name)]);
+function applyVariant(dir, v) {
+  for (const o of v.ops) {
+    const p = path9.join(dir, o.path);
+    if (o.op === "remove") fs7.rmSync(p, { recursive: true, force: true });
+    else {
+      fs7.mkdirSync(path9.dirname(p), { recursive: true });
+      fs7.writeFileSync(p, o.content);
+    }
+  }
+}
+function unifiedDiff(a, b, name) {
+  const lines = (t) => t == null || t === "" ? [] : (t.endsWith("\n") ? t.slice(0, -1) : t).split("\n");
+  const A = lines(a), B = lines(b), eolA = !a || a.endsWith("\n"), eolB = !b || b.endsWith("\n");
+  const n = A.length, m = B.length, L = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
+  for (let i2 = n - 1; i2 >= 0; i2--) for (let j2 = m - 1; j2 >= 0; j2--) L[i2][j2] = A[i2] === B[j2] ? L[i2 + 1][j2 + 1] + 1 : Math.max(L[i2 + 1][j2], L[i2][j2 + 1]);
+  const ops = [];
+  let i = 0, j = 0;
+  const mark = (s, ai, bj) => s !== "+" && ai === n - 1 && !eolA || s !== "-" && bj === m - 1 && !eolB;
+  while (i < n || j < m) {
+    if (i < n && j < m && A[i] === B[j]) {
+      ops.push([" ", A[i], mark(" ", i, j)]);
+      i++;
+      j++;
+    } else if (i < n && (j >= m || L[i + 1][j] >= L[i][j + 1])) {
+      ops.push(["-", A[i], mark("-", i, -1)]);
+      i++;
+    } else {
+      ops.push(["+", B[j], mark("+", -1, j)]);
+      j++;
+    }
+  }
+  const changed = ops.map((o, k) => o[0] !== " " ? k : -1).filter((k) => k >= 0);
+  if (!changed.length) return "";
+  const hunks = [];
+  for (const k of changed) {
+    const last = hunks.at(-1);
+    if (last && k - last[1] <= 6) last[1] = k;
+    else hunks.push([k, k]);
+  }
+  const head = [`--- ${a == null ? "/dev/null" : `a/${name}`}`, `+++ ${b == null ? "/dev/null" : `b/${name}`}`];
+  for (const [s0, e0] of hunks) {
+    const s = Math.max(0, s0 - 3), e = Math.min(ops.length - 1, e0 + 3), seg = ops.slice(s, e + 1);
+    const aStart = seg.filter((o) => o[0] !== "+").length ? countBefore(ops, s, "+") + 1 : countBefore(ops, s, "+");
+    const bStart = seg.filter((o) => o[0] !== "-").length ? countBefore(ops, s, "-") + 1 : countBefore(ops, s, "-");
+    head.push(`@@ -${aStart},${seg.filter((o) => o[0] !== "+").length} +${bStart},${seg.filter((o) => o[0] !== "-").length} @@`, ...seg.flatMap((o) => o[2] ? [o[0] + o[1], "\\ No newline at end of file"] : [o[0] + o[1]]));
+  }
+  return head.join("\n") + "\n";
+}
+var countBefore = (ops, s, skip) => ops.slice(0, s).filter((o) => o[0] !== skip).length;
+var binary = (f) => {
+  try {
+    return fs7.readFileSync(f).subarray(0, 8e3).includes(0);
+  } catch {
+    return false;
+  }
+};
+function patchFor(root, v) {
+  const parts = [], manual = [];
+  for (const o of v.ops) {
+    const p = path9.join(root, o.path);
+    if (o.op === "write") parts.push(unifiedDiff(read2(p), o.content, o.path));
+    else for (const f of isDir(p) ? walk2(p) : [p]) {
+      const rel = posix(path9.relative(root, f));
+      if (binary(f)) manual.push(rel);
+      else parts.push(unifiedDiff(read2(f), null, rel));
+    }
+  }
+  const head = manual.length ? `moneyball: also delete these binary files by hand:
+${manual.map((f) => `  ${f}`).join("\n")}
+
+` : "";
+  return head + parts.filter(Boolean).join("");
+}
+function writeVariants(cfg, variants) {
+  const dir = expDir(cfg);
+  if (isDir(dir)) {
+    for (const d of fs7.readdirSync(dir)) if (fs7.existsSync(path9.join(dir, d, "manifest.json"))) fs7.rmSync(path9.join(dir, d), { recursive: true, force: true });
+  }
+  for (const v of variants) {
+    const vd = path9.join(dir, v.id);
+    fs7.mkdirSync(vd, { recursive: true });
+    fs7.writeFileSync(path9.join(vd, "manifest.json"), JSON.stringify({ ...v, created: (/* @__PURE__ */ new Date()).toISOString(), root: cfg.root }, null, 2) + "\n");
+    fs7.writeFileSync(path9.join(vd, "patch.diff"), patchFor(cfg.root, v));
+  }
+  return dir;
+}
+function loadVariants(cfg) {
+  const dir = expDir(cfg);
+  if (!isDir(dir)) return [];
+  return fs7.readdirSync(dir).map((d) => read2(path9.join(dir, d, "manifest.json"))).filter(Boolean).map((t) => JSON.parse(t));
+}
+async function condense(root, { budget, model = "sonnet", run = claudeProbe }) {
+  if (!(budget > 0)) throw new Error("condensing calls a model: pass --budget <usd>");
+  const src = read2(path9.join(root, "CLAUDE.md"));
+  if (src == null) return null;
+  const dir = fs7.mkdtempSync(path9.join(os4.tmpdir(), "moneyball-condense-"));
+  try {
+    const r = await run(["-p", CONDENSE, "--output-format", "json", "--model", model, "--no-session-persistence", "--max-budget-usd", String(budget)], dir, src);
+    return { text: String(r.result || "").trim() + "\n", cost: Number(r.total_cost_usd) || 0 };
+  } finally {
+    fs7.rmSync(dir, { recursive: true, force: true });
+  }
+}
+var CONDENSE = "The text on stdin is a CLAUDE.md instruction file. Rewrite it as short as possible for a current frontier coding model. Keep every rule, path, command, name and fact the model could not infer from the repository itself. Drop restatements, motivation, and generic advice a strong model already follows. Keep markdown headings. Output only the new file, with no commentary and no code fence.";
+async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats = 1, only = null }) {
+  if (!(budget > 0)) throw new Error("tune spends money: pass --budget <usd>");
+  const variants = loadVariants(cfg).filter((v) => !only || only.includes(v.id));
+  if (!variants.length) throw new Error("no experiments yet: run `moneyball experiments` first");
+  const tasks = await replay.harvestTasks({ root: cfg.root, days, limit, filter: (t) => t.readOnly });
+  if (!tasks.length) throw new Error("no read-only recurring tasks found to replay");
+  const setups = { baseline: async () => {
+  } };
+  for (const v of variants) setups[v.id] = async (dir) => applyVariant(dir, v);
+  const report = await replay.compareVariants({ tasks, variants: setups, repeats, budgetUsd: budget });
+  const base = report.perVariant.baseline || {};
+  const runs = tasks.length * repeats;
+  const rows = variants.map((v) => {
+    const r = report.perVariant[v.id];
+    if (!r) return { id: v.id, skipped: "not run (budget)" };
+    const regressions = (report.regressions || []).filter((x) => (x.variant ?? x.name) === v.id);
+    const saved = (base.startupTokens ?? 0) - (r.startupTokens ?? 0);
+    const keeps = (k) => (base[k] ?? 0) === 0 || (r[k] ?? 0) >= cfg.bar * base[k];
+    const why = runs < cfg.minRuns ? `only ${runs} task runs (< ${cfg.minRuns})` : saved <= 0 ? "saves no startup tokens" : regressions.length ? `${regressions.length} regression(s)` : !keeps("passRate") ? "pass rate below the bar" : !keeps("meanScore") ? "mean score below the bar" : null;
+    return {
+      id: v.id,
+      description: v.description,
+      passRate: r.passRate,
+      meanScore: r.meanScore,
+      costUsd: r.costUsd,
+      startupTokensSaved: saved,
+      regressions: regressions.length,
+      recommend: !why,
+      why: why || `keeps ${Math.round(r.passRate / (base.passRate || 1) * 100)}% of baseline outcomes, saves ${saved} tokens per startup`,
+      patch: path9.join(expDir(cfg), v.id, "patch.diff")
+    };
+  });
+  const result = {
+    at: (/* @__PURE__ */ new Date()).toISOString(),
+    tasks: tasks.length,
+    repeats,
+    budget,
+    baseline: base,
+    spent: Object.values(report.perVariant).reduce((a, r) => a + (r.costUsd || 0), 0),
+    variants: rows
+  };
+  fs7.writeFileSync(path9.join(expDir(cfg), "last-tune.json"), JSON.stringify(result, null, 2) + "\n");
+  return result;
+}
+
 // packages/moneyball/bin/moneyball.mjs
 var [cmd, ...rest] = process.argv.slice(2);
 var flag = (n) => rest.includes(n);
@@ -639,10 +1172,43 @@ var HELP = `moneyball: pay for the model each job needs, not the one you default
   moneyball scan [--days N] [--all-projects] [--quiet]   measure subagent runs from transcripts, rebuild routes
   moneyball report [--json] [--all]                      per-class recommendation: graduate | explore | try-effort | keep
   moneyball stats [--json]                               usage + what routing is worth (.moneyball-stats.json)
+  moneyball overhead [--days N] [--json]                 the startup tax: fixed prompt per session/subagent, apart from the work
+           [--probe --budget USD [--model haiku]]        ...and attribute it to components with one-turn probes (spends)
+  moneyball experiments [--condense --budget USD]        derive startup-context variants into .moneyball/experiments/
+  moneyball tune --budget USD [--limit N] [--repeats N]  replay recurring tasks under each variant; recommend safe trims
   moneyball hook pre|session [--platform P]              PreToolUse (subagent dispatch) / SessionStart hooks
 
 Modes (moneyball.config.json "mode" or MONEYBALL_MODE): report | suggest (default) | enforce | explore`;
 var money = (x) => `$${x.toFixed(2)}`;
+var num = (x) => x == null ? "?" : Math.round(x).toLocaleString("en-US");
+var budgetOpt = () => {
+  const b = Number(opt("--budget"));
+  if (!(b > 0)) throw new Error("this spends money: pass --budget <usd>");
+  return b;
+};
+async function loadReplay() {
+  const spec = "@qbranch/core/replay";
+  try {
+    return await import(spec);
+  } catch (e) {
+    if (!/MODULE_NOT_FOUND|PACKAGE_PATH_NOT_EXPORTED|Cannot find/.test(`${e.code} ${e.message}`)) throw e;
+    throw new Error("tune needs the replay harness (@qbranch/core/replay, see docs/replay-contract.md), which is not in this build yet. `moneyball overhead` and `moneyball experiments` work without it.");
+  }
+}
+function printOverhead(m, st, attr) {
+  const line = (label, d) => `  ${label.padEnd(10)} ${String(d.n).padStart(5)}  median ${num(d.median).padStart(7)}  p90 ${num(d.p90).padStart(7)} tokens`;
+  console.log(`startup tax, last ${m.days} days: the fixed prompt paid before any work (system prompt, instructions, skills, MCP, memory)`);
+  console.log(line("subagents", m.subagents));
+  console.log(line("sessions", m.sessions));
+  console.log(`  by model (same prompt, any model): ${Object.entries(m.byModel).map(([k, d]) => `${k} ${num(d.median)}`).join(" | ")}`);
+  console.log(`  tax ${money(m.startupUsd)} of ${money(m.totalUsd)} total = ${(m.share * 100).toFixed(1)}% of spend; the work itself: ${money(m.totalUsd - m.startupUsd)}`);
+  console.log("\nstatic contributors (on disk, ~4 chars/token, no spend)");
+  for (const r of st) console.log(`  ${r.kind.padEnd(9)} ${(r.tokens == null ? "probe" : num(r.tokens)).padStart(7)}  ${r.label}${r.count ? ` (${r.count} entries)` : ""}${r.calls != null ? `  ${r.calls} tool calls in window` : ""}`);
+  if (!attr) return console.log("\nattribute it to components: moneyball overhead --probe --budget 0.25");
+  console.log(`
+probe attribution (${attr.model}, ${money(attr.spent)} spent): full startup prompt ${num(attr.full)} tokens`);
+  for (const p of attr.parts) console.log(`  ${p.id.padEnd(13)} ${num(p.tokens).padStart(7)}  ${p.label}${p.note ? ` [${p.note}]` : ""}`);
+}
 async function doScan(cfg) {
   const r = await scan(cfg, { days: Number(opt("--days", cfg.days)), allProjects: flag("--all-projects") });
   const p = plan(cfg);
@@ -652,6 +1218,7 @@ async function doScan(cfg) {
     runs: p.reduce((a, c) => a + c.n, 0),
     classes: p.length,
     spend: p.reduce((a, c) => a + c.cost, 0),
+    credit: p.reduce((a, c) => a + (c.credit || 0), 0),
     graduate: p.filter((c) => c.action === "graduate").length,
     explore: p.filter((c) => c.action === "explore").length,
     est_saving: p.reduce((a, c) => a + (c.saving || 0), 0)
@@ -674,6 +1241,9 @@ async function main() {
       const p = plan(cfg);
       if (flag("--json")) return console.log(JSON.stringify(p, null, 2));
       if (!p.length) return console.log("no runs measured yet: run `moneyball scan`");
+      const gross = p.reduce((a, c) => a + c.cost, 0), credit = p.reduce((a, c) => a + (c.credit || 0), 0);
+      console.log(`subagent spend ${money(gross)}, delegation credit ${money(credit)} (parent context kept out), net ${money(gross - credit)}; savings are judged net, per completed task
+`);
       const shown = flag("--all") ? p : p.filter((c) => c.action !== "keep" || c.cost > 1).slice(0, 30);
       for (const c of shown) {
         const tiers = Object.entries(c.tiers).map(([t, v]) => `${t} ${v.ok}/${v.n}`).join(", ");
@@ -685,11 +1255,69 @@ ${"".padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${c.saving ? ` (est. ${money(c.
     case "stats": {
       let s;
       try {
-        s = JSON.parse(fs6.readFileSync(path8.join(cfg.root, cfg.stats || ".moneyball-stats.json"), "utf8"));
+        s = JSON.parse(fs8.readFileSync(path10.join(cfg.root, cfg.stats || ".moneyball-stats.json"), "utf8"));
       } catch {
         return console.log("no stats yet");
       }
       return console.log(flag("--json") ? JSON.stringify(s, null, 2) : summarize(s));
+    }
+    case "overhead": {
+      const days = Number(opt("--days", cfg.days));
+      const m = measureOverhead({ root: flag("--all-projects") ? null : cfg.root, days });
+      const st = staticContributors(cfg.root, m.mcpCalls);
+      const attr = flag("--probe") ? await attribute(cfg.root, { budget: budgetOpt(), model: opt("--model", "haiku") }) : null;
+      upsert(cfg, (s) => {
+        s.overhead = {
+          at: (/* @__PURE__ */ new Date()).toISOString(),
+          days,
+          sessions: m.sessions,
+          subagents: m.subagents,
+          startup_usd: m.startupUsd,
+          total_usd: m.totalUsd,
+          share: m.share,
+          attribution: attr ? Object.fromEntries([["full", attr.full], ...attr.parts.map((p) => [p.id, p.tokens])]) : s.overhead?.attribution ?? null
+        };
+      });
+      if (flag("--json")) return console.log(JSON.stringify({ ...m, static: st, attribution: attr }, null, 2));
+      return printOverhead(m, st, attr);
+    }
+    case "experiments": {
+      let condensed = null;
+      if (flag("--condense")) {
+        const c = await condense(cfg.root, { budget: budgetOpt(), model: opt("--model", "sonnet") });
+        condensed = c?.text;
+        if (c) console.log(`condensed CLAUDE.md written by ${opt("--model", "sonnet")} (${money(c.cost)})`);
+      }
+      const usage = measureOverhead({ root: cfg.root, days: Number(opt("--days", cfg.days)) }).mcpCalls;
+      const vs = deriveVariants(cfg.root, { condensed, usage });
+      const dir = writeVariants(cfg, vs);
+      for (const v of vs) console.log(`${v.id.padEnd(32)} ${(v.estTokensSaved == null ? "probe" : `~${num(v.estTokensSaved)}`).padStart(8)}  ${v.description}`);
+      return console.log(`${vs.length} variants in ${dir} (manifest.json + patch.diff each; live files untouched). Test them: moneyball tune --budget <usd>`);
+    }
+    case "tune": {
+      const budget = budgetOpt();
+      const r = await tune(cfg, {
+        budget,
+        replay: await loadReplay(),
+        days: Number(opt("--days", cfg.days)),
+        limit: Number(opt("--limit", 20)),
+        repeats: Number(opt("--repeats", 1)),
+        only: opt("--only") ? opt("--only").split(",") : null
+      });
+      upsert(cfg, (s) => {
+        s.last_experiment = { at: r.at, tasks: r.tasks, variants: r.variants.length, recommended: r.variants.filter((v) => v.recommend).map((v) => v.id), spent: r.spent };
+      });
+      if (flag("--json")) return console.log(JSON.stringify(r, null, 2));
+      console.log(`replayed ${r.tasks} tasks x ${r.repeats} under baseline + ${r.variants.length} variants, ${money(r.spent)} spent; baseline pass ${Math.round((r.baseline.passRate || 0) * 100)}%`);
+      for (const v of r.variants) {
+        if (v.skipped) {
+          console.log(`skip       ${v.id}: ${v.skipped}`);
+          continue;
+        }
+        console.log(`${(v.recommend ? "recommend" : "reject").padEnd(10)} ${v.id.padEnd(30)} pass ${Math.round(v.passRate * 100)}% score ${v.meanScore.toFixed(2)} ${money(v.costUsd)} saves ${num(v.startupTokensSaved)} tok -- ${v.why}`);
+        if (v.recommend) console.log(`${"".padEnd(11)}review, then apply by hand: ${v.patch}`);
+      }
+      return;
     }
     case "hook":
       return runHook((h) => rest[0] === "session" ? sessionStart(cfg, SELF) : preToolUse(cfg, h), rest.slice(1));

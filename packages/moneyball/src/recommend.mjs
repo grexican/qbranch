@@ -7,13 +7,14 @@ import { db } from './store.mjs';
 
 export function classStats(cfg) {
   const d = db(cfg);
-  const rows = d.prepare(`select c.id, c.label, c.prior, r.tier, count(*) n, sum(r.ok) ok, sum(r.cost) cost
+  const rows = d.prepare(`select c.id, c.label, c.prior, r.tier, count(*) n, sum(r.ok) ok, sum(r.cost) cost, sum(coalesce(r.credit, 0)) credit
     from runs r join classes c on c.id = r.class_id group by c.id, r.tier`).all();
   const classes = new Map();
   for (const r of rows) {
-    const c = classes.get(r.id) || classes.set(r.id, { id: r.id, label: r.label, prior: r.prior, tiers: {}, n: 0, cost: 0 }).get(r.id);
-    c.tiers[r.tier] = { n: r.n, ok: r.ok, rate: r.ok / r.n, cost: r.cost, perTask: r.ok ? r.cost / r.ok : Infinity };
-    c.n += r.n; c.cost += r.cost;
+    const c = classes.get(r.id) || classes.set(r.id, { id: r.id, label: r.label, prior: r.prior, tiers: {}, n: 0, cost: 0, credit: 0 }).get(r.id);
+    // per completed task, net of the delegation credit (parent context the subagent kept out; see scan.mjs)
+    c.tiers[r.tier] = { n: r.n, ok: r.ok, rate: r.ok / r.n, cost: r.cost, credit: r.credit, perTask: r.ok ? (r.cost - r.credit) / r.ok : Infinity };
+    c.n += r.n; c.cost += r.cost; c.credit += r.credit;
   }
   return [...classes.values()];
 }

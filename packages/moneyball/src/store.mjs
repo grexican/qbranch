@@ -15,6 +15,11 @@ export function db(cfg) {
       redo integer, fail_words integer, ok integer, explored integer default 0, mtime real);
     create table if not exists classes (id integer primary key, label text, key text unique, n integer default 0, prior text);
     create table if not exists meta (k text primary key, v text);`);
+  // schema 2: startup tokens + delegation credit per run. Older indexes are re-measured from scratch on the next scan.
+  if (d.prepare("select v from meta where k = 'schema'").get()?.v !== '2') {
+    for (const c of ['startup_tokens integer default 0', 'credit real default 0']) try { d.exec(`alter table runs add column ${c}`); } catch { /* already there */ }
+    d.exec("delete from runs; insert or replace into meta values ('schema', '2')");
+  }
   dbs.set(cfg.dataDir, d);
   return d;
 }
