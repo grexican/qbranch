@@ -1,6 +1,6 @@
 ---
 name: moneyball
-description: Right-size subagent models on evidence. Use when choosing which model or effort to give a subagent, when asked what agent runs cost or which jobs could run on a cheaper model, or when a moneyball hook note says a task class has graduated to a cheaper tier.
+description: Right-size subagent models on evidence. Use when choosing which model or effort to give a subagent, when asked what agent runs cost or which jobs could run on a cheaper model, or when a moneyball hook note says a task class has graduated to a cheaper tier. Also use when asked what the startup context costs (CLAUDE.md, skills listing, MCP schemas) or whether to trim it after a model upgrade.
 ---
 
 # moneyball
@@ -27,6 +27,20 @@ least 10 times with at least 90% success. Savings are counted per *completed* ta
     moneyball scan        measure new runs, rebuild the routing table (also runs in the background at session start)
     moneyball report      per class: graduate | explore | try-effort | keep, with the evidence behind each
     moneyball stats       dispatches seen, suggestions, rewrites, exploration trials, estimated saving
+    moneyball overhead    the startup tax: the fixed prompt each session and subagent pays, apart from the work
+                          (add --probe --budget 0.30 to attribute it to instructions, MCP, skills, plugins, hooks)
+    moneyball experiments derive trimmed startup-context variants into .moneyball/experiments/ (live files untouched)
+    moneyball tune --budget <usd>   replay recurring tasks under each variant; recommend only safe trims
+
+## When asked to trim CLAUDE.md, skills or MCP servers
+
+Measure before you cut. Run `moneyball overhead` to see how big the startup tax is and what share of spend it is.
+Then run `moneyball experiments` and `moneyball tune --budget <usd>`. Recommend a variant only when tune recommends it
+(it saves tokens, has no regression, and keeps at least 90% of baseline outcomes). Give the human its `patch.diff` to
+review. Never edit the live instruction files yourself. Spending commands refuse to run without `--budget`. Ask the
+human for the amount.
+
+Savings in `report` are net of the delegation credit: the parent context a subagent kept out.
 
 The mode is set in `moneyball.config.json` (`"mode"`): `report` measures only, `suggest` adds a note to the dispatch,
 `enforce` rewrites the model for graduated classes, and `explore` also routes about 10% of mechanical classes one tier

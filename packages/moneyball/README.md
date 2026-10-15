@@ -24,7 +24,8 @@ moneyball replaces the guess with evidence from runs you already made.
 | **Task classes** | Agent type + the leading verb of the description (`general-purpose:research`, `Explore:audit`). Coarse on purpose: real descriptions are nearly unique, and the verb is all a hook can see at dispatch time. |
 | **Recommendations** | Per class: **graduate** (the cheaper tier did it ≥10 times at ≥90% success, and is cheaper *per completed task*), **explore** (mechanical work with no evidence yet on the cheaper tier), **try-effort** (unclear work: lower the effort on the same model first; caches are per model), or **keep**. A class failing on its current model gets "fix the brief, or move it up", never a cheaper model. |
 | **Hook** | `PreToolUse` on the subagent tool. Looks the dispatch up in the routing table and, by mode, says nothing, adds a note, rewrites the `model`, or (explore) sends a small share one tier down so the cheaper model earns its evidence. A model the caller pinned is never overridden. |
-| **Stats** | `.moneyball-stats.json`: dispatches seen, suggestions, rewrites, exploration trials, and the estimated saving. |
+| **Startup tax** | `overhead` measures the fixed prompt every session and subagent pays, attributes it to components, and `tune` tests trimmed variants. See [The startup tax](#the-startup-tax). |
+| **Stats** | `.moneyball-stats.json`: dispatches seen, suggestions, rewrites, exploration trials, the estimated saving, the startup tax, and the last experiment. |
 
 Modes (`moneyball.config.json` → `"mode"`): `report` · `suggest` (default) · `enforce` · `explore`.
 
@@ -80,7 +81,69 @@ Native packages are in [`adapters/`](adapters/): a Cursor plugin, a Codex plugin
 moneyball scan [--days 30] [--all-projects]   # measure new runs, rebuild the routing table (also runs in the background at session start)
 moneyball report [--all] [--json]             # every class: graduate | explore | try-effort | keep, with the evidence
 moneyball stats                               # is routing being applied, and what is it worth?
+moneyball overhead [--probe --budget 0.25]    # the startup tax, apart from the work; --probe attributes it to components
+moneyball experiments [--condense --budget U] # derive trimmed startup-context variants (never touches live files)
+moneyball tune --budget 5                     # replay recurring tasks under each variant; recommend only safe trims
 ```
+
+## The startup tax
+
+Every session and every subagent pays a fixed prompt before it does any work: the system prompt, built-in tool schemas,
+CLAUDE.md and rules, the skills and commands listing, MCP tool schemas, and memory. The number of tokens is the same
+whichever model runs, so a cheaper model doesn't remove the tax. It only makes each token cheaper. A common
+recommendation when new models ship is to wipe your CLAUDE.md, agent files and scripts and start fresh, because they
+often compensate for weaknesses the new model no longer has. moneyball does this on evidence instead of folklore:
+
+```
+$ moneyball overhead --probe --budget 0.40
+startup tax, last 30 days: the fixed prompt paid before any work (system prompt, instructions, skills, MCP, memory)
+  subagents    275  median  51,874  p90  60,619 tokens
+  sessions      31  median  68,350  p90  81,036 tokens
+  tax $67.59 of $3983.06 total = 1.7% of spend; the work itself: $3915.47
+
+static contributors (on disk, ~4 chars/token, no spend)
+  project     2,484  CLAUDE.md
+  skills      2,836  ~/.claude/skills (19 entries)
+  commands    1,633  .claude/commands (50 entries)
+  mcp         probe  browser (seen in transcripts)  2204 tool calls in window
+  ...
+
+probe attribution (haiku, $0.28 spent): full startup prompt 34,919 tokens
+  instructions    2,598  project instruction files (CLAUDE.md, rules, imports)
+  mcp             3,282  MCP tool schemas
+  user            2,419  user-level settings (user plugins, user MCP, user hooks)
+  floor          28,757  all of the above off: system prompt + built-in tools
+```
+
+That run is real, on a knowledge-base repo. The tax was 1.7% of spend, and 82% of the startup prompt was the floor:
+the harness's own system prompt and built-in tools, which no instruction file can trim. Trimming CLAUDE.md is worth
+about 2.6k tokens per startup there, not the rewrite the folklore promises. Your numbers will differ: measure first.
+
+1. **Measure** (`overhead`, free). The startup cost of each session and subagent is its first request's whole prompt
+   (input + cache write + cache read), minus the task prompt, priced at that request's own rates. Reported as a
+   distribution (median, p90), in dollars, and as a share of all spend, **separately from the work**.
+2. **Attribute** (`overhead --probe --budget U`, about $0.30 on Haiku). One-turn `claude -p` probes in a sandbox copy
+   of the project's startup files, each turning off one component (instruction files, `--strict-mcp-config`,
+   `--disable-slash-commands`, plugins, hooks, `--setting-sources`). The token difference is that component. The static
+   listing (CLAUDE.md files up the tree and their `@imports`, rules, skill and command descriptions, plugins, MCP
+   servers with their tool-call counts) needs no spend.
+3. **Derive** (`experiments`, free unless `--condense`). Candidate variants go to `.moneyball/experiments/<id>/`, each
+   with a `manifest.json` and a `patch.diff`: drop each CLAUDE.md section in turn, `fresh-start` (no project
+   instructions), `condensed` (a model-written CLAUDE.md), `no-project-skills` (load them just in time instead, as
+   [headjack](../headjack) does), and drop MCP servers with no tool calls in the window.
+4. **Test** (`tune --budget U`). The [replay harness](../../docs/replay-contract.md) harvests read-only recurring tasks
+   from transcripts and replays them under the baseline and each variant, in sandboxes. A variant is recommended only
+   when it saves startup tokens, has **no regression**, and keeps at least 90% of the baseline's pass rate and score
+   over at least 10 task runs: the same bar as model graduation. You get the patch to review. Nothing is applied for you.
+
+### Delegation credit
+
+A subagent's working context never enters the parent's context; only its report does. Done inline, that context
+would be carried in every later parent turn. moneyball credits each subagent run with that saving: the context it
+kept out, times the parent's later turns (capped at 50), at the parent's cache-read rate. A verbose report earns less.
+Savings in `report` are judged **net of this credit, per completed task**. Without the credit, subagents look dearer
+than they are and downgrades look better than they are. One published setup was only about 5% dearer at Opus rates
+because the main context stayed small. On the run above, the credit was $438 of $1,832 subagent spend (24%).
 
 ## Is it working? `moneyball stats`
 
