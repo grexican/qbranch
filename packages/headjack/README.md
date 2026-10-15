@@ -78,6 +78,13 @@ headjack source add ../team-skills              # index a folder in place, witho
 headjack list                                   # everything, by space
 ```
 
+**Bundles: one trigger, an ordered set.** Some work always takes the same skills in the same order, for example a review chain that runs a principles pass, then a code-quality pass, then a security pass on every PR. A bundle is a skill that lists others. Search matches the bundle's description, and loading it loads every member in order, numbered:
+
+```bash
+headjack bundle pr-review principles-pass code-quality security-pass --description "Full PR review chain. Use when reviewing a pull request."
+headjack get pr-review          # "Bundle loaded: shared/pr-review (3 skills, apply them in this order)"
+```
+
 `adopt` never moves the root skills. Skills that a plugin owns stay with their plugin. Index the plugin's skills folder with `headjack source add <dir>` and turn that plugin's preload off.
 
 A skill's `description` is what search matches on. Write what the skill does, then "Use when ..." with the words a request would contain.

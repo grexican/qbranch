@@ -102,6 +102,18 @@ test('source add indexes a folder in place without moving it', () => {
   assert.doesNotMatch(hj('list'), /deploy-runbook/);
 });
 
+test('bundle: one trigger loads an ordered set of skills', () => {
+  const out = hj('bundle', 'canvas-review', 'json-canvas', 'decision-council', '--description', 'Canvas review: build the canvas, then weigh it. Use when reviewing a plan as a canvas.');
+  assert.match(out, /json-canvas → decision-council/);
+  const loaded = hj('get', 'canvas-review');
+  assert.match(loaded, /# Bundle loaded: shared\/canvas-review \(2 skills/);
+  const first = loaded.indexOf('## 1/2: shared/json-canvas'), second = loaded.indexOf('## 2/2: shared/decision-council');
+  assert.ok(first > 0 && second > first, 'members load in the declared order');
+  assert.match(hj('find', 'review a plan as a canvas'), /canvas-review/);
+  assert.ok(stats().skills['shared/json-canvas'].loaded >= 1);
+  assert.throws(() => hj('bundle', 'broken', 'json-canvas', 'no-such-skill'), /not in the library/);
+});
+
 test('stats summary reports conversion and gaps', () => {
   const out = hj('stats');
   assert.match(out, /conversion/);

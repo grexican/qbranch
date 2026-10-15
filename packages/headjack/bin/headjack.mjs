@@ -31,6 +31,7 @@ Build the library
                                          (default: project .claude/skills -> shared, ~/.claude/skills -> personal)
   headjack add <dir | owner/repo/skill> [--personal]   add one skill (copy a folder, or fetch from GitHub)
   headjack new <name> [--personal]       scaffold a new skill
+  headjack bundle <name> <skill> <skill>...  one trigger, an ordered set of skills (--description, --personal)
   headjack move <id> --to shared|personal   promote a personal skill to the team, or take one back
   headjack source add|remove <dir> [--personal]   index a folder in place (never moved), e.g. a team skills repo
   headjack source list
@@ -111,6 +112,21 @@ async function main() {
       return console.log(`created ${rel(path.join(dir, 'SKILL.md'))}: fill in the description (it drives search) and the instructions`);
     }
 
+    case 'bundle': {
+      const personal = flag('--personal'); const desc = opt('--description');
+      const [name, ...members] = rest.filter((a, i) => !a.startsWith('--') && rest[i - 1] !== '--description');
+      if (!name || !/^[a-z0-9][a-z0-9-]*$/.test(name) || members.length < 2)
+        return console.log('usage: headjack bundle <kebab-case-name> <skill> <skill> [...] [--description "..."] [--personal]');
+      await reindex(cfg);
+      const missing = members.filter(m => load(cfg, m).error);
+      if (missing.length) throw new Error(`not in the library: ${missing.join(', ')} (headjack list)`);
+      const dir = path.join(spaceDir(personal ? 'personal' : 'shared'), name);
+      if (fs.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: ${desc || `<What this bundle does, then "Use when ..." with the words a request would contain.>`}\nbundle: ${members.join(', ')}\n---\n\n# ${name}\n\nLoads ${members.length} skills in order: ${members.join(' → ')}. <How they fit together: when to move from one to the next.>\n`);
+      return console.log(`created ${rel(path.join(dir, 'SKILL.md'))}: ${members.join(' → ')}${desc ? '' : '. Fill in the description (it drives search).'}`);
+    }
+
     case 'move': {
       const to = opt('--to'); const id = rest[0];
       if (!id || !['shared', 'personal'].includes(to)) return console.log('usage: headjack move <id> --to shared|personal');
@@ -175,7 +191,9 @@ async function main() {
       const s = acq ? await acquire(cfg, id, { dest: spaceDir(personal ? 'personal' : 'shared') }) : (await reindex(cfg), load(cfg, id));
       if (!s.error) upsert(cfg, (st, day) => {
         st.totals.loads++; day.loaded++; if (acq) st.totals.acquires++;
-        const k = skillStat(st, s.id); k.loaded++; k.last_loaded = new Date().toISOString();
+        for (const x of [s, ...(s.members || []).filter(m => !m.error)]) {
+          const k = skillStat(st, x.id); k.loaded++; k.last_loaded = new Date().toISOString();
+        }
         if (wasSuggested(cfg, s.id)) st.totals.suggested_then_loaded++;
       });
       return console.log(renderSkill(s));

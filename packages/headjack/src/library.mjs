@@ -116,7 +116,7 @@ export function gapTerms(cfg, query, n = 3) {
 }
 
 // ---------- load ----------
-export function load(cfg, ref) {
+export function load(cfg, ref, depth = 0) {
   const d = db(cfg);
   let rows = d.prepare('select * from skills where id = ?').all(ref);
   if (!rows.length) rows = d.prepare('select * from skills where name = ?').all(ref);
@@ -132,11 +132,21 @@ export function load(cfg, ref) {
       e.isDirectory() ? walk(p, depth + 1) : e.name !== 'SKILL.md' && files.push(p);
     }
   })(s.dir, 0);
-  return { ...s, files: files.slice(0, 60) };
+  const out = { ...s, files: files.slice(0, 60) };
+  // A bundle is a skill whose frontmatter lists other skills (`bundle: a, b, c`): one trigger, an ordered set.
+  const { meta } = parseFrontmatter(fs.readFileSync(path.join(s.dir, 'SKILL.md'), 'utf8'));
+  if (meta.bundle && depth < 1) {
+    out.members = String(meta.bundle).split(',').map(x => x.trim()).filter(Boolean).map(m => load(cfg, m, depth + 1));
+  }
+  return out;
 }
 
 export function renderSkill(s) {
   if (s.error) return s.error;
+  if (s.members) {
+    const parts = s.members.map((m, i) => `## ${i + 1}/${s.members.length}: ${m.error ? m.error : renderSkill(m).replace(/^# Skill loaded: /, '')}`);
+    return `# Bundle loaded: ${s.id} (${s.members.length} skills, apply them in this order)\nBase directory: ${s.dir}\n\n${s.body}\n\n${parts.join('\n\n')}`;
+  }
   const trust = s.tier === 'external' ? '\n> UNTRUSTED: fetched from a public registry. Read its scripts before running them.' : '';
   const files = s.files.length ? `\n\n---\nSupporting files (read only the ones you need):\n${s.files.map(f => `- ${f}`).join('\n')}` : '';
   return `# Skill loaded: ${s.id}\nBase directory: ${s.dir}${trust}\n\n${s.body}${files}`;

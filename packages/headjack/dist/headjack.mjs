@@ -487,7 +487,7 @@ function gapTerms(cfg3, query, n = 3) {
   const terms = [...new Set((query.toLowerCase().match(/[a-z][a-z0-9-]{3,}/g) || []).filter((t) => !STOP.has(t) && !/\d/.test(t)))];
   return terms.filter((t) => d.prepare("select count(*) n from skills_fts where skills_fts match ?").get(`"${t}"`).n === 0).slice(0, n);
 }
-function load(cfg3, ref) {
+function load(cfg3, ref, depth = 0) {
   const d = db(cfg3);
   let rows = d.prepare("select * from skills where id = ?").all(ref);
   if (!rows.length) rows = d.prepare("select * from skills where name = ?").all(ref);
@@ -495,18 +495,32 @@ function load(cfg3, ref) {
   if (rows.length > 1) return { error: `"${ref}" is ambiguous; use one of: ${rows.map((r) => r.id).join(", ")}` };
   const s = rows[0];
   const files = [];
-  (function walk(dir, depth) {
-    if (depth > 3 || !fs4.existsSync(dir)) return;
+  (function walk(dir, depth2) {
+    if (depth2 > 3 || !fs4.existsSync(dir)) return;
     for (const e of fs4.readdirSync(dir, { withFileTypes: true })) {
       if (e.name.startsWith(".") || e.name === "node_modules") continue;
       const p = path5.join(dir, e.name);
-      e.isDirectory() ? walk(p, depth + 1) : e.name !== "SKILL.md" && files.push(p);
+      e.isDirectory() ? walk(p, depth2 + 1) : e.name !== "SKILL.md" && files.push(p);
     }
   })(s.dir, 0);
-  return { ...s, files: files.slice(0, 60) };
+  const out = { ...s, files: files.slice(0, 60) };
+  const { meta: meta3 } = parseFrontmatter(fs4.readFileSync(path5.join(s.dir, "SKILL.md"), "utf8"));
+  if (meta3.bundle && depth < 1) {
+    out.members = String(meta3.bundle).split(",").map((x) => x.trim()).filter(Boolean).map((m) => load(cfg3, m, depth + 1));
+  }
+  return out;
 }
 function renderSkill(s) {
   if (s.error) return s.error;
+  if (s.members) {
+    const parts = s.members.map((m, i) => `## ${i + 1}/${s.members.length}: ${m.error ? m.error : renderSkill(m).replace(/^# Skill loaded: /, "")}`);
+    return `# Bundle loaded: ${s.id} (${s.members.length} skills, apply them in this order)
+Base directory: ${s.dir}
+
+${s.body}
+
+${parts.join("\n\n")}`;
+  }
   const trust = s.tier === "external" ? "\n> UNTRUSTED: fetched from a public registry. Read its scripts before running them." : "";
   const files = s.files.length ? `
 
@@ -38572,6 +38586,7 @@ Build the library
                                          (default: project .claude/skills -> shared, ~/.claude/skills -> personal)
   headjack add <dir | owner/repo/skill> [--personal]   add one skill (copy a folder, or fetch from GitHub)
   headjack new <name> [--personal]       scaffold a new skill
+  headjack bundle <name> <skill> <skill>...  one trigger, an ordered set of skills (--description, --personal)
   headjack move <id> --to shared|personal   promote a personal skill to the team, or take one back
   headjack source add|remove <dir> [--personal]   index a folder in place (never moved), e.g. a team skills repo
   headjack source list
@@ -38667,6 +38682,30 @@ description: <What this skill does, then "Use when ..." with the words a request
 `);
       return console.log(`created ${rel(path7.join(dir, "SKILL.md"))}: fill in the description (it drives search) and the instructions`);
     }
+    case "bundle": {
+      const personal = flag("--personal");
+      const desc = opt("--description");
+      const [name, ...members2] = rest.filter((a, i) => !a.startsWith("--") && rest[i - 1] !== "--description");
+      if (!name || !/^[a-z0-9][a-z0-9-]*$/.test(name) || members2.length < 2)
+        return console.log('usage: headjack bundle <kebab-case-name> <skill> <skill> [...] [--description "..."] [--personal]');
+      await reindex(cfg2);
+      const missing = members2.filter((m) => load(cfg2, m).error);
+      if (missing.length) throw new Error(`not in the library: ${missing.join(", ")} (headjack list)`);
+      const dir = path7.join(spaceDir(personal ? "personal" : "shared"), name);
+      if (fs6.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
+      fs6.mkdirSync(dir, { recursive: true });
+      fs6.writeFileSync(path7.join(dir, "SKILL.md"), `---
+name: ${name}
+description: ${desc || `<What this bundle does, then "Use when ..." with the words a request would contain.>`}
+bundle: ${members2.join(", ")}
+---
+
+# ${name}
+
+Loads ${members2.length} skills in order: ${members2.join(" \u2192 ")}. <How they fit together: when to move from one to the next.>
+`);
+      return console.log(`created ${rel(path7.join(dir, "SKILL.md"))}: ${members2.join(" \u2192 ")}${desc ? "" : ". Fill in the description (it drives search)."}`);
+    }
     case "move": {
       const to = opt("--to");
       const id = rest[0];
@@ -38752,9 +38791,11 @@ ${cur}`);
         st.totals.loads++;
         day.loaded++;
         if (acq) st.totals.acquires++;
-        const k = skillStat(st, s.id);
-        k.loaded++;
-        k.last_loaded = (/* @__PURE__ */ new Date()).toISOString();
+        for (const x of [s, ...(s.members || []).filter((m) => !m.error)]) {
+          const k = skillStat(st, x.id);
+          k.loaded++;
+          k.last_loaded = (/* @__PURE__ */ new Date()).toISOString();
+        }
         if (wasSuggested(cfg2, s.id)) st.totals.suggested_then_loaded++;
       });
       return console.log(renderSkill(s));
