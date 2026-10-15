@@ -63,7 +63,7 @@ export async function scan(cfg, { days = cfg.days, allProjects = false, onProgre
         // usage null = the platform records no tokens (e.g. Cursor bills per request): unpriced, not free
         const m = modelId(e.model); models[m] = (models[m] || 0) + 1; calls++;
         if (e.usage) { cost += costOf(e.model, e.usage); priced = true; }
-        const ctx = promptTokens(e.usage); startup ??= ctx; peak = Math.max(peak, ctx);
+        if (e.usage) { const ctx = promptTokens(e.usage); startup ??= ctx; peak = Math.max(peak, ctx); }
       }
       else if (e.t === 'tool') toolCalls++;
       else if (e.t === 'result' && e.isError) toolErrors++;

@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { sessions, costOf, modelId, readJson, parseFrontmatter } from '@qbranch/core';
 
 export const tok = (s) => Math.ceil((s || '').length / 4); // ~4 chars per token: estimates only, labelled as such
-const promptTokens = (u) => (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+const promptTokens = (u) => !u ? 0 : (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
 
 export function quantile(xs, q) {
   if (!xs.length) return 0;
@@ -32,7 +32,7 @@ export function measureOverhead({ root, days = 30 }) {
     for (const e of s.events()) {
       if (e.t === 'user' && firstText === null) firstText = e.text;
       const mm = e.t === 'tool' && MCP_TOOL.exec(e.name); if (mm) mcpCalls[mm[1]] = (mcpCalls[mm[1]] || 0) + 1;
-      if (e.t === 'usage') { first ??= e; totalUsd += costOf(e.model, e.usage); }
+      if (e.t === 'usage' && e.usage) { first ??= e; totalUsd += costOf(e.model, e.usage); } // unpriced platforms have no startup figure
     }
     if (!first) continue;
     const u = first.usage, all = promptTokens(u);

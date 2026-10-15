@@ -1250,9 +1250,11 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
           cost += costOf(e.model, e.usage);
           priced = true;
         }
-        const ctx = promptTokens(e.usage);
-        startup ??= ctx;
-        peak = Math.max(peak, ctx);
+        if (e.usage) {
+          const ctx = promptTokens(e.usage);
+          startup ??= ctx;
+          peak = Math.max(peak, ctx);
+        }
       } else if (e.t === "tool") toolCalls++;
       else if (e.t === "result" && e.isError) toolErrors++;
     }
@@ -1490,7 +1492,7 @@ import os3 from "node:os";
 import path8 from "node:path";
 import { execFileSync } from "node:child_process";
 var tok = (s) => Math.ceil((s || "").length / 4);
-var promptTokens2 = (u) => (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+var promptTokens2 = (u) => !u ? 0 : (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
 function quantile(xs, q) {
   if (!xs.length) return 0;
   const s = [...xs].sort((a, b) => a - b);
@@ -1507,7 +1509,7 @@ function measureOverhead({ root, days = 30 }) {
       if (e.t === "user" && firstText === null) firstText = e.text;
       const mm = e.t === "tool" && MCP_TOOL.exec(e.name);
       if (mm) mcpCalls[mm[1]] = (mcpCalls[mm[1]] || 0) + 1;
-      if (e.t === "usage") {
+      if (e.t === "usage" && e.usage) {
         first ??= e;
         totalUsd += costOf(e.model, e.usage);
       }
