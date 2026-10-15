@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Measure what every subagent run cost and whether it worked, then route each job to the cheapest model that does it.",
   "tagline": "Pay for the model each job needs: measure every subagent run, graduate repeat work to cheaper models on evidence.",
+  "spec": "right-sized models",
   "platformNotes": {
     "copilot": "measures and reports; model routing applies where the subagent tool takes a model argument",
     "cursor": "measures and reports (transcripts: Claude Code today); model routing needs a subagent tool with a model argument",
@@ -20,12 +21,12 @@
     "node": ">=22.13"
   },
   "dependencies": {
-    "@utility-belt/core": "0.1.0"
+    "@qbranch/core": "0.1.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/grexican/utility-belt.git",
+    "url": "https://github.com/grexican/qbranch.git",
     "directory": "packages/moneyball"
   },
-  "homepage": "https://github.com/grexican/moneyball"
+  "homepage": "https://github.com/grexican/qbranch/tree/main/packages/moneyball"
 }

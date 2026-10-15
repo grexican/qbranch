@@ -3,7 +3,7 @@
 // A runbook that stays stable for a few weeks is the cue to promote it to a script.
 import fs from 'node:fs';
 import path from 'node:path';
-import { renderFrontmatter } from '@utility-belt/core';
+import { renderFrontmatter } from '@qbranch/core';
 import { upsert } from './stats.mjs';
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'runbook';

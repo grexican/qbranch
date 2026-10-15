@@ -6,7 +6,7 @@ import { loadConfig } from '../src/config.mjs';
 import { createEngine } from '../src/engine.mjs';
 import { summarize } from '../src/stats.mjs';
 import { post, pre } from '../src/hook.mjs';
-import { runHook } from '@utility-belt/core/hooks';
+import { runHook } from '@qbranch/core/hooks';
 
 const [cmd, ...rest] = process.argv.slice(2);
 const cfg = loadConfig();

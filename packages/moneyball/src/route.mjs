@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { readJson, selfCommand } from '@utility-belt/core';
+import { readJson, selfCommand } from '@qbranch/core';
 import { lexKey } from './store.mjs';
 import { upsert } from './stats.mjs';
 

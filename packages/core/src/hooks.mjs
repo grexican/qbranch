@@ -111,7 +111,7 @@ export async function runHook(handler, argv = process.argv.slice(2)) {
     const h = normalize(raw, flag('platform') || detectPlatform(raw), flag('event'));
     out = render(h, await handler(h));
   } catch (e) {
-    if (process.env.UB_HOOK_DEBUG) process.stderr.write(`hook error: ${e.stack}\n`);
+    if (process.env.QB_HOOK_DEBUG) process.stderr.write(`hook error: ${e.stack}\n`);
   }
   if (out.stdout) process.stdout.write(out.stdout);
   if (out.stderr) process.stderr.write(out.stderr);

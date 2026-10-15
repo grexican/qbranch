@@ -84,7 +84,7 @@ args = ${JSON.stringify(entries[n].args)}
 }
 
 // scripts/install.mjs
-var MARK = ".utility-belt";
+var MARK = ".qbranch";
 var standalone = (source) => {
   try {
     return JSON.parse(fs2.readFileSync(path2.join(source, ".claude-plugin", "plugin.json"), "utf8")).name;
@@ -93,7 +93,7 @@ var standalone = (source) => {
   }
 };
 var pkgDir = (source, tool) => standalone(source) === tool ? source : path2.join(source, "packages", tool);
-function plan({ tools, platform, project, runtime = "node", bin = "belt", source }) {
+function plan({ tools, platform, project, runtime = "node", bin = "qbranch", source }) {
   const skillsDir = path2.join(project, platform === "claude" ? ".claude/skills" : ".agents/skills");
   const notes = [];
   const cmdFor = (tool) => (args) => {
@@ -155,7 +155,7 @@ function apply(p, { platform, project, tools, uninstall = false, dryRun = false 
     log.push(`copy skill ${path2.relative(project, s.to)}`);
     if (!dryRun) {
       fs2.cpSync(s.from, s.to, { recursive: true });
-      fs2.writeFileSync(path2.join(s.to, MARK), `installed by utility-belt (${s.tool})
+      fs2.writeFileSync(path2.join(s.to, MARK), `installed by qbranch (${s.tool})
 `);
     }
   }
@@ -190,7 +190,7 @@ ${JSON.stringify(m, null, 2)}`);
     }
     if (platform === "codex") {
       const f2 = path2.join(project, ".codex/config.toml");
-      const begin = `# >>> utility-belt ${tool}`, end = `# <<< utility-belt ${tool}`;
+      const begin = `# >>> qbranch ${tool}`, end = `# <<< qbranch ${tool}`;
       const cur2 = fs2.existsSync(f2) ? fs2.readFileSync(f2, "utf8") : "";
       const stripped = cur2.replace(new RegExp(`\\n?${begin}[\\s\\S]*?${end}\\n?`), "\n").replace(/^\n+/, "");
       write(f2, uninstall ? stripped : `${stripped}${stripped && !stripped.endsWith("\n") ? "\n" : ""}${begin}
@@ -223,7 +223,7 @@ async function main(argv = process.argv.slice(2), defaults = {}) {
   if (!PLATFORMS.includes(platform)) throw new Error(`--platform must be one of: ${PLATFORMS.join(", ")}`);
   for (const t of tools) if (!TOOLS.includes(t)) throw new Error(`unknown tool ${t} (${TOOLS.join(", ")})`);
   const project = path2.resolve(opt("--project", process.cwd()));
-  const p = plan({ tools, platform, project, runtime: opt("--runtime", defaults.runtime || "node"), bin: opt("--bin", defaults.bin || "belt"), source });
+  const p = plan({ tools, platform, project, runtime: opt("--runtime", defaults.runtime || "node"), bin: opt("--bin", defaults.bin || "qbranch"), source });
   const log = apply(p, { platform, project, tools, uninstall: argv.includes("--uninstall"), dryRun: argv.includes("--dry-run") });
   console.log(`${argv.includes("--uninstall") ? "uninstall" : "install"} ${tools.join(", ")} for ${platform} in ${project}${argv.includes("--dry-run") ? " (dry run)" : ""}`);
   for (const l of log) console.log(`  ${l}`);
@@ -231,7 +231,7 @@ async function main(argv = process.argv.slice(2), defaults = {}) {
 note: ${n}`);
   if (platform === "cursor" && tools.includes("headjack")) console.log("\nnote: Cursor hooks cannot inject context at prompt time; headjack works there through its skills only.");
 }
-if (!globalThis.__BELT__ && import.meta.url && process.argv[1] && path2.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (!globalThis.__QBRANCH__ && import.meta.url && process.argv[1] && path2.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((e) => {
     console.error(`install: ${e.message}`);
     process.exitCode = 1;

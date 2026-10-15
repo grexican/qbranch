@@ -141,7 +141,7 @@ import path3 from "node:path";
 var CACHE;
 var init_embed = __esm({
   "packages/core/src/embed.mjs"() {
-    CACHE = path3.join(os.homedir(), ".utility-belt", "models");
+    CACHE = path3.join(os.homedir(), ".qbranch", "models");
   }
 });
 
@@ -244,7 +244,7 @@ async function runHook(handler, argv = process.argv.slice(2)) {
     const h = normalize(raw, flag("platform") || detectPlatform(raw), flag("event"));
     out = render(h, await handler(h));
   } catch (e) {
-    if (process.env.UB_HOOK_DEBUG) process.stderr.write(`hook error: ${e.stack}
+    if (process.env.QB_HOOK_DEBUG) process.stderr.write(`hook error: ${e.stack}
 `);
   }
   if (out.stdout) process.stdout.write(out.stdout);

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "API calls, compressed. A declarative fetch layer over MCP servers and JSON APIs: hierarchical plans, fan-out, automatic pagination and projection, so only the fields an agent needs reach its context.",
   "tagline": "API calls, compressed: agents write one small plan, and only the fields they selected reach the model.",
+  "spec": "API calls, compressed",
   "platformNotes": {},
   "type": "module",
   "private": true,
@@ -32,12 +33,12 @@
     "@modelcontextprotocol/sdk": "^1.32.1",
     "jmespath": "^0.16.0",
     "zod": "^4.6.7",
-    "@utility-belt/core": "0.1.0"
+    "@qbranch/core": "0.1.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/grexican/utility-belt.git",
+    "url": "https://github.com/grexican/qbranch.git",
     "directory": "packages/middleout"
   },
-  "homepage": "https://github.com/grexican/middleout"
+  "homepage": "https://github.com/grexican/qbranch/tree/main/packages/middleout"
 }

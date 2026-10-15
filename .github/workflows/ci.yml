@@ -19,7 +19,7 @@ jobs:
         with: { node-version: '${{ matrix.node }}' }
       - run: npm ci --omit=optional
       - run: npm test
-        env: { HEADJACK_EMBED: '0', UB_EMBED: '0' }
+        env: { HEADJACK_EMBED: '0', QB_EMBED: '0' }
       - name: generated files are in sync with packages/
         run: npm run sync:check
 
@@ -29,11 +29,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, name: belt-linux-x64 }
-          - { os: ubuntu-24.04-arm, name: belt-linux-arm64 }
-          - { os: macos-latest, name: belt-macos-arm64 }
-          - { os: macos-13, name: belt-macos-x64 }
-          - { os: windows-latest, name: belt-windows-x64 }
+          - { os: ubuntu-latest, name: qbranch-linux-x64 }
+          - { os: ubuntu-24.04-arm, name: qbranch-linux-arm64 }
+          - { os: macos-latest, name: qbranch-macos-arm64 }
+          - { os: macos-13, name: qbranch-macos-x64 }
+          - { os: windows-latest, name: qbranch-windows-x64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
       - name: smoke
         shell: bash
         run: |
-          B=build/${{ matrix.name }}/belt; [ -f "$B.exe" ] && B="$B.exe"
+          B=build/${{ matrix.name }}/qbranch; [ -f "$B.exe" ] && B="$B.exe"
           "$B" version
           "$B" moneyball | head -1
           P=$(mktemp -d); "$B" install all --platform claude --project "$P"; test -f "$P/.claude/settings.json"
@@ -67,25 +67,3 @@ jobs:
       - run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --generate-notes
         env: { GH_TOKEN: '${{ github.token }}' }
 
-  # Publish each packages/<tool> to its own read-only repo (grexican/<tool>), history included.
-  # One write-scoped deploy key per mirror, stored as secret MIRROR_KEY_<TOOL>.
-  mirror:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: test
-    strategy:
-      fail-fast: false
-      matrix:
-        tool: [headjack, middleout, moneyball, groundhog]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - name: split and push
-        env:
-          KEY: ${{ secrets[format('MIRROR_KEY_{0}', matrix.tool)] }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$KEY" > ~/.ssh/mirror && chmod 600 ~/.ssh/mirror
-          git subtree split --prefix=packages/${{ matrix.tool }} -b mirror
-          GIT_SSH_COMMAND="ssh -i ~/.ssh/mirror -o StrictHostKeyChecking=accept-new" \
-            git push --force git@github.com:${{ github.repository_owner }}/${{ matrix.tool }}.git mirror:main

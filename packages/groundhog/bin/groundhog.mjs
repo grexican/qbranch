@@ -2,8 +2,8 @@
 // groundhog CLI: find the work your agents keep re-doing by hand, keep the lessons, and guard them with hooks.
 import fs from 'node:fs';
 import path from 'node:path';
-import { readJson } from '@utility-belt/core';
-import { runHook } from '@utility-belt/core/hooks';
+import { readJson } from '@qbranch/core';
+import { runHook } from '@qbranch/core/hooks';
 import { loadConfig } from '../src/config.mjs';
 import { mine } from '../src/mine.mjs';
 import { accept, fromRecovery, loadLessons, preToolUse, recurrences, sessionStart } from '../src/lessons.mjs';

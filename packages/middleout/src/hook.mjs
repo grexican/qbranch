@@ -1,4 +1,4 @@
-// The hook that makes middleout first-class. Runs on every MCP tool call (input normalized by @utility-belt/core hooks).
+// The hook that makes middleout first-class. Runs on every MCP tool call (input normalized by @qbranch/core hooks).
 //   post: measure raw MCP traffic that bypassed middleout (stats), and nudge when a big raw result came from a wrapped server.
 //   pre:  in "gate" mode, deny the first raw call to a wrapped server per session, pointing at middleout_run.
 import fs from 'node:fs';

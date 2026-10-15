@@ -2,7 +2,7 @@
 // A run counts as FAILED when (a) the same task class was dispatched again in the same parent session within 30 minutes
 // (a redo), (b) the report it returned to its parent reads as a failure, or (c) most of its tool calls errored.
 // Cost per completed task is what matters: a cheap run that needs a redo is not cheaper.
-import { sessions, costOf, tierOf, modelId } from '@utility-belt/core';
+import { sessions, costOf, tierOf, modelId } from '@qbranch/core';
 import { db, classify } from './store.mjs';
 
 const FAIL = /\b(could not|couldn't|unable to|failed to|did not complete|blocked( on)?|gave up|not able to|cannot proceed|no access|timed out)\b/i;

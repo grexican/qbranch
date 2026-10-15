@@ -1,6 +1,10 @@
-<p align="center"><img src="docs/belt.svg" alt="utility belt: headjack, middleout, moneyball, groundhog" width="100%"></p>
+<p align="center"><img src="docs/qbranch.svg" alt="Q Branch: equipment for agents. On the workbench: headjack, middleout, moneyball, groundhog" width="100%"></p>
 
-Four tools that make coding agents cheaper and more reliable. Each one does one job, installs on its own, and measures itself, so you can tell whether it is earning its place. They share one idea: **guarantee steps with hooks instead of longer prompts.** A hook costs nothing until the moment it applies, and then it fires every time.
+In the James Bond films, **Q Branch** is the workshop behind the field agents. Q and his staff invent the gadgets, test them until they work, and brief the agent on how to use each one before the mission.
+
+This repository is that workshop for **AI agents**. Every gadget here makes coding agents cheaper, more reliable or less forgetful, and each one measures itself, so you can see whether it is earning its place. They share one idea: **guarantee steps with hooks instead of longer prompts.** A hook costs nothing until the moment it applies, and then it fires every time.
+
+## The gadgets
 
 <table>
 <tr>
@@ -29,38 +33,36 @@ Four tools that make coding agents cheaper and more reliable. Each one does one 
 </tr>
 </table>
 
-Each tool is published to its own repository ([headjack](https://github.com/grexican/headjack) · [middleout](https://github.com/grexican/middleout) · [moneyball](https://github.com/grexican/moneyball) · [groundhog](https://github.com/grexican/groundhog)), with its own README, install instructions and marketplace. This monorepo is where they are built: one shared core, one CI, one release train. Issues and pull requests come here.
+Each gadget has its own page in its folder: what it does, how it works, an example, install instructions, and the evidence behind it.
 
 ## Install
 
-Pick a tool and follow its README. Every one works the same way:
+One marketplace holds every gadget. Install only the ones you want:
 
 ```bash
-# Claude Code
-claude plugin marketplace add grexican/moneyball
-claude plugin install moneyball@moneyball
-
-# any other agent: Cursor, Codex, Gemini CLI, Copilot, Windsurf
-git clone https://github.com/grexican/moneyball
-node moneyball/dist/install.mjs --platform cursor --project .
+claude plugin marketplace add grexican/qbranch
+claude plugin install moneyball@qbranch
+claude plugin install groundhog@qbranch       # each installs, updates and uninstalls on its own; add -s project to share
 ```
 
-All four at once, from this repo:
+**Other agents** (Cursor, Codex, Gemini CLI, Copilot, Windsurf), one command from a clone:
 
 ```bash
-claude plugin marketplace add grexican/utility-belt     # then: claude plugin install <tool>@utility-belt
-node scripts/install.mjs all --platform <claude|cursor|codex|gemini|copilot|windsurf> --project <dir>
+git clone https://github.com/grexican/qbranch
+node qbranch/scripts/install.mjs moneyball groundhog --platform cursor --project .    # or: all
 ```
+
+The installer copies the skills, merges hooks and MCP config into that platform's project files, and is safe to re-run. `--uninstall` removes exactly what it added.
 
 ### No Node? Native binary
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/grexican/utility-belt/main/scripts/install.sh | sh    # macOS, Linux
-irm https://raw.githubusercontent.com/grexican/utility-belt/main/scripts/install.ps1 | iex         # Windows
-belt install all --platform claude
+curl -fsSL https://raw.githubusercontent.com/grexican/qbranch/main/scripts/install.sh | sh    # macOS, Linux
+irm https://raw.githubusercontent.com/grexican/qbranch/main/scripts/install.ps1 | iex         # Windows
+qbranch install all --platform claude
 ```
 
-`belt` is a single executable that runs any of the tools (`belt moneyball report`, `belt groundhog scan`). It is built per OS in CI. It has no local embeddings (those need native modules), so headjack uses keyword search in the binary.
+`qbranch` is a single executable that runs any gadget (`qbranch moneyball report`, `qbranch groundhog scan`). It is built per OS in CI. It has no local embeddings (those need native modules), so headjack uses keyword search in the binary.
 
 ## Platform support
 
@@ -73,18 +75,18 @@ belt install all --platform claude
 | Cursor | ✓ | session + post-tool only | ✓ | ✓ | ✓ |
 | Windsurf / Devin | ✓ | ✗ | ✓ | ✗ | user-global only |
 
-Where an agent cannot do something, that feature turns off rather than half-working. Each tool's README lists exactly what works on each platform.
+Where an agent cannot do something, that feature turns off rather than half-working. Each gadget's page lists exactly what works on each platform.
 
-## How the monorepo works
+## How the workshop is organized
 
-`packages/<tool>` is canonical, in Claude Code plugin layout, and **each package folder is a complete standalone repo**: on every push to `main`, CI splits each one out to its own mirror. `npm run sync` generates everything that would otherwise drift, inside each package:
+`packages/<gadget>` is canonical, in Claude Code plugin layout, and each one is a complete, standalone folder: it could be lifted out into its own repository unchanged. `npm run sync` generates everything that would otherwise drift, inside each package:
 
-- `dist/<tool>.mjs` and `dist/install.mjs`: self-contained bundles (plugin installs ship no `node_modules`);
+- `dist/<gadget>.mjs` and `dist/install.mjs`: self-contained bundles (plugin installs ship no `node_modules`);
 - `adapters/{cursor,codex,gemini}/`: native packages with hooks translated to each platform's events and output shapes;
-- the package's own marketplace files, and the **Install** and **Part of the utility belt** sections of its README;
-- this repo's root marketplaces and the belt banner above.
+- the package's own marketplace files, and the **Install** and **From Q Branch** sections of its README;
+- this repo's marketplaces and the workbench banner above.
 
-One hook handler serves every platform: `@utility-belt/core/hooks` normalizes each platform's input and writes its output shape. CI runs `npm run sync:check`, so generated files can't go stale.
+One hook handler serves every platform: `@qbranch/core/hooks` normalizes each platform's input and writes its output shape. CI runs `npm run sync:check`, so generated files can't go stale.
 
 ```bash
 npm install && npm test && npm run sync
@@ -92,8 +94,12 @@ npm install && npm test && npm run sync
 
 ```
 packages/core        shared plumbing: project root, stats dotfiles, frontmatter, embeddings, transcripts, hook runtime
-packages/<tool>      one tool: README, docs/ (icon, hero), bin/, src/, skills/, hooks/, adapters/, dist/, test/
-scripts/             sync, install, platforms, split (mirrors), build-binary, belt, install.sh, install.ps1
+packages/<gadget>    one gadget: README, docs/ (icon, hero), bin/, src/, skills/, hooks/, adapters/, dist/, test/
+scripts/             sync, install, platforms, build-binary, qbranch (binary entry), install.sh, install.ps1
 ```
 
 Requirements: Node 22.13+ (built-in `node:sqlite`). Building the native binary needs Node 25.5+.
+
+---
+
+*Q Branch is an original project, named in tribute to the gadget department of the James Bond films. It is not affiliated with or endorsed by Eon Productions, Danjaq, MGM or Ian Fleming Publications. All artwork is original.*

@@ -1,5 +1,5 @@
 // .groundhog-stats.json: are the lessons applied, and are the mistakes stopping?
-import { createStats } from '@utility-belt/core';
+import { createStats } from '@qbranch/core';
 
 const upsertFile = createStats({
   tool: 'groundhog',

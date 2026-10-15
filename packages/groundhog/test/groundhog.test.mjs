@@ -8,7 +8,7 @@ import { shape, head, inspect, related, mine } from '../src/mine.mjs';
 import { accept, fromRecovery, loadLessons, preToolUse, sessionStart, shapeRegex } from '../src/lessons.mjs';
 import { draftRunbook } from '../src/draft.mjs';
 import { DEFAULTS } from '../src/config.mjs';
-import { parseFrontmatter } from '@utility-belt/core';
+import { parseFrontmatter } from '@qbranch/core';
 
 const tmpCfg = (over = {}) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'groundhog-'));

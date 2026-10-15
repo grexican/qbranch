@@ -8,7 +8,7 @@ import { db, reindex, search, isStrong, load, renderSkill, wasSuggested, parseSk
 import { searchRegistry, searchRegistryByGap, acquire } from '../src/registry.mjs';
 import { upsert, skillStat, summarize } from '../src/stats.mjs';
 import { suggest } from '../src/suggest.mjs';
-import { runHook } from '@utility-belt/core/hooks';
+import { runHook } from '@qbranch/core/hooks';
 
 const [cmd, ...rest] = process.argv.slice(2);
 const flag = (f) => { const i = rest.indexOf(f); if (i < 0) return false; rest.splice(i, 1); return true; };

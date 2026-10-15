@@ -1,13 +1,13 @@
 // Local sentence embeddings (MiniLM, 384-d) shared by tools that cluster or search text. Optional: if the model can't
-// load (or <TOOL>_EMBED=0 / UB_EMBED=0), embed() returns null and callers fall back to lexical methods.
+// load (or <TOOL>_EMBED=0 / QB_EMBED=0), embed() returns null and callers fall back to lexical methods.
 import os from 'node:os';
 import path from 'node:path';
 
 const MODEL = 'Xenova/all-MiniLM-L6-v2';
-const CACHE = path.join(os.homedir(), '.utility-belt', 'models');
+const CACHE = path.join(os.homedir(), '.qbranch', 'models');
 let embedder;
 
-export async function embed(texts, { disabled = process.env.UB_EMBED === '0' } = {}) {
+export async function embed(texts, { disabled = process.env.QB_EMBED === '0' } = {}) {
   if (disabled || embedder === false || !texts.length) return null;
   try {
     if (!embedder) {

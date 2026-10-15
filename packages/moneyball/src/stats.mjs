@@ -1,5 +1,5 @@
 // .moneyball-stats.json: is routing being applied, and what is it worth?
-import { createStats } from '@utility-belt/core';
+import { createStats } from '@qbranch/core';
 
 const upsertFile = createStats({
   tool: 'moneyball',

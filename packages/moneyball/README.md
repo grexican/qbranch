@@ -48,21 +48,21 @@ With `"mode": "suggest"`, the next research dispatch carries a note: *this task 
 ## Install
 
 <!-- generated:install (by scripts/sync.mjs from scripts/platforms.mjs; edit those, not this block) -->
-**Claude Code**
+**Claude Code**: one marketplace for every Q Branch gadget; install only the ones you want.
 
 ```bash
-claude plugin marketplace add grexican/moneyball
-claude plugin install moneyball@moneyball        # add -s project to share it with your team
+claude plugin marketplace add grexican/qbranch
+claude plugin install moneyball@qbranch        # add -s project to share it with your team
 ```
 
 **Any other agent**: one command from a clone (Node 22.13+). It copies the skills, merges the hooks and MCP config into the project, and is safe to re-run; `--uninstall` removes exactly what it added.
 
 ```bash
-git clone https://github.com/grexican/moneyball
-node moneyball/dist/install.mjs --platform cursor --project .   # or: claude, codex, gemini, copilot, windsurf
+git clone https://github.com/grexican/qbranch
+node qbranch/packages/moneyball/dist/install.mjs --platform cursor --project .   # or: claude, codex, gemini, copilot, windsurf
 ```
 
-Native packages are in [`adapters/`](adapters/): a Cursor plugin, a Codex plugin and a Gemini CLI extension. Copilot reads this repo's Claude plugin manifest directly. No Node on the machine? Use the `belt` native binary from [utility-belt](https://github.com/grexican/utility-belt#no-node-native-binary).
+Native packages are in [`adapters/`](adapters/): a Cursor plugin, a Codex plugin and a Gemini CLI extension. Copilot reads the Claude plugin marketplace directly. No Node on the machine? Use the `qbranch` native binary ([how](../../README.md#no-node-native-binary)).
 
 | Platform | What works |
 |---|---|
@@ -118,17 +118,17 @@ last scan: 265 runs in 117 classes, $1815.20 measured; 1 graduated, 1 exploring;
 
 Node 22.13+ (built-in `node:sqlite`). Transcripts: Claude Code today; the reader is pluggable (`registerReader`) for other agents.
 
-## Part of the utility belt
+## From Q Branch
 
 <!-- generated:family -->
-moneyball is one of four agent tools that share a core and a release train in [grexican/utility-belt](https://github.com/grexican/utility-belt). Each installs and works on its own. Issues and pull requests go to the monorepo.
+moneyball is a gadget from [Q Branch](../../README.md), the workshop where tools for AI agents get built and proven. The gadgets share a core and a release train, and each one installs and works on its own.
 
 | Tool | |
 |---|---|
-| [**headjack**](https://github.com/grexican/headjack) | Skills, loaded the moment you need them: an indexed skill library and a per-prompt retrieval hook instead of a preloaded listing. |
-| [**middleout**](https://github.com/grexican/middleout) | API calls, compressed: agents write one small plan, and only the fields they selected reach the model. |
+| [**headjack**](../headjack) | Skills, loaded the moment you need them: an indexed skill library and a per-prompt retrieval hook instead of a preloaded listing. |
+| [**middleout**](../middleout) | API calls, compressed: agents write one small plan, and only the fields they selected reach the model. |
 | **moneyball** (you are here) | Pay for the model each job needs: measure every subagent run, graduate repeat work to cheaper models on evidence. |
-| [**groundhog**](https://github.com/grexican/groundhog) | Stop re-living the same session: re-learned lessons become a committed ledger that hooks enforce, and repeated procedures become runbooks. |
+| [**groundhog**](../groundhog) | Stop re-living the same session: re-learned lessons become a committed ledger that hooks enforce, and repeated procedures become runbooks. |
 <!-- /generated:family -->
 
 ---

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Skills, loaded the moment you need them. A just-in-time skill library for LLM agents: indexed, searched and loaded on demand instead of preloaded.",
   "tagline": "Skills, loaded the moment you need them: an indexed skill library and a per-prompt retrieval hook instead of a preloaded listing.",
+  "spec": "skills, on demand",
   "platformNotes": {},
   "type": "module",
   "private": true,
@@ -30,15 +31,15 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "zod": "^4.6.7",
-    "@utility-belt/core": "0.1.0"
+    "@qbranch/core": "0.1.0"
   },
   "optionalDependencies": {
     "@huggingface/transformers": "^4.3.1"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/grexican/utility-belt.git",
+    "url": "https://github.com/grexican/qbranch.git",
     "directory": "packages/headjack"
   },
-  "homepage": "https://github.com/grexican/headjack"
+  "homepage": "https://github.com/grexican/qbranch/tree/main/packages/headjack"
 }

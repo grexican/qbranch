@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { projectRoot as coreRoot, expandPath as expand, readJson } from '@utility-belt/core';
+import { projectRoot as coreRoot, expandPath as expand, readJson } from '@qbranch/core';
 
 export const projectRoot = (start) => coreRoot(['headjack.config.json'], start);
 export const homeDir = () => process.env.HEADJACK_HOME || path.join(os.homedir(), '.headjack');

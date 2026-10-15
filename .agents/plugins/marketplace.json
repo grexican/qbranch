@@ -1,10 +1,10 @@
 {
-  "name": "utility-belt",
+  "name": "qbranch",
   "owner": {
     "name": "Eli Gassert"
   },
   "metadata": {
-    "description": "Agent tools that make every run cheaper and more reliable: headjack (skills just in time), middleout (API calls, compressed), moneyball (right-sized models), groundhog (repeat work becomes runbooks and scripts).",
+    "description": "Q Branch: where the gadgets for AI agents get built and proven. headjack (skills just in time), middleout (API calls, compressed), moneyball (right-sized models), groundhog (lessons that stick).",
     "version": "0.1.0"
   },
   "plugins": [

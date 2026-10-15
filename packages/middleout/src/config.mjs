@@ -2,7 +2,7 @@
 // middleout wraps the stdio MCP servers the project's own .mcp.json already declares.
 import fs from 'node:fs';
 import path from 'node:path';
-import { projectRoot as coreRoot } from '@utility-belt/core';
+import { projectRoot as coreRoot } from '@qbranch/core';
 
 export const projectRoot = (start) => coreRoot(['middleout.config.json'], start);
 

@@ -1,6 +1,6 @@
 // groundhog.config.json at the project root (all keys optional).
 import path from 'node:path';
-import { projectRoot as coreRoot, readJson } from '@utility-belt/core';
+import { projectRoot as coreRoot, readJson } from '@qbranch/core';
 
 export const projectRoot = (start) => coreRoot(['groundhog.config.json', 'groundhog.lessons.json'], start);
 

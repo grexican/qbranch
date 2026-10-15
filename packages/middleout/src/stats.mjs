@@ -1,6 +1,6 @@
 // Lite usage stats, upserted into a dotfile at the project root (default .middleout-stats.json).
 // Answers "is middleout being used, and how much is it saving?", including raw MCP traffic that bypassed it.
-import { createStats } from '@utility-belt/core';
+import { createStats } from '@qbranch/core';
 
 const upsertFile = createStats({
   tool: 'middleout',

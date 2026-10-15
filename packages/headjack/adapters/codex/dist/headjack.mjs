@@ -160,7 +160,7 @@ var init_frontmatter = __esm({
 // packages/core/src/embed.mjs
 import os2 from "node:os";
 import path3 from "node:path";
-async function embed(texts, { disabled = process.env.UB_EMBED === "0" } = {}) {
+async function embed(texts, { disabled = process.env.QB_EMBED === "0" } = {}) {
   if (disabled || embedder === false || !texts.length) return null;
   try {
     if (!embedder) {
@@ -180,7 +180,7 @@ var MODEL, CACHE, embedder, toBlob, fromBlob;
 var init_embed = __esm({
   "packages/core/src/embed.mjs"() {
     MODEL = "Xenova/all-MiniLM-L6-v2";
-    CACHE = path3.join(os2.homedir(), ".utility-belt", "models");
+    CACHE = path3.join(os2.homedir(), ".qbranch", "models");
     toBlob = (v) => v ? Buffer.from(v.buffer, v.byteOffset, v.byteLength) : null;
     fromBlob = (b) => new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4);
   }
@@ -285,7 +285,7 @@ async function runHook(handler, argv = process.argv.slice(2)) {
     const h = normalize(raw, flag2("platform") || detectPlatform(raw), flag2("event"));
     out = render(h, await handler(h));
   } catch (e) {
-    if (process.env.UB_HOOK_DEBUG) process.stderr.write(`hook error: ${e.stack}
+    if (process.env.QB_HOOK_DEBUG) process.stderr.write(`hook error: ${e.stack}
 `);
   }
   if (out.stdout) process.stdout.write(out.stdout);
@@ -529,7 +529,7 @@ var init_library = __esm({
   "packages/headjack/src/library.mjs"() {
     init_src();
     dbs = /* @__PURE__ */ new Map();
-    embed2 = (texts) => embed(texts, { disabled: process.env.HEADJACK_EMBED === "0" || process.env.UB_EMBED === "0" });
+    embed2 = (texts) => embed(texts, { disabled: process.env.HEADJACK_EMBED === "0" || process.env.QB_EMBED === "0" });
     ftsQuery = (q) => (q.toLowerCase().match(/[a-z0-9]{2,}/g) || []).map((t) => `"${t}"`).join(" OR ");
     keyTerms = (q) => [...new Set((q.toLowerCase().match(/[a-z][a-z0-9-]{3,}/g) || []).filter((t) => !STOP.has(t)))];
     STOP = new Set("what is the and for with that this from into your their about make write create build turn file files using need want just able will what which then them they have these those there here when where some each other more most very also only like help please over under can could should would".split(" "));

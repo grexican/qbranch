@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { readJson } from '@utility-belt/core';
+import { readJson } from '@qbranch/core';
 import { head } from './mine.mjs';
 import { upsert } from './stats.mjs';
 

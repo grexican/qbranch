@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Find the work your agents keep re-doing by hand: mine transcripts for repeated procedures and re-learned lessons, keep a lessons ledger, and enforce it with hooks.",
   "tagline": "Stop re-living the same session: re-learned lessons become a committed ledger that hooks enforce, and repeated procedures become runbooks.",
+  "spec": "lessons that stick",
   "platformNotes": {
     "cursor": "mining reads Claude Code transcripts today",
     "codex": "mining reads Claude Code transcripts today",
@@ -20,12 +21,12 @@
     "node": ">=22.13"
   },
   "dependencies": {
-    "@utility-belt/core": "0.1.0"
+    "@qbranch/core": "0.1.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/grexican/utility-belt.git",
+    "url": "https://github.com/grexican/qbranch.git",
     "directory": "packages/groundhog"
   },
-  "homepage": "https://github.com/grexican/groundhog"
+  "homepage": "https://github.com/grexican/qbranch/tree/main/packages/groundhog"
 }

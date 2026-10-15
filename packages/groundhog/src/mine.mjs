@@ -4,7 +4,7 @@
 //   lessons    a failing shape followed by a different, working one -> lesson (runbook entry, or a guard hook)
 import fs from 'node:fs';
 import path from 'node:path';
-import { sessions } from '@utility-belt/core';
+import { sessions } from '@qbranch/core';
 
 const SHELL = /^(Bash|PowerShell|run_shell_command|Shell)$/;
 const ERR = /exit code [1-9]|\berror[: ]|not found|not recognized|cannot find|command not found|failed|denied|ENOENT|Exception|No such file/i;

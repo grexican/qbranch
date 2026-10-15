@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { embed as coreEmbed, toBlob, fromBlob, parseFrontmatter } from '@utility-belt/core';
+import { embed as coreEmbed, toBlob, fromBlob, parseFrontmatter } from '@qbranch/core';
 
 const dbs = new Map();
 export function db(cfg) {
@@ -21,7 +21,7 @@ export function db(cfg) {
 }
 
 // ---------- embeddings (optional: HEADJACK_EMBED=0 or a failed load falls back to BM25 only) ----------
-const embed = (texts) => coreEmbed(texts, { disabled: process.env.HEADJACK_EMBED === '0' || process.env.UB_EMBED === '0' });
+const embed = (texts) => coreEmbed(texts, { disabled: process.env.HEADJACK_EMBED === '0' || process.env.QB_EMBED === '0' });
 
 // ---------- parsing ----------
 export function parseSkill(text) {

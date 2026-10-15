@@ -1,4 +1,4 @@
-// @utility-belt/core: shared plumbing for every tool in the belt.
+// @qbranch/core: shared plumbing for every tool in Q Branch.
 export { projectRoot, expandPath, readJson, readStdin, selfCommand } from './project.mjs';
 export { createStats, readStats, today } from './stats.mjs';
 export { parseFrontmatter, renderFrontmatter } from './frontmatter.mjs';

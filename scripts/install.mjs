@@ -14,13 +14,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TOOLS, PLATFORMS, hookEntries, mcpServers, renderHooks, renderMcp } from './platforms.mjs';
 
-const MARK = '.utility-belt'; // marker file inside every skill folder we install
+const MARK = '.qbranch'; // marker file inside every skill folder we install
 
 // The source is either the monorepo (packages/<tool>/...) or one tool's own repo (its root is the package).
 const standalone = (source) => { try { return JSON.parse(fs.readFileSync(path.join(source, '.claude-plugin', 'plugin.json'), 'utf8')).name; } catch { return null; } };
 const pkgDir = (source, tool) => (standalone(source) === tool ? source : path.join(source, 'packages', tool));
 
-export function plan({ tools, platform, project, runtime = 'node', bin = 'belt', source }) {
+export function plan({ tools, platform, project, runtime = 'node', bin = 'qbranch', source }) {
   const skillsDir = path.join(project, platform === 'claude' ? '.claude/skills' : '.agents/skills');
   const notes = [];
   const cmdFor = (tool) => (args) => {
@@ -67,7 +67,7 @@ export function apply(p, { platform, project, tools, uninstall = false, dryRun =
     if (!dryRun && fs.existsSync(s.to)) fs.rmSync(s.to, { recursive: true });
     if (uninstall) { log.push(`remove ${path.relative(project, s.to)}`); continue; }
     log.push(`copy skill ${path.relative(project, s.to)}`);
-    if (!dryRun) { fs.cpSync(s.from, s.to, { recursive: true }); fs.writeFileSync(path.join(s.to, MARK), `installed by utility-belt (${s.tool})\n`); }
+    if (!dryRun) { fs.cpSync(s.from, s.to, { recursive: true }); fs.writeFileSync(path.join(s.to, MARK), `installed by qbranch (${s.tool})\n`); }
   }
 
   // hooks
@@ -93,7 +93,7 @@ export function apply(p, { platform, project, tools, uninstall = false, dryRun =
     if (platform === 'windsurf') { p.notes.push(`Windsurf MCP is user-global: add to mcp_config.json:\n${JSON.stringify(m, null, 2)}`); continue; }
     if (platform === 'codex') {
       const f = path.join(project, '.codex/config.toml');
-      const begin = `# >>> utility-belt ${tool}`, end = `# <<< utility-belt ${tool}`;
+      const begin = `# >>> qbranch ${tool}`, end = `# <<< qbranch ${tool}`;
       const cur = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
       const stripped = cur.replace(new RegExp(`\\n?${begin}[\\s\\S]*?${end}\\n?`), '\n').replace(/^\n+/, '');
       write(f, uninstall ? stripped : `${stripped}${stripped && !stripped.endsWith('\n') ? '\n' : ''}${begin}\n${m.toml}${end}\n`);
@@ -119,7 +119,7 @@ export async function main(argv = process.argv.slice(2), defaults = {}) {
   if (!PLATFORMS.includes(platform)) throw new Error(`--platform must be one of: ${PLATFORMS.join(', ')}`);
   for (const t of tools) if (!TOOLS.includes(t)) throw new Error(`unknown tool ${t} (${TOOLS.join(', ')})`);
   const project = path.resolve(opt('--project', process.cwd()));
-  const p = plan({ tools, platform, project, runtime: opt('--runtime', defaults.runtime || 'node'), bin: opt('--bin', defaults.bin || 'belt'), source });
+  const p = plan({ tools, platform, project, runtime: opt('--runtime', defaults.runtime || 'node'), bin: opt('--bin', defaults.bin || 'qbranch'), source });
   const log = apply(p, { platform, project, tools, uninstall: argv.includes('--uninstall'), dryRun: argv.includes('--dry-run') });
   console.log(`${argv.includes('--uninstall') ? 'uninstall' : 'install'} ${tools.join(', ')} for ${platform} in ${project}${argv.includes('--dry-run') ? ' (dry run)' : ''}`);
   for (const l of log) console.log(`  ${l}`);
@@ -127,6 +127,6 @@ export async function main(argv = process.argv.slice(2), defaults = {}) {
   if (platform === 'cursor' && tools.includes('headjack')) console.log('\nnote: Cursor hooks cannot inject context at prompt time; headjack works there through its skills only.');
 }
 
-if (!globalThis.__BELT__ && import.meta.url && process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (!globalThis.__QBRANCH__ && import.meta.url && process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((e) => { console.error(`install: ${e.message}`); process.exitCode = 1; });
 }

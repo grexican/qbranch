@@ -1,6 +1,6 @@
 // Lite usage stats, upserted into a dotfile at the project root (default .headjack-stats.json).
 // Purpose: after installing headjack in a repo, answer "is it being used, and is it making a difference?"
-import { createStats } from '@utility-belt/core';
+import { createStats } from '@qbranch/core';
 
 const upsertFile = createStats({
   tool: 'headjack',

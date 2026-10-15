@@ -162,7 +162,7 @@ async function runHook(handler, argv = process.argv.slice(2)) {
     const h = normalize(raw, flag2("platform") || detectPlatform(raw), flag2("event"));
     out = render(h, await handler(h));
   } catch (e) {
-    if (process.env.UB_HOOK_DEBUG) process.stderr.write(`hook error: ${e.stack}
+    if (process.env.QB_HOOK_DEBUG) process.stderr.write(`hook error: ${e.stack}
 `);
   }
   if (out.stdout) process.stdout.write(out.stdout);
@@ -228,7 +228,7 @@ function createStats({ tool, fresh, dayFresh, derive }) {
 // packages/core/src/embed.mjs
 import os from "node:os";
 import path3 from "node:path";
-var CACHE = path3.join(os.homedir(), ".utility-belt", "models");
+var CACHE = path3.join(os.homedir(), ".qbranch", "models");
 
 // packages/core/src/transcripts.mjs
 import fs3 from "node:fs";

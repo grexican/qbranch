@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
-import { parseFrontmatter } from '@utility-belt/core';
+import { parseFrontmatter } from '@qbranch/core';
 import { TOOLS, hookEntries, mcpServers, renderHooks, renderMcp, checkSkill } from './platforms.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -42,21 +42,21 @@ function installDoc(tool, pkg, entries, servers) {
     return `| ${name} | ${bits.length ? bits.join('; ') : 'everything'} |`;
   });
   return [
-    '**Claude Code**',
+    '**Claude Code**: one marketplace for every Q Branch gadget; install only the ones you want.',
     '',
     '```bash',
-    `claude plugin marketplace add ${ORG}/${tool}`,
-    `claude plugin install ${tool}@${tool}        # add -s project to share it with your team`,
+    `claude plugin marketplace add ${ORG}/qbranch`,
+    `claude plugin install ${tool}@qbranch        # add -s project to share it with your team`,
     '```',
     '',
     '**Any other agent**: one command from a clone (Node 22.13+). It copies the skills, merges the hooks and MCP config into the project, and is safe to re-run; `--uninstall` removes exactly what it added.',
     '',
     '```bash',
-    `git clone https://github.com/${ORG}/${tool}`,
-    `node ${tool}/dist/install.mjs --platform cursor --project .   # or: claude, codex, gemini, copilot, windsurf`,
+    `git clone https://github.com/${ORG}/qbranch`,
+    `node qbranch/packages/${tool}/dist/install.mjs --platform cursor --project .   # or: claude, codex, gemini, copilot, windsurf`,
     '```',
     '',
-    `Native packages are in [\`adapters/\`](adapters/): a Cursor plugin, a Codex plugin and a Gemini CLI extension. Copilot reads this repo's Claude plugin manifest directly. No Node on the machine? Use the \`belt\` native binary from [utility-belt](https://github.com/${ORG}/utility-belt#no-node-native-binary).`,
+    `Native packages are in [\`adapters/\`](adapters/): a Cursor plugin, a Codex plugin and a Gemini CLI extension. Copilot reads the Claude plugin marketplace directly. No Node on the machine? Use the \`qbranch\` native binary ([how](../../README.md#no-node-native-binary)).`,
     '',
     '| Platform | What works |',
     '|---|---|',
@@ -64,15 +64,15 @@ function installDoc(tool, pkg, entries, servers) {
   ].join('\n');
 }
 
-// "Part of the utility belt" footer: identical in every tool's README, so the four repos link to each other.
+// "From Q Branch" footer: identical in every tool's README, so the gadgets link to each other.
 function familyDoc(tool) {
   const rows = TOOLS.map(t => {
     const p = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', t, 'package.json'), 'utf8'));
-    const name = t === tool ? `**${t}** (you are here)` : `[**${t}**](https://github.com/${ORG}/${t})`;
+    const name = t === tool ? `**${t}** (you are here)` : `[**${t}**](../${t})`;
     return `| ${name} | ${p.tagline || ''} |`;
   });
   return [
-    `${tool} is one of four agent tools that share a core and a release train in [${ORG}/utility-belt](https://github.com/${ORG}/utility-belt). Each installs and works on its own. Issues and pull requests go to the monorepo.`,
+    `${tool} is a gadget from [Q Branch](../../README.md), the workshop where tools for AI agents get built and proven. The gadgets share a core and a release train, and each one installs and works on its own.`,
     '',
     '| Tool | |',
     '|---|---|',
@@ -167,36 +167,45 @@ put('.claude-plugin/marketplace.json', market(t => `./packages/${t}`));
 put('.cursor-plugin/marketplace.json', market(t => `./packages/${t}/adapters/cursor`));
 put('.agents/plugins/marketplace.json', market(t => `./packages/${t}/adapters/codex`));
 
-// 5. the storefront banner: a belt with the four tools' icons in its pouches (icons inlined: GitHub renders SVG as
-// an image, which cannot load other files)
+// 5. the storefront banner: Q's workbench, each gadget on the bench with a spec tag (icons are inlined: GitHub renders
+// SVG as an image, which cannot load other files)
 {
   const inner = (t) => fs.readFileSync(path.join(ROOT, 'packages', t, 'docs', `${t}-icon.svg`), 'utf8')
     .replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
-  const pouches = TOOLS.map((t, i) => {
-    const x = 330 + i * 210;
+  const spec = (t) => JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', t, 'package.json'), 'utf8')).spec || '';
+  const gadgets = TOOLS.map((t, i) => {
+    const x = 70 + i * 272;
     return [
-      `  <g transform="translate(${x} 34)">`,
-      '    <rect x="-14" y="-10" width="156" height="196" rx="18" fill="#4A2E1B" stroke="#2B1A0F" stroke-width="2"/>',
-      '    <rect x="-14" y="-10" width="156" height="196" rx="18" fill="none" stroke="#C9A06A" stroke-width="1.4" stroke-dasharray="5 5" transform="translate(5 5) scale(0.935)"/>',
-      `    <g transform="translate(0 4)">${inner(t)}</g>`,
-      `    <text x="64" y="166" text-anchor="middle" font-family="'Bahnschrift', 'DIN Condensed', 'Arial Narrow', sans-serif" font-weight="700" font-size="22" letter-spacing="1" fill="#F1E3CC">${t}</text>`,
+      `  <g transform="translate(${x} 0)">`,
+      '    <ellipse cx="64" cy="262" rx="70" ry="9" fill="#14171C" opacity="0.55"/>',
+      `    <g transform="translate(0 132)">${inner(t)}</g>`,
+      '    <path d="M64 262 C 62 272 56 280 52 292" fill="none" stroke="#B9A57A" stroke-width="1.4"/>',
+      '    <g transform="translate(40 286) rotate(-2.5)">',
+      '      <path d="M0 8 L12 0 H170 V48 H12 L0 40 Z" fill="#E6D6B0" stroke="#B9A57A" stroke-width="1"/>',
+      '      <circle cx="12" cy="24" r="3.2" fill="#2A2F37"/>',
+      `      <text x="22" y="20" font-family="'Courier New', Courier, monospace" font-weight="700" font-size="13" fill="#2B2A26">${t}</text>`,
+      `      <text x="22" y="38" font-family="'Courier New', Courier, monospace" font-size="10" fill="#4A463C">${spec(t)}</text>`,
+      '    </g>',
       '  </g>',
     ].join('\n');
   });
-  put('docs/belt.svg', [
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 260" width="1200" height="260" role="img" aria-labelledby="t d">',
-    '  <title id="t">utility belt</title>',
-    `  <desc id="d">A leather tool belt with four pouches: ${TOOLS.join(', ')}. Generated by scripts/sync.mjs from the icons in packages/*/docs.</desc>`,
-    '  <rect width="1200" height="260" fill="#161310"/>',
-    '  <!-- the strap -->',
-    '  <rect x="0" y="96" width="1200" height="72" fill="#6B4226"/>',
-    '  <line x1="0" y1="106" x2="1200" y2="106" stroke="#C9A06A" stroke-width="1.6" stroke-dasharray="7 6"/>',
-    '  <line x1="0" y1="158" x2="1200" y2="158" stroke="#C9A06A" stroke-width="1.6" stroke-dasharray="7 6"/>',
-    '  <!-- the buckle -->',
-    '  <rect x="48" y="72" width="200" height="120" rx="16" fill="none" stroke="#D8B26E" stroke-width="12"/>',
-    '  <rect x="140" y="80" width="10" height="104" rx="4" fill="#D8B26E"/>',
-    '  <text x="148" y="146" text-anchor="middle" font-family="Georgia, \'Iowan Old Style\', serif" font-style="italic" font-size="26" fill="#F1E3CC" stroke="#161310" stroke-width="6" paint-order="stroke">utility belt</text>',
-    ...pouches,
+  put('docs/qbranch.svg', [
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 352" width="1200" height="352" role="img" aria-labelledby="t d">',
+    '  <title id="t">Q Branch</title>',
+    `  <desc id="d">Q Branch, the workshop that equips agents, named for the gadget department in the James Bond films. On the workbench: ${TOOLS.join(', ')}, each with a spec tag. Generated by scripts/sync.mjs from the icons in packages/*/docs.</desc>`,
+    '  <rect width="1200" height="352" fill="#22272E"/>',
+    '  <!-- wall: riveted steel panels -->',
+    '  <g stroke="#2C323B" stroke-width="2"><line x1="300" y1="0" x2="300" y2="268"/><line x1="600" y1="0" x2="600" y2="268"/><line x1="900" y1="0" x2="900" y2="268"/></g>',
+    '  <g fill="#353C46"><circle cx="300" cy="14" r="3"/><circle cx="600" cy="14" r="3"/><circle cx="900" cy="14" r="3"/><circle cx="300" cy="254" r="3"/><circle cx="600" cy="254" r="3"/><circle cx="900" cy="254" r="3"/></g>',
+    '  <!-- the lab sign -->',
+    '  <rect x="430" y="26" width="340" height="74" rx="4" fill="#1A1E24" stroke="#3B4350" stroke-width="2"/>',
+    `  <text x="600" y="72" text-anchor="middle" font-family="'Stencil', 'Bahnschrift', 'DIN Condensed', 'Arial Narrow', sans-serif" font-weight="700" font-size="40" letter-spacing="6" fill="#E9E4D8">Q BRANCH</text>`,
+    `  <text x="600" y="92" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="12" letter-spacing="2" fill="#9AA3AF">equipment for agents</text>`,
+    '  <!-- the bench -->',
+    '  <rect x="0" y="268" width="1200" height="16" fill="#5B636E"/>',
+    '  <rect x="0" y="284" width="1200" height="68" fill="#3B4048"/>',
+    '  <line x1="0" y1="269" x2="1200" y2="269" stroke="#8A939E" stroke-width="1.2"/>',
+    ...gadgets,
     '</svg>',
     '',
   ].join('\n'));

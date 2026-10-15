@@ -2,7 +2,7 @@
 // moneyball CLI: measure subagent runs, recommend the cheapest model that does each job, and serve the routing hooks.
 import fs from 'node:fs';
 import path from 'node:path';
-import { runHook } from '@utility-belt/core/hooks';
+import { runHook } from '@qbranch/core/hooks';
 import { loadConfig } from '../src/config.mjs';
 import { scan } from '../src/scan.mjs';
 import { plan, routes } from '../src/recommend.mjs';
