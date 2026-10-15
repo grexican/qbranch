@@ -1,0 +1,12 @@
+node_modules/
+build/
+# per-project tool state (the tools write these into whatever project they run in)
+.headjack/
+.headjack-stats.json
+.middleout-stats.json
+.moneyball/
+.moneyball-stats.json
+.groundhog/
+.groundhog-stats.json
+*.log
+.env

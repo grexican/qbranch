@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="moneyball">
+  <rect width="128" height="128" rx="24" fill="#1F4A33"/>
+  <!-- scoreboard tile frame -->
+  <rect x="10" y="10" width="108" height="108" rx="16" fill="none" stroke="#2F6447" stroke-width="2"/>
+  <!-- the ball -->
+  <circle cx="64" cy="58" r="34" fill="#F5F3EC"/>
+  <path d="M41 33 C 53 45 53 71 41 83" fill="none" stroke="#C8372D" stroke-width="2.6"/>
+  <path d="M87 33 C 75 45 75 71 87 83" fill="none" stroke="#C8372D" stroke-width="2.6"/>
+  <g stroke="#C8372D" stroke-width="2" stroke-linecap="round">
+    <path d="M43 40 l5 -2"/><path d="M46 48 l5 -1"/><path d="M47 57 l5 0"/><path d="M46 66 l5 1"/><path d="M43 75 l5 2"/>
+    <path d="M85 40 l-5 -2"/><path d="M82 48 l-5 -1"/><path d="M81 57 l-5 0"/><path d="M82 66 l-5 1"/><path d="M85 75 l-5 2"/>
+  </g>
+  <!-- the stat: a .900 success bar, scoreboard amber -->
+  <rect x="30" y="98" width="68" height="14" rx="3" fill="#123222"/>
+  <text x="64" y="109.5" text-anchor="middle" font-family="'DIN Condensed', 'Bahnschrift', 'Arial Narrow', sans-serif" font-weight="700" font-size="13" letter-spacing="1.5" fill="#F2B33D">.900</text>
+</svg>

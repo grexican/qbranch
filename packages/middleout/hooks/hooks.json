@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "mcp__.*", "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/middleout.mjs\" hook post", "timeout": 10 } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "mcp__.*", "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/middleout.mjs\" hook pre", "timeout": 10 } ] }
+    ]
+  }
+}

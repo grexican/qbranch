@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${extensionPath}/dist/groundhog.mjs\" hook session --platform gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "run_shell_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${extensionPath}/dist/groundhog.mjs\" hook pre --platform gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}

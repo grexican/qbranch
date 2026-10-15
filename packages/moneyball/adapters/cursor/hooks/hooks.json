@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/dist/moneyball.mjs\" hook pre --platform cursor",
+        "timeout": 10
+      }
+    ],
+    "sessionStart": [
+      {
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/dist/moneyball.mjs\" hook session --platform cursor",
+        "timeout": 10
+      }
+    ]
+  }
+}

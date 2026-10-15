@@ -1,0 +1,24 @@
+{
+  "name": "utility-belt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent tools that make every run cheaper and more reliable: headjack (skills just in time), middleout (API calls, compressed), moneyball (right-sized models), groundhog (repeat work becomes runbooks and scripts).",
+  "license": "UNLICENSED",
+  "author": "Eli Gassert",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "test": "node --test \"packages/*/test/*.test.mjs\"",
+    "sync": "node scripts/sync.mjs",
+    "sync:check": "node scripts/sync.mjs --check",
+    "install-tools": "node scripts/install.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

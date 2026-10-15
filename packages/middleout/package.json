@@ -1,0 +1,43 @@
+{
+  "name": "middleout",
+  "version": "0.1.0",
+  "description": "API calls, compressed. A declarative fetch layer over MCP servers and JSON APIs: hierarchical plans, fan-out, automatic pagination and projection, so only the fields an agent needs reach its context.",
+  "tagline": "API calls, compressed: agents write one small plan, and only the fields they selected reach the model.",
+  "platformNotes": {},
+  "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "Eli Gassert",
+  "bin": {
+    "middleout": "bin/middleout.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "hooks",
+    "skills",
+    ".claude-plugin",
+    ".mcp.json"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "jmespath": "^0.16.0",
+    "zod": "^4.6.7",
+    "@utility-belt/core": "0.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/grexican/utility-belt.git",
+    "directory": "packages/middleout"
+  },
+  "homepage": "https://github.com/grexican/middleout"
+}

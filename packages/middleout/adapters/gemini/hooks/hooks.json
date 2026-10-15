@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "AfterTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${extensionPath}/dist/middleout.mjs\" hook post --platform gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${extensionPath}/dist/middleout.mjs\" hook pre --platform gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" width="1200" height="440" role="img" aria-labelledby="t d">
+  <title id="t">groundhog</title>
+  <desc id="d">Before dawn, a flip clock reads 6:00. Behind it the same session card repeats: python3 build.py, then Python was not found. The front card is stamped with a lesson, use py -3, and the command finally works.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121A31"/>
+      <stop offset="0.62" stop-color="#1F2C52"/>
+      <stop offset="1" stop-color="#C9744A"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="440" fill="url(#sky)"/>
+  <!-- snow line -->
+  <path d="M0 400 Q 300 380 600 396 T 1200 388 L1200 440 L0 440 Z" fill="#E8E4EE" opacity="0.92"/>
+  <g fill="#F4E9DA" opacity="0.7">
+    <circle cx="90" cy="60" r="1.6"/><circle cx="240" cy="40" r="1.2"/><circle cx="410" cy="72" r="1.4"/><circle cx="1110" cy="54" r="1.6"/><circle cx="980" cy="30" r="1.1"/><circle cx="700" cy="46" r="1.2"/>
+  </g>
+
+  <!-- left: the clock -->
+  <g transform="translate(80 120)">
+    <rect width="300" height="170" rx="20" fill="#0F1629" stroke="#33416B" stroke-width="3"/>
+    <rect x="20" y="20" width="120" height="130" rx="12" fill="#222E52"/>
+    <rect x="160" y="20" width="120" height="130" rx="12" fill="#222E52"/>
+    <line x1="20" y1="85" x2="140" y2="85" stroke="#0F1629" stroke-width="4"/>
+    <line x1="160" y1="85" x2="280" y2="85" stroke="#0F1629" stroke-width="4"/>
+    <text x="80" y="122" text-anchor="middle" font-family="'Bahnschrift', 'DIN Condensed', 'Arial Narrow', sans-serif" font-weight="700" font-size="96" fill="#F4E9DA">6</text>
+    <text x="220" y="122" text-anchor="middle" font-family="'Bahnschrift', 'DIN Condensed', 'Arial Narrow', sans-serif" font-weight="700" font-size="96" fill="#F4E9DA">00</text>
+    <circle cx="150" cy="65" r="5" fill="#E9874A"/><circle cx="150" cy="105" r="5" fill="#E9874A"/>
+    <text x="300" y="196" text-anchor="end" font-family="Georgia, 'Iowan Old Style', serif" font-style="italic" font-size="15" fill="#AFB8D6">AM, again</text>
+  </g>
+  <text x="80" y="76" font-family="'Bahnschrift', 'DIN Condensed', 'Arial Narrow', sans-serif" font-weight="700" font-size="56" letter-spacing="1" fill="#F4E9DA">groundhog</text>
+  <text x="82" y="350" font-family="Georgia, 'Iowan Old Style', serif" font-style="italic" font-size="21" fill="#E9CDB6">stop re-living the same session.</text>
+
+  <!-- right: the same session, over and over -->
+  <g font-family="Consolas, 'SFMono-Regular', Menlo, monospace" font-size="17">
+    <!-- opaque cards, each covering the one behind; only a strip of each earlier day shows -->
+    <g transform="translate(700 30)">
+      <rect width="440" height="120" rx="10" fill="#141C34" stroke="#2A3659"/>
+      <text x="20" y="26" fill="#6F7AA0">session 41</text><text x="20" y="52" fill="#8E97B8">$ python3 build.py   <tspan fill="#A2584F">× not found</tspan></text>
+    </g>
+    <g transform="translate(680 92)">
+      <rect width="440" height="120" rx="10" fill="#18213D" stroke="#2F3C63"/>
+      <text x="20" y="26" fill="#808AAF">session 42</text><text x="20" y="52" fill="#B1B8D2">$ python3 build.py   <tspan fill="#C2604F">× not found</tspan></text>
+    </g>
+    <g transform="translate(660 154)">
+      <rect width="440" height="120" rx="10" fill="#1C2647" stroke="#33416B"/>
+      <text x="20" y="26" fill="#949DC0">session 43</text><text x="20" y="52" fill="#D6D9E6">$ python3 build.py   <tspan fill="#E36A5A">× not found</tspan></text>
+    </g>
+    <!-- the day it finally learns -->
+    <g transform="translate(640 216)">
+      <rect width="440" height="150" rx="12" fill="#101A33" stroke="#E9874A" stroke-width="2"/>
+      <text x="22" y="38" fill="#AFB8D6">session 44</text>
+      <text x="22" y="72" fill="#F4E9DA">$ <tspan fill="#7FD1A8">py -3</tspan> build.py</text>
+      <text x="22" y="102" fill="#7FD1A8">built in 2.1s</text>
+      <g transform="translate(300 26) rotate(-8)">
+        <rect width="124" height="54" rx="6" fill="none" stroke="#E9874A" stroke-width="3"/>
+        <text x="62" y="24" text-anchor="middle" font-family="'Bahnschrift', 'DIN Condensed', 'Arial Narrow', sans-serif" font-weight="700" font-size="17" letter-spacing="2" fill="#E9874A">LESSON L1</text>
+        <text x="62" y="44" text-anchor="middle" font-family="'Bahnschrift', 'DIN Condensed', 'Arial Narrow', sans-serif" font-size="14" fill="#E9874A">use py -3</text>
+      </g>
+    </g>
+  </g>
+</svg>

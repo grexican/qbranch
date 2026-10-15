@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="middleout">
+  <rect width="128" height="128" rx="24" fill="#EEF1F4"/>
+  <!-- noise pushed out from the middle -->
+  <g fill="#B4BEC9">
+    <rect x="12" y="34" width="20" height="5" rx="2"/><rect x="14" y="46" width="14" height="5" rx="2"/><rect x="10" y="58" width="22" height="5" rx="2"/>
+    <rect x="15" y="70" width="12" height="5" rx="2"/><rect x="12" y="82" width="18" height="5" rx="2"/>
+    <rect x="96" y="34" width="20" height="5" rx="2"/><rect x="100" y="46" width="14" height="5" rx="2"/><rect x="96" y="58" width="22" height="5" rx="2"/>
+    <rect x="101" y="70" width="12" height="5" rx="2"/><rect x="98" y="82" width="18" height="5" rx="2"/>
+  </g>
+  <!-- the arrows outward -->
+  <path d="M50 64 H 38 M42 58 l-6 6 l6 6" fill="none" stroke="#5B6775" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M78 64 H 90 M86 58 l6 6 l-6 6" fill="none" stroke="#5B6775" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- the slim result in the middle -->
+  <text x="64" y="72" text-anchor="middle" font-family="Consolas, 'SFMono-Regular', Menlo, monospace" font-weight="700" font-size="24" fill="#1D2733">{}</text>
+  <rect x="58" y="24" width="12" height="3" rx="1.5" fill="#1D2733"/>
+  <rect x="58" y="101" width="12" height="3" rx="1.5" fill="#1D2733"/>
+</svg>

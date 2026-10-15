@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "middleout": { "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/dist/middleout.mjs", "mcp"] }
+  }
+}

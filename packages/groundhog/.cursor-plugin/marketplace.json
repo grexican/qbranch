@@ -1,0 +1,18 @@
+{
+  "name": "groundhog",
+  "owner": {
+    "name": "Eli Gassert"
+  },
+  "metadata": {
+    "description": "Stop re-living the same session: mine transcripts for repeated procedures and re-learned lessons, keep them in a committed ledger, and enforce them with hooks instead of longer prompts.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "groundhog",
+      "source": "./adapters/cursor",
+      "description": "Stop re-living the same session: mine transcripts for repeated procedures and re-learned lessons, keep them in a committed ledger, and enforce them with hooks instead of longer prompts.",
+      "version": "0.1.0"
+    }
+  ]
+}

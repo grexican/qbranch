@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "middleout": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${CURSOR_PLUGIN_ROOT}/dist/middleout.mjs",
+        "mcp"
+      ]
+    }
+  }
+}

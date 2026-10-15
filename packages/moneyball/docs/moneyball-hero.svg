@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" width="1200" height="440" role="img" aria-labelledby="t d">
+  <title id="t">moneyball</title>
+  <desc id="d">A hand-operated ballpark scoreboard that scores model tiers like a box score. The research row has won 11 of 11 on the cheaper model and is chalked GRADUATE. The build row stays on the strong model.</desc>
+  <rect width="1200" height="440" fill="#1F4A33"/>
+  <!-- board planks -->
+  <g stroke="#1A402C" stroke-width="2">
+    <line x1="0" y1="88" x2="1200" y2="88"/><line x1="0" y1="176" x2="1200" y2="176"/><line x1="0" y1="264" x2="1200" y2="264"/><line x1="0" y1="352" x2="1200" y2="352"/>
+  </g>
+  <rect x="24" y="24" width="1152" height="392" fill="none" stroke="#2F6447" stroke-width="2"/>
+
+  <!-- left: the name, painted on the board -->
+  <text x="72" y="140" font-family="'DIN Condensed', 'Bahnschrift', 'Arial Narrow', sans-serif" font-weight="700" font-size="60" letter-spacing="1" fill="#F5F3EC">moneyball</text>
+  <text x="74" y="184" font-family="Georgia, 'Iowan Old Style', serif" font-style="italic" font-size="22" fill="#B9D3C2">pay for the model each job needs.</text>
+  <!-- the ball -->
+  <g transform="translate(150 300)">
+    <circle r="58" fill="#F5F3EC"/>
+    <path d="M-40 -42 C -20 -22 -20 22 -40 42" fill="none" stroke="#C8372D" stroke-width="3"/>
+    <path d="M40 -42 C 20 -22 20 22 40 42" fill="none" stroke="#C8372D" stroke-width="3"/>
+    <g stroke="#C8372D" stroke-width="2.4" stroke-linecap="round">
+      <path d="M-37 -33 l8 -3"/><path d="M-31 -18 l8 -2"/><path d="M-29 -2 l8 0"/><path d="M-31 14 l8 2"/><path d="M-37 30 l8 3"/>
+      <path d="M37 -33 l-8 -3"/><path d="M31 -18 l-8 -2"/><path d="M29 -2 l-8 0"/><path d="M31 14 l-8 2"/><path d="M37 30 l-8 3"/>
+    </g>
+  </g>
+
+  <!-- right: the box score -->
+  <g font-family="'DIN Condensed', 'Bahnschrift', 'Arial Narrow', sans-serif" font-weight="700">
+    <g font-size="18" letter-spacing="2" fill="#B9D3C2">
+      <text x="430" y="78">TASK CLASS</text>
+      <text x="720" y="78" text-anchor="middle">OPUS</text>
+      <text x="830" y="78" text-anchor="middle">SONNET</text>
+      <text x="940" y="78" text-anchor="middle">HAIKU</text>
+      <text x="1080" y="78" text-anchor="middle">$ / WIN</text>
+    </g>
+
+    <!-- each score is a white tile, hung by hand -->
+    <g font-size="30">
+      <!-- research -->
+      <text x="430" y="138" fill="#F5F3EC">research</text>
+      <rect x="680" y="110" width="80" height="40" fill="#F5F3EC"/><text x="720" y="140" text-anchor="middle" fill="#1F4A33">13-0</text>
+      <rect x="790" y="110" width="80" height="40" fill="#F5F3EC"/><text x="830" y="140" text-anchor="middle" fill="#1F4A33">11-0</text>
+      <rect x="900" y="110" width="80" height="40" fill="#163824"/><text x="940" y="140" text-anchor="middle" fill="#3E7356">–</text>
+      <rect x="1030" y="110" width="100" height="40" fill="#163824"/><text x="1080" y="140" text-anchor="middle" fill="#F2B33D">−50%</text>
+      <!-- harvest -->
+      <text x="430" y="226" fill="#F5F3EC">harvest</text>
+      <rect x="680" y="198" width="80" height="40" fill="#F5F3EC"/><text x="720" y="228" text-anchor="middle" fill="#1F4A33">12-0</text>
+      <rect x="790" y="198" width="80" height="40" fill="#F5F3EC"/><text x="830" y="228" text-anchor="middle" fill="#1F4A33">19-2</text>
+      <rect x="900" y="198" width="80" height="40" fill="#F2B33D"/><text x="940" y="228" text-anchor="middle" fill="#1F4A33">0-0</text>
+      <rect x="1030" y="198" width="100" height="40" fill="#163824"/><text x="1080" y="228" text-anchor="middle" fill="#3E7356">?</text>
+      <!-- build -->
+      <text x="430" y="314" fill="#F5F3EC">build</text>
+      <rect x="680" y="286" width="80" height="40" fill="#F5F3EC"/><text x="720" y="316" text-anchor="middle" fill="#1F4A33">27-0</text>
+      <rect x="790" y="286" width="80" height="40" fill="#163824"/><text x="830" y="316" text-anchor="middle" fill="#3E7356">–</text>
+      <rect x="900" y="286" width="80" height="40" fill="#163824"/><text x="940" y="316" text-anchor="middle" fill="#3E7356">–</text>
+      <rect x="1030" y="286" width="100" height="40" fill="#163824"/><text x="1080" y="316" text-anchor="middle" fill="#3E7356">keep</text>
+    </g>
+  </g>
+
+  <!-- chalk calls -->
+  <g fill="none" stroke="#F5F3EC" stroke-width="2.5" stroke-linecap="round" opacity="0.9">
+    <ellipse cx="830" cy="130" rx="58" ry="30" transform="rotate(-4 830 130)"/>
+    <path d="M884 112 C 920 96 980 92 1010 100"/>
+    <path d="M1002 93 l10 7 l-11 5"/>
+  </g>
+  <text x="1018" y="96" font-family="'Segoe Print', 'Bradley Hand', 'Comic Neue', cursive" font-size="20" fill="#F5F3EC" text-anchor="end" transform="rotate(-3 1018 96)">graduate</text>
+  <text x="940" y="270" font-family="'Segoe Print', 'Bradley Hand', 'Comic Neue', cursive" font-size="17" fill="#F2B33D" text-anchor="middle">trying out</text>
+  <text x="430" y="392" font-family="Georgia, 'Iowan Old Style', serif" font-style="italic" font-size="17" fill="#8DB59C">wins = runs that finished without a redo · a cheaper tier graduates at 90% over 10+ runs</text>
+</svg>

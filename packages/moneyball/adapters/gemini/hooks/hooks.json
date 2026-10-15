@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${extensionPath}/dist/moneyball.mjs\" hook pre --platform gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${extensionPath}/dist/moneyball.mjs\" hook session --platform gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}

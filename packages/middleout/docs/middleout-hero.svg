@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" width="1200" height="440" role="img" aria-labelledby="t d">
+  <title id="t">middleout</title>
+  <desc id="d">A wide band of noisy JSON is pushed outward from the middle, leaving a slim result: 532 KB in, 1.4 KB out, Weissman score 380.</desc>
+  <defs>
+    <linearGradient id="fadeL" x1="0" x2="1"><stop offset="0" stop-color="#EEF1F4" stop-opacity="1"/><stop offset="1" stop-color="#EEF1F4" stop-opacity="0"/></linearGradient>
+    <linearGradient id="fadeR" x1="1" x2="0"><stop offset="0" stop-color="#EEF1F4" stop-opacity="1"/><stop offset="1" stop-color="#EEF1F4" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="1200" height="440" fill="#EEF1F4"/>
+
+  <!-- the raw payload: dense, wide, noisy -->
+  <g font-family="Consolas, 'SFMono-Regular', Menlo, monospace" font-size="11" fill="#9AA5B1">
+    <text x="0" y="62">{"tickets":[{"id":"tk_7q2m9x","external_ref":null,"name":"Export button misaligned","status":"backlog","priority":"normal","assignees":[{"id":40211873,"username":"R. M.","color":"#7b68ee","avatar":"https://cdn/a/9f2.png"}],"tags":[{"name":"ui"},{"name":"bug"}],"date_updated":"1791835817315","queue":{"id":"700000000101"},</text>
+    <text x="0" y="82">"description_md":"## Summary\nThe export button overlaps the table header on narrow screens...","description_text":"Summary The export button overlaps the table header on narrow screens...","custom_fields":[{"id":"cf_8a1","type":"dropdown","value":null},{"id":"cf_2b9",</text>
+    <text x="0" y="102">"permissions":{"can_edit":true,"visibility":"team","shared_with":[{"id":"usr_4d24","email":"b516e0@vendor.example","avatar_url":"https://cdn/avatars/71c.png","timezone":"UTC"}]},"links":{"self":"https://api/v2/tickets/1244","audit_log":"https://api/v2/audit/1244"},"integration_ids":{</text>
+    <text x="0" y="122">{"id":"tk_3h8v1c","name":"Onboarding email copy","status":"done","date_created":"1791232054068","creator":{"id":52930417,"username":"T. L.","email":"tl@client.example"},"watchers_count":4,"todo_count":0,"dependencies_count":0,"child_count":0,</text>
+    <text x="0" y="142">"time_estimate":null,"time_spent":0,"project":{"id":"700000000202","name":"Roadmap"},"workspace":{"id":"70000000303"},"kind":"ticket","channel":"web","parent":null,"attachments_count":1,"linked_tasks_count":0,"status_color":"#008844","url":"https://app/tickets/tk_3h8v1c"}</text>
+    <text x="0" y="162">,"page":0,"has_more":true,"next_page":1,"count":100} {"tickets":[{"id":"tk_5n0w4d","name":"Settings page empty state","status":"complete","assignees":[{"id":61188240,"username":"J."}],"tags":[],"due_date":null,"date_closed":"1791801112003","queue":{"id":"700000000404"},</text>
+  </g>
+
+  <!-- middle-out: the clean core, with the noise pushed aside -->
+  <rect x="470" y="40" width="260" height="140" fill="#EEF1F4"/>
+  <rect x="300" y="40" width="170" height="140" fill="url(#fadeR)"/>
+  <rect x="730" y="40" width="170" height="140" fill="url(#fadeL)"/>
+  <g stroke="#2F4BFF" stroke-width="2" fill="none" stroke-linecap="round">
+    <path d="M470 110 L 392 110"/><path d="M404 98 L 392 110 L 404 122"/>
+    <path d="M730 110 L 808 110"/><path d="M796 98 L 808 110 L 796 122"/>
+  </g>
+  <g font-family="Consolas, 'SFMono-Regular', Menlo, monospace" font-size="17" fill="#1F2A37">
+    <text x="600" y="92" text-anchor="middle">{ "total": 160,</text>
+    <text x="600" y="118" text-anchor="middle">  "done": 150 }</text>
+  </g>
+  <rect x="482" y="62" width="236" height="76" fill="none" stroke="#2F4BFF" stroke-width="2"/>
+
+  <!-- readout -->
+  <line x1="60" y1="232" x2="1140" y2="232" stroke="#C9D1DA" stroke-width="1"/>
+  <g font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" fill="#1F2A37">
+    <text x="60" y="320" font-size="88" font-weight="700" letter-spacing="-3">middleout</text>
+    <text x="64" y="364" font-size="24" fill="#4A5868">API calls, compressed. Only the fields you asked for reach the model.</text>
+  </g>
+  <g font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" text-anchor="end">
+    <text x="1140" y="286" font-size="20" fill="#4A5868">532 KB in, 1.4 KB out</text>
+    <text x="1140" y="338" font-size="44" font-weight="700" fill="#2F4BFF">Weissman 380</text>
+    <text x="1140" y="364" font-size="15" fill="#7A8796">26 calls, nested three levels, one request</text>
+  </g>
+</svg>

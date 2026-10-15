@@ -1,0 +1,11 @@
+{
+  "name": "@utility-belt/core",
+  "version": "0.1.0",
+  "description": "Shared plumbing for the utility-belt agent tools: project root, stats upserts, frontmatter, local embeddings, session transcripts.",
+  "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "exports": { ".": "./src/index.mjs", "./*": "./src/*.mjs" },
+  "engines": { "node": ">=22.13" },
+  "optionalDependencies": { "@huggingface/transformers": "^4.3.1" }
+}

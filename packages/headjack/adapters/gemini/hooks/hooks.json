@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "BeforeAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${extensionPath}/dist/headjack.mjs\" hook --platform gemini",
+            "timeout": 30000
+          }
+        ]
+      }
+    ]
+  }
+}

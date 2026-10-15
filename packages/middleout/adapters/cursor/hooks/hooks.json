@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/dist/middleout.mjs\" hook post --platform cursor",
+        "timeout": 10
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/dist/middleout.mjs\" hook pre --platform cursor",
+        "timeout": 10
+      }
+    ]
+  }
+}

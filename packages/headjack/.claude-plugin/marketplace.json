@@ -1,0 +1,18 @@
+{
+  "name": "headjack",
+  "owner": {
+    "name": "Eli Gassert"
+  },
+  "metadata": {
+    "description": "Skills, loaded the moment you need them. Two root skills + a per-prompt retrieval hook replace a preloaded skill listing: the library stays indexed and out of context until a task needs it.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "headjack",
+      "source": "./",
+      "description": "Skills, loaded the moment you need them. Two root skills + a per-prompt retrieval hook replace a preloaded skill listing: the library stays indexed and out of context until a task needs it.",
+      "version": "0.1.0"
+    }
+  ]
+}

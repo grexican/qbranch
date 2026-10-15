@@ -1,0 +1,44 @@
+{
+  "name": "headjack",
+  "version": "0.1.0",
+  "description": "Skills, loaded the moment you need them. A just-in-time skill library for LLM agents: indexed, searched and loaded on demand instead of preloaded.",
+  "tagline": "Skills, loaded the moment you need them: an indexed skill library and a per-prompt retrieval hook instead of a preloaded listing.",
+  "platformNotes": {},
+  "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "Eli Gassert",
+  "bin": {
+    "headjack": "bin/headjack.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "hooks",
+    "skills",
+    ".claude-plugin"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.6.7",
+    "@utility-belt/core": "0.1.0"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "^4.3.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/grexican/utility-belt.git",
+    "directory": "packages/headjack"
+  },
+  "homepage": "https://github.com/grexican/headjack"
+}

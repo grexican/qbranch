@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="headjack">
+  <rect width="128" height="128" rx="24" fill="#161B22"/>
+  <!-- the socket: an engraved port with pins -->
+  <circle cx="64" cy="50" r="30" fill="#1E2631" stroke="#8A9BB0" stroke-width="2"/>
+  <circle cx="64" cy="50" r="22" fill="#0D1117" stroke="#2C3542" stroke-width="2"/>
+  <g fill="#4FE39A">
+    <circle cx="64" cy="36" r="3.2"/><circle cx="76" cy="43" r="3.2"/><circle cx="76" cy="57" r="3.2"/>
+    <circle cx="64" cy="64" r="3.2"/><circle cx="52" cy="57" r="3.2"/><circle cx="52" cy="43" r="3.2"/>
+    <circle cx="64" cy="50" r="4"/>
+  </g>
+  <!-- the cable coming in, carrying a skill -->
+  <path d="M64 80 C 64 92 58 100 50 108 L 46 118" fill="none" stroke="#1F6B48" stroke-width="8" stroke-linecap="round"/>
+  <path d="M64 80 C 64 92 58 100 50 108 L 46 118" fill="none" stroke="#4FE39A" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 5"/>
+  <rect x="72" y="92" width="26" height="18" rx="3" fill="#0D1117" stroke="#4FE39A" stroke-width="1.6"/>
+  <path d="M77 99 h16 M77 104 h11" stroke="#4FE39A" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

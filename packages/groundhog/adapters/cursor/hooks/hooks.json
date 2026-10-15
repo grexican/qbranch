@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/dist/groundhog.mjs\" hook session --platform cursor",
+        "timeout": 10
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/dist/groundhog.mjs\" hook pre --platform cursor",
+        "timeout": 10,
+        "matcher": "Shell"
+      }
+    ]
+  }
+}
