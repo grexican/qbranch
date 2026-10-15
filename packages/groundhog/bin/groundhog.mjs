@@ -2,11 +2,13 @@
 // groundhog CLI: find the work your agents keep re-doing by hand, keep the lessons, and guard them with hooks.
 import fs from 'node:fs';
 import path from 'node:path';
-import { readJson } from '@qbranch/core';
+import { fileURLToPath } from 'node:url';
+import { readJson, selfCommand } from '@qbranch/core';
 import { runHook } from '@qbranch/core/hooks';
 import { loadConfig } from '../src/config.mjs';
 import { mine } from '../src/mine.mjs';
-import { accept, fromRecovery, loadLessons, preToolUse, recurrences, sessionStart } from '../src/lessons.mjs';
+import { accept, fromRecovery, loadLessons, preToolUse, recurrences, sessionStart, updateLesson } from '../src/lessons.mjs';
+import { verifyLesson, acceptable } from '../src/verify.mjs';
 import { draftRunbook } from '../src/draft.mjs';
 import { upsert, summarize } from '../src/stats.mjs';
 
@@ -19,6 +21,10 @@ const HELP = `groundhog: stop re-living the same session.
   groundhog scan [--days N] [--all-projects]   mine transcripts: repeated commands, sequences, error -> fix pairs
   groundhog report [--json]                    numbered candidates: lessons (L), sequences (S), friction (F), repeats (R)
   groundhog accept L<n>                        add mined lesson n to the ledger (groundhog.lessons.json; commit it)
+  groundhog accept L<n> --verify --budget USD  replay the tasks where it failed, without and with the lesson, plus a
+                                               held-out sample; add it only if it helps (or never hurts) and breaks nothing
+  groundhog verify [L<n>] --budget USD         re-check accepted lessons; a lesson that breaks another task is flagged
+      verify options: [--model M] [--tasks N] [--held-out N] [--repeats N] [--days N] [--timeout SEC]
   groundhog add --when <regex> --instead <text> [--remind]   add a lesson by hand
   groundhog lessons                            list the ledger
   groundhog draft S<n>|R<n> [--name x]         write a runbook skill draft to .groundhog/drafts/
@@ -31,6 +37,20 @@ function index(cfg) {
   return ix;
 }
 const pick = (list, ref, letter) => list[Number(String(ref || '').replace(new RegExp(`^${letter}`, 'i'), '')) - 1] || null;
+
+/** Options for a replay verification; refuses to spend without an explicit --budget. */
+async function verifyOpts(cfg) {
+  const budgetUsd = Number(opt('--budget'));
+  if (!(budgetUsd > 0)) throw new Error('verification replays real tasks with a model and spends money: pass --budget <usd>');
+  const [exe, pre] = await selfCommand('groundhog', fileURLToPath(import.meta.url));
+  return { budgetUsd, model: opt('--model'), days: Number(opt('--days', cfg.days)), tasks: Number(opt('--tasks', 2)), heldOut: Number(opt('--held-out', 2)),
+    repeats: Number(opt('--repeats', 1)), timeoutMs: Number(opt('--timeout', 300)) * 1000, log: (m) => console.log(m),
+    hookCommand: [exe, ...pre].map(a => `"${a.split(path.sep).join('/')}"`).join(' ') };
+}
+const showVerified = (v) => !v ? '' : v.before
+  ? `${v.verdict}: pass ${v.before.passRate} -> ${v.after.passRate}, score ${v.before.meanScore} -> ${v.after.meanScore} on ${v.tasks} task(s)${v.regressions.length ? `, regressions: ${v.regressions.join(', ')}` : ''}, $${v.costUsd}`
+    + (v.repeats === 1 && v.verdict !== 'neutral' ? ' (one sample per task and variant: confirm with --repeats 3)' : '')
+  : `${v.verdict}${v.note ? ` (${v.note})` : ''}`;
 
 async function main() {
   const cfg = loadConfig();
@@ -62,8 +82,30 @@ async function main() {
     case 'accept': {
       const e = pick(index(cfg).lessons, rest[0], 'L');
       if (!e) throw new Error(`no lesson ${rest[0]} (see groundhog report)`);
-      const l = accept(cfg, fromRecovery(e));
+      const entry = fromRecovery(e);
+      if (loadLessons(cfg).some(l => l.when === entry.when)) return console.log('already in the ledger');
+      if (flag('--verify')) {
+        const { verdict, verified } = await verifyLesson(cfg, entry, await verifyOpts(cfg));
+        console.log(`verification: ${showVerified(verified)}`);
+        if (!acceptable(verdict)) { process.exitCode = 1; return console.log(`not accepted (${verdict}). Accept without --verify to add it unproven.`); }
+        entry.verified = verified;
+      }
+      const l = accept(cfg, entry);
       return console.log(l ? `${l.id} added (${l.action}): when /${l.when}/ -> ${l.instead}\nEdit ${cfg.lessons} to refine the wording; commit it.` : 'already in the ledger');
+    }
+    case 'verify': {
+      const o = await verifyOpts(cfg);
+      const all = loadLessons(cfg), ids = rest.filter(x => /^L\d+$/i.test(x)).map(x => x.toUpperCase());
+      const todo = ids.length ? all.filter(l => ids.includes(l.id)) : all;
+      if (!todo.length) throw new Error(ids.length ? `no lesson ${ids.join(', ')} in the ledger` : 'ledger is empty');
+      for (const l of todo) {
+        console.log(`${l.id} /${l.when}/`);
+        const { verdict, verified } = await verifyLesson(cfg, l, { ...o, budgetUsd: o.budgetUsd / todo.length });
+        // a lesson that breaks another task stays in the ledger, flagged, for a person to decide
+        updateLesson(cfg, l.id, { verified, flagged: verdict === 'regressed' || verdict === 'hurts' ? verdict : undefined });
+        console.log(`${l.id} ${showVerified(verified)}`);
+      }
+      return;
     }
     case 'add': {
       if (!opt('--when') || !opt('--instead')) throw new Error('usage: groundhog add --when <regex> --instead <text>');
@@ -73,7 +115,7 @@ async function main() {
     }
     case 'lessons': {
       const ls = loadLessons(cfg);
-      return console.log(ls.length ? ls.map(l => `${l.id} [${l.action}] /${l.when}/  ${l.instead}`).join('\n') : 'ledger is empty');
+      return console.log(ls.length ? ls.map(l => `${l.id} [${l.action}]${l.flagged ? ` [FLAGGED: ${l.flagged}]` : ''} /${l.when}/  ${l.instead}${l.verified ? `\n    verified ${l.verified.at.slice(0, 10)}: ${showVerified(l.verified)}` : ''}`).join('\n') : 'ledger is empty');
     }
     case 'draft': {
       const ix = index(cfg);

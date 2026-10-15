@@ -26,9 +26,18 @@ unchanged: the guard blocks only once per session, so a false positive cannot de
     groundhog scan                     mine recent transcripts (project scope; --all-projects for everything)
     groundhog report                   numbered candidates: L (lessons), S (sequences), F (friction), R (repeats)
     groundhog accept L3                add a mined lesson to the ledger
+    groundhog accept L3 --verify --budget 1   add it only if replaying past tasks shows it helps and breaks nothing
+    groundhog verify --budget 2        re-check accepted lessons; a lesson that breaks another task gets flagged
     groundhog add --when <regex> --instead "<text>"   add a lesson by hand (--remind = never block)
     groundhog draft S2 --name verify-backend          write a runbook skill draft under .groundhog/drafts/
     groundhog stats                    injections, guard hits, and whether accepted lessons stopped recurring
+
+## Proving a lesson first
+
+`--verify` replays real past tasks where the failure happened, headless in a throwaway git worktree, without and
+with the lesson, then a held-out sample of unrelated recurring tasks. It accepts the lesson only if the lesson helps
+or changes nothing, and never turns a passing task into a failing one. It spends money, so it needs `--budget`; ask
+the user for a budget before you run it. Read the verdict in `groundhog lessons`: a `FLAGGED` lesson broke something.
 
 Prefer a lesson plus a hook over another paragraph in CLAUDE.md or AGENTS.md: the hook costs no tokens until the
 mistake is about to happen, and it holds every time.

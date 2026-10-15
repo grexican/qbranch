@@ -40,6 +40,16 @@ export function accept(cfg, entry) {
   return l;
 }
 
+/** Merge fields into one ledger entry (e.g. verification evidence). Returns the entry, or null if there is no such id. */
+export function updateLesson(cfg, id, patch) {
+  const lessons = loadLessons(cfg);
+  const l = lessons.find(x => x.id === id);
+  if (!l) return null;
+  Object.assign(l, patch);
+  saveLessons(cfg, lessons);
+  return l;
+}
+
 const matches = (l, cmd) => { try { return new RegExp(l.when, 'i').test(cmd); } catch { return false; } };
 
 export function sessionStart(cfg) {
