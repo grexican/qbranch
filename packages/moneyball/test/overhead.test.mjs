@@ -165,11 +165,11 @@ test('tune: recommends only variants that save tokens with no regression at >= 9
       }
       return {
         perVariant: {
-          baseline: { passRate: 1, meanScore: 0.9, costUsd: 0.5, startupTokens: 30000 },
-          'drop-build': { passRate: 0.95, meanScore: 0.88, costUsd: 0.4, startupTokens: 29000 },
-          'drop-style': { passRate: 0.7, meanScore: 0.6, costUsd: 0.4, startupTokens: 29900 },
-          'drop-deploy': { passRate: 1, meanScore: 0.9, costUsd: 0.4, startupTokens: 29950 },
-          'fresh-start': { passRate: 1, meanScore: 0.9, costUsd: 0.4, startupTokens: 30000 },
+          baseline: { runs: 11, passRate: 1, meanScore: 0.9, costUsd: 0.5, startupTokens: 30000 },
+          'drop-build': { runs: 11, passRate: 0.95, meanScore: 0.88, costUsd: 0.4, startupTokens: 29000 },
+          'drop-style': { runs: 11, passRate: 0.7, meanScore: 0.6, costUsd: 0.4, startupTokens: 29900 },
+          'drop-deploy': { runs: 11, passRate: 1, meanScore: 0.9, costUsd: 0.4, startupTokens: 29950 },
+          'fresh-start': { runs: 11, passRate: 1, meanScore: 0.9, costUsd: 0.4, startupTokens: 30000 },
         },
         perTask: [], regressions: [{ variant: 'drop-deploy', task: 't3' }],
       };

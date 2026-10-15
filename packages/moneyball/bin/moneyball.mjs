@@ -125,7 +125,8 @@ async function main() {
         only: opt('--only') ? opt('--only').split(',') : null });
       upsert(cfg, (s) => { s.last_experiment = { at: r.at, tasks: r.tasks, variants: r.variants.length, recommended: r.variants.filter(v => v.recommend).map(v => v.id), spent: r.spent }; });
       if (flag('--json')) return console.log(JSON.stringify(r, null, 2));
-      console.log(`replayed ${r.tasks} tasks x ${r.repeats} under baseline + ${r.variants.length} variants, ${money(r.spent)} spent; baseline pass ${Math.round((r.baseline.passRate || 0) * 100)}%`);
+      console.log(`replayed ${r.tasks} tasks x ${r.repeats} under baseline + ${r.variants.length} variants, ${money(r.spent)} spent; baseline pass ${r.baseline.runs ? Math.round(r.baseline.passRate * 100) + '%' : 'n/a (no scored runs)'}`
+        + (r.inconclusive ? `; ${r.inconclusive} replays cut off by budget or time (not scored)` : ''));
       for (const v of r.variants) {
         if (v.skipped) { console.log(`skip       ${v.id}: ${v.skipped}`); continue; }
         console.log(`${(v.recommend ? 'recommend' : 'reject').padEnd(10)} ${v.id.padEnd(30)} pass ${Math.round(v.passRate * 100)}% score ${v.meanScore.toFixed(2)} ${money(v.costUsd)} saves ${num(v.startupTokensSaved)} tok -- ${v.why}`);

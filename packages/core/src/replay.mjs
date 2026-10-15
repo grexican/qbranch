@@ -158,9 +158,15 @@ function digest(s, root) {
       if (c.err && DENIED.test((e.text || '').slice(0, 200))) c.denied = true;
     }
   }
-  if (!prompt) return null;
+  if (!prompt || prompt.split(/\s+/).length < 4) return null; // "Reply OK" probes and one-word nudges are not tasks
   const cwd = meta.cwd || s.meta?.cwd || root;
   if (!cwd || /qbranch-replay-/.test(cwd)) return null; // never mine our own replays
+  // A prompt that names absolute paths outside its project would send a replay there: the sandbox copies only the
+  // project, and a script the agent writes can reach any path. Such a task is never replay-safe.
+  for (const p of prompt.match(/(?:\b[A-Za-z]:[\\/]|(?<![\w.])\/(?:[a-z]|Users|home|mnt|var|opt|etc|srv)\/)[^\s'"`<>|)]*/g) || []) {
+    const abs = /^\/[a-z]\//i.test(p) ? `${p[1].toUpperCase()}:${p.slice(2)}` : p;
+    if (!within(path.resolve(abs), cwd) && !within(path.resolve(abs), os.tmpdir())) unsafe.push(`prompt names a path outside the project (${p.slice(0, 60)})`);
+  }
   const ok = calls.filter(c => c.ran && !c.err && !READS.test(commandKey(c.cmd).split(' ')[0]));
   const keys = [...new Map(ok.map(c => [commandKey(c.cmd), c])).values()].slice(-3);
   const checks = [
@@ -433,12 +439,18 @@ export const claudeJudge = ({ model = 'haiku', budgetUsd = 0.05 } = {}) => async
  * task's variants run back to back, so running out of budget skips whole tasks, never half a comparison. A regression
  * is a task whose pass rate under a variant is lower than under the baseline (SkillOpt's gate_no_regression).
  */
-export async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRunUsd, agent = 'claude', model, timeoutMs, judge, runner = runTask, onRun = () => {}, sandbox } = {}) {
+export async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRunUsd, minRunUsd = 0.25, agent = 'claude', model, timeoutMs, judge, runner = runTask, onRun = () => {}, sandbox } = {}) {
   if (!(budgetUsd > 0)) throw new Error('compareVariants needs an explicit budgetUsd (spending is opt-in)');
   const names = Object.keys(variants);
-  const per = perRunUsd ?? budgetUsd / Math.max(1, tasks.length * names.length * repeats);
+  const planned = Math.max(1, tasks.length * names.length * repeats);
+  const per = perRunUsd ?? budgetUsd / planned;
+  // A replay starved of budget stops mid-task and would read as a failure: refuse a plan that can't produce evidence.
+  if (per < minRunUsd) {
+    throw new Error(`the budget gives $${per.toFixed(3)} per replay (${tasks.length} tasks x ${names.length} variants x ${repeats}), but a replay needs about $${minRunUsd.toFixed(2)} to finish. `
+      + `Raise the budget to $${Math.ceil(planned * minRunUsd)}, or test fewer variants or tasks.`);
+  }
   let spent = 0;
-  const perTask = [], skipped = [], runs = [];
+  const perTask = [], skipped = [], runs = [], inconclusive = [];
   const stat = () => ({ runs: 0, passes: 0, scoreSum: 0, costUsd: 0, startup: [] });
   const totals = Object.fromEntries(names.map(n => [n, stat()]));
   for (const task of tasks) {
@@ -454,6 +466,12 @@ export async function compareVariants({ tasks, variants, repeats = 1, budgetUsd,
           grade = await gradeRun(task, run, { judge });
         } catch (e) { run = { ok: false, costUsd: 0, error: e.message, events: [] }; grade = { pass: false, score: 0, reasons: [e.message] }; }
         spent += (run.costUsd || 0) + (grade.costUsd || 0);
+        // cut off by its own budget cap or the timer: no evidence either way, so it is not scored as a failure
+        if (run.killed || /max_budget|timeout/i.test(run.error || '')) {
+          inconclusive.push({ task: task.id, variant: name, rep, why: run.killed ? 'timeout' : run.error });
+          onRun({ task, variant: name, rep, run, grade, spent, inconclusive: true });
+          continue;
+        }
         for (const s of [row.variants[name], totals[name]]) {
           s.runs++; s.passes += grade.pass ? 1 : 0; s.scoreSum += grade.score; s.costUsd += (run.costUsd || 0) + (grade.costUsd || 0);
           if (run.startupTokens != null) s.startup.push(run.startupTokens);
@@ -474,5 +492,5 @@ export async function compareVariants({ tasks, variants, repeats = 1, budgetUsd,
     const b = row.variants[base], v = row.variants[n];
     if (b.runs && v.runs && v.passRate < b.passRate) regressions.push({ task: row.id, variant: n, before: b.passRate, after: v.passRate, reasons: row.reasons[n] || [] });
   }
-  return { perVariant: Object.fromEntries(names.map(n => [n, summary(totals[n])])), perTask, regressions, skipped, runs, spentUsd: +spent.toFixed(4), complete: skipped.length === 0 };
+  return { perVariant: Object.fromEntries(names.map(n => [n, summary(totals[n])])), perTask, regressions, skipped, inconclusive, runs, spentUsd: +spent.toFixed(4), complete: skipped.length === 0 && inconclusive.length === 0 };
 }

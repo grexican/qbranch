@@ -1912,10 +1912,11 @@ async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats 
   for (const v of variants) setups[v.id] = async (dir) => applyVariant(dir, v);
   const report = await replay.compareVariants({ tasks, variants: setups, repeats, budgetUsd: budget });
   const base = report.perVariant.baseline || {};
-  const runs = tasks.length * repeats;
   const rows = variants.map((v) => {
     const r = report.perVariant[v.id];
     if (!r) return { id: v.id, skipped: "not run (budget)" };
+    if (!r.runs) return { id: v.id, skipped: "inconclusive: every replay ran out of budget or time (raise --budget)" };
+    const runs = Math.min(r.runs, base.runs || 0);
     const regressions = (report.regressions || []).filter((x) => (x.variant ?? x.name) === v.id);
     const saved = (base.startupTokens ?? 0) - (r.startupTokens ?? 0);
     const keeps = (k) => (base[k] ?? 0) === 0 || (r[k] ?? 0) >= cfg.bar * base[k];
@@ -1939,6 +1940,7 @@ async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats 
     repeats,
     budget,
     baseline: base,
+    inconclusive: (report.inconclusive || []).length,
     spent: Object.values(report.perVariant).reduce((a, r) => a + (r.costUsd || 0), 0),
     variants: rows
   };
@@ -2095,7 +2097,7 @@ ${"".padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${c.saving ? ` (est. ${money(c.
         s.last_experiment = { at: r.at, tasks: r.tasks, variants: r.variants.length, recommended: r.variants.filter((v) => v.recommend).map((v) => v.id), spent: r.spent };
       });
       if (flag("--json")) return console.log(JSON.stringify(r, null, 2));
-      console.log(`replayed ${r.tasks} tasks x ${r.repeats} under baseline + ${r.variants.length} variants, ${money(r.spent)} spent; baseline pass ${Math.round((r.baseline.passRate || 0) * 100)}%`);
+      console.log(`replayed ${r.tasks} tasks x ${r.repeats} under baseline + ${r.variants.length} variants, ${money(r.spent)} spent; baseline pass ${r.baseline.runs ? Math.round(r.baseline.passRate * 100) + "%" : "n/a (no scored runs)"}` + (r.inconclusive ? `; ${r.inconclusive} replays cut off by budget or time (not scored)` : ""));
       for (const v of r.variants) {
         if (v.skipped) {
           console.log(`skip       ${v.id}: ${v.skipped}`);

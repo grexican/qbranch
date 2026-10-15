@@ -1502,9 +1502,13 @@ function digest(s, root) {
       if (c.err && DENIED.test((e.text || "").slice(0, 200))) c.denied = true;
     }
   }
-  if (!prompt) return null;
+  if (!prompt || prompt.split(/\s+/).length < 4) return null;
   const cwd = meta.cwd || s.meta?.cwd || root;
   if (!cwd || /qbranch-replay-/.test(cwd)) return null;
+  for (const p of prompt.match(/(?:\b[A-Za-z]:[\\/]|(?<![\w.])\/(?:[a-z]|Users|home|mnt|var|opt|etc|srv)\/)[^\s'"`<>|)]*/g) || []) {
+    const abs = /^\/[a-z]\//i.test(p) ? `${p[1].toUpperCase()}:${p.slice(2)}` : p;
+    if (!within(path8.resolve(abs), cwd) && !within(path8.resolve(abs), os4.tmpdir())) unsafe.push(`prompt names a path outside the project (${p.slice(0, 60)})`);
+  }
   const ok = calls.filter((c) => c.ran && !c.err && !READS.test(commandKey(c.cmd).split(" ")[0]));
   const keys = [...new Map(ok.map((c) => [commandKey(c.cmd), c])).values()].slice(-3);
   const checks = [
@@ -1817,13 +1821,17 @@ async function gradeRun(task, run, { judge } = {}) {
   }
   return { pass, score: total ? got / total : 0, reasons };
 }
-async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRunUsd, agent = "claude", model, timeoutMs, judge, runner = runTask, onRun = () => {
+async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRunUsd, minRunUsd = 0.25, agent = "claude", model, timeoutMs, judge, runner = runTask, onRun = () => {
 }, sandbox } = {}) {
   if (!(budgetUsd > 0)) throw new Error("compareVariants needs an explicit budgetUsd (spending is opt-in)");
   const names = Object.keys(variants);
-  const per = perRunUsd ?? budgetUsd / Math.max(1, tasks.length * names.length * repeats);
+  const planned = Math.max(1, tasks.length * names.length * repeats);
+  const per = perRunUsd ?? budgetUsd / planned;
+  if (per < minRunUsd) {
+    throw new Error(`the budget gives $${per.toFixed(3)} per replay (${tasks.length} tasks x ${names.length} variants x ${repeats}), but a replay needs about $${minRunUsd.toFixed(2)} to finish. Raise the budget to $${Math.ceil(planned * minRunUsd)}, or test fewer variants or tasks.`);
+  }
   let spent = 0;
-  const perTask = [], skipped = [], runs = [];
+  const perTask = [], skipped = [], runs = [], inconclusive = [];
   const stat = () => ({ runs: 0, passes: 0, scoreSum: 0, costUsd: 0, startup: [] });
   const totals = Object.fromEntries(names.map((n) => [n, stat()]));
   for (const task of tasks) {
@@ -1844,6 +1852,11 @@ async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRun
           grade = { pass: false, score: 0, reasons: [e.message] };
         }
         spent += (run.costUsd || 0) + (grade.costUsd || 0);
+        if (run.killed || /max_budget|timeout/i.test(run.error || "")) {
+          inconclusive.push({ task: task.id, variant: name, rep, why: run.killed ? "timeout" : run.error });
+          onRun({ task, variant: name, rep, run, grade, spent, inconclusive: true });
+          continue;
+        }
         for (const s of [row.variants[name], totals[name]]) {
           s.runs++;
           s.passes += grade.pass ? 1 : 0;
@@ -1872,7 +1885,7 @@ async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRun
     const b = row.variants[base], v = row.variants[n];
     if (b.runs && v.runs && v.passRate < b.passRate) regressions.push({ task: row.id, variant: n, before: b.passRate, after: v.passRate, reasons: row.reasons[n] || [] });
   }
-  return { perVariant: Object.fromEntries(names.map((n) => [n, summary(totals[n])])), perTask, regressions, skipped, runs, spentUsd: +spent.toFixed(4), complete: skipped.length === 0 };
+  return { perVariant: Object.fromEntries(names.map((n) => [n, summary(totals[n])])), perTask, regressions, skipped, inconclusive, runs, spentUsd: +spent.toFixed(4), complete: skipped.length === 0 && inconclusive.length === 0 };
 }
 
 // packages/groundhog/src/verify.mjs

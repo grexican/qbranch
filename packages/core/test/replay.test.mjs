@@ -83,6 +83,14 @@ test('harvest: recurring prompts cluster into one task with derived checks; side
     const notes = all.find(t => /release notes/.test(t.prompt));
     assert.equal(notes.readOnly, false);
     assert.match(notes.unsafe[0], /pushes/);
+    // a prompt that points the agent at another project by absolute path is never replay-safe
+    const elsewhere = process.platform === 'win32' ? 'D:\\other-project\\out.json' : '/srv/other-project/out.json'; // not under the temp dir
+    const home2 = claudeFixture(root, [['s9', `Write the payload to ${elsewhere} and validate it`, [['Bash', { command: 'node build.mjs' }]]]]);
+    process.env.CLAUDE_CONFIG_DIR = home2;
+    const away = harvestTasks({ root, days: 1, minRecurrence: 1, filter: () => true }).find(t => /payload/.test(t.prompt));
+    assert.equal(away.readOnly, false);
+    assert.match(away.unsafe.join(' '), /prompt names a path outside the project/);
+    process.env.CLAUDE_CONFIG_DIR = home;
     const recurring = harvestTasks({ root, days: 1 }); // defaults: read-only, recurring
     assert.deepEqual(recurring.map(t => t.id), [docs.id]);
     const s1 = harvestTasks({ root, days: 1, minRecurrence: 1, filter: (t) => t.sessionId === 's1' });
@@ -160,8 +168,26 @@ test('compareVariants: per-variant rates, regressions against the baseline, and 
   assert.equal(r.perVariant.base.startupTokens, 1200);
   assert.ok(r.complete);
   assert.equal(r.spentUsd, 0.4);
-  const tight = await compareVariants({ tasks: [task('a', 'x'), task('b', 'y'), task('c', 'z')], variants, agent: 'fake', budgetUsd: 0.25 });
+  const tight = await compareVariants({ tasks: [task('a', 'x'), task('b', 'y'), task('c', 'z')], variants, agent: 'fake', budgetUsd: 0.25, minRunUsd: 0.04 });
   assert.equal(tight.complete, false);
   assert.deepEqual(tight.skipped.map(s => s.id), ['b', 'c']); // whole tasks are skipped, never half a pair
   await assert.rejects(compareVariants({ tasks: [], variants }), /budgetUsd/);
+  // a plan that starves each replay is refused up front, with the budget it would need
+  await assert.rejects(compareVariants({ tasks: [task('a', 'x'), task('b', 'y'), task('c', 'z')], variants, agent: 'fake', budgetUsd: 0.25 }), /needs about \$0\.25 to finish\. Raise the budget to \$2/);
+});
+
+test('compareVariants: a run cut off by its budget or timer is inconclusive, never a failure', async () => {
+  const { dir } = gitRepo();
+  const t = { id: 'a', prompt: 'job', cwd: dir, readOnly: true, checks: [{ kind: 'completed', hard: true }] };
+  const runner = async (task, { setup }) => (setup.name === 'starved'
+    ? { ok: false, costUsd: 0.25, error: 'error_max_budget_usd', killed: false, events: [] }
+    : { ok: true, exitCode: 0, costUsd: 0.1, finalText: 'done', events: [] });
+  const starved = async function starved() {}, base = async function base() {};
+  const r = await compareVariants({ tasks: [t], variants: { base, starved }, budgetUsd: 1, runner });
+  assert.equal(r.perVariant.base.passRate, 1);
+  assert.equal(r.perVariant.starved.runs, 0);          // not scored
+  assert.equal(r.perVariant.starved.passRate, null);
+  assert.deepEqual(r.inconclusive.map(x => [x.variant, x.why]), [['starved', 'error_max_budget_usd']]);
+  assert.equal(r.regressions.length, 0);
+  assert.equal(r.complete, false);
 });

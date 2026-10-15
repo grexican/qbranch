@@ -176,10 +176,11 @@ export async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, r
   for (const v of variants) setups[v.id] = async (dir) => applyVariant(dir, v);
   const report = await replay.compareVariants({ tasks, variants: setups, repeats, budgetUsd: budget });
   const base = report.perVariant.baseline || {};
-  const runs = tasks.length * repeats;
   const rows = variants.map(v => {
     const r = report.perVariant[v.id];
     if (!r) return { id: v.id, skipped: 'not run (budget)' };
+    if (!r.runs) return { id: v.id, skipped: 'inconclusive: every replay ran out of budget or time (raise --budget)' };
+    const runs = Math.min(r.runs, base.runs || 0); // only scored runs count as evidence; cut-off ones are inconclusive
     const regressions = (report.regressions || []).filter(x => (x.variant ?? x.name) === v.id);
     const saved = (base.startupTokens ?? 0) - (r.startupTokens ?? 0);
     const keeps = (k) => (base[k] ?? 0) === 0 || (r[k] ?? 0) >= cfg.bar * base[k];
@@ -189,7 +190,7 @@ export async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, r
       regressions: regressions.length, recommend: !why, why: why || `keeps ${Math.round((r.passRate / (base.passRate || 1)) * 100)}% of baseline outcomes, saves ${saved} tokens per startup`,
       patch: path.join(expDir(cfg), v.id, 'patch.diff') };
   });
-  const result = { at: new Date().toISOString(), tasks: tasks.length, repeats, budget, baseline: base,
+  const result = { at: new Date().toISOString(), tasks: tasks.length, repeats, budget, baseline: base, inconclusive: (report.inconclusive || []).length,
     spent: Object.values(report.perVariant).reduce((a, r) => a + (r.costUsd || 0), 0), variants: rows };
   fs.writeFileSync(path.join(expDir(cfg), 'last-tune.json'), JSON.stringify(result, null, 2) + '\n');
   return result;
