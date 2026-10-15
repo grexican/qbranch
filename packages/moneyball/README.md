@@ -68,11 +68,11 @@ Native packages are in [`adapters/`](adapters/): a Cursor plugin, a Codex plugin
 | Platform | What works |
 |---|---|
 | Claude Code | everything |
-| GitHub Copilot (CLI, VS Code) | measures and reports; model routing applies where the subagent tool takes a model argument |
-| Cursor | measures and reports (transcripts: Claude Code today); model routing needs a subagent tool with a model argument |
-| OpenAI Codex | measures and reports (transcripts: Claude Code today); model routing needs a subagent tool with a model argument |
-| Gemini CLI | measures and reports (transcripts: Claude Code today); no subagent model routing |
-| Windsurf / Devin | no pre-call guard, no session-start context; CLI reports only |
+| GitHub Copilot (CLI, VS Code) | reads VS Code Copilot Chat and Copilot CLI sessions (storage verified; message details unverified); routing applies where the subagent tool takes a model argument |
+| Cursor | reads your Cursor history (verified on real data); Cursor records no tokens, so runs are judged on outcomes and dollar savings show as unknown; the cheaper-tier ladder covers Claude models only so far |
+| OpenAI Codex | reads Codex rollouts with token usage (format checked against the Codex source, not yet seen on a real install); routing needs a subagent tool with a model argument |
+| Gemini CLI | reads Gemini CLI chats with token usage (format checked against the Gemini CLI source, not yet seen on a real install); no subagent model routing |
+| Windsurf / Devin | no pre-call guard, no session-start context; CLI reports only; no Windsurf transcript reader yet |
 <!-- /generated:install -->
 
 ## Commands

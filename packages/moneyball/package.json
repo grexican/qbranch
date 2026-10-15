@@ -5,11 +5,11 @@
   "tagline": "Pay for the model each job needs: measure every subagent run, graduate repeat work to cheaper models on evidence.",
   "spec": "right-sized models",
   "platformNotes": {
-    "copilot": "measures and reports; model routing applies where the subagent tool takes a model argument",
-    "cursor": "measures and reports (transcripts: Claude Code today); model routing needs a subagent tool with a model argument",
-    "codex": "measures and reports (transcripts: Claude Code today); model routing needs a subagent tool with a model argument",
-    "gemini": "measures and reports (transcripts: Claude Code today); no subagent model routing",
-    "windsurf": "CLI reports only"
+    "copilot": "reads VS Code Copilot Chat and Copilot CLI sessions (storage verified; message details unverified); routing applies where the subagent tool takes a model argument",
+    "cursor": "reads your Cursor history (verified on real data); Cursor records no tokens, so runs are judged on outcomes and dollar savings show as unknown; the cheaper-tier ladder covers Claude models only so far",
+    "codex": "reads Codex rollouts with token usage (format checked against the Codex source, not yet seen on a real install); routing needs a subagent tool with a model argument",
+    "gemini": "reads Gemini CLI chats with token usage (format checked against the Gemini CLI source, not yet seen on a real install); no subagent model routing",
+    "windsurf": "CLI reports only; no Windsurf transcript reader yet"
   },
   "type": "module",
   "private": true,

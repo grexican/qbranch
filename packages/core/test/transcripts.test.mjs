@@ -90,7 +90,8 @@ test('cursor ide: conversations from a snapshot of the global store, mapped to t
   assert.deepEqual(of(c1.ev, 'tool').map(e => e.name), ['Bash', 'Edit', 'mcp__docs__search_docs']);
   assert.equal(of(c1.ev, 'tool')[1].input.file_path, 'src/client.ts');
   assert.deepEqual(of(c1.ev, 'result').map(e => e.isError), [true, false, true]);
-  assert.equal(of(c1.ev, 'usage').length, 0); // Cursor records zero token counts: no invented usage
+  // Cursor records zero token counts: the model is reported, the usage is null (unpriced), never invented
+  assert.ok(of(c1.ev, 'usage').every(e => e.usage === null && e.model));
   assert.ok(fs.existsSync(path.join(user, 'globalStorage', 'state.vscdb'))); // read through a snapshot, original untouched
   process.env.CURSOR_USER_DIR = path.join(tmp('qb-empty-'), 'none');
 });

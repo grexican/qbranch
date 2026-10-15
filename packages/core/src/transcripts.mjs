@@ -16,7 +16,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // ---------- pricing ($ per million tokens: input, output, cache write, cache read) ----------
 export const PRICES = {
@@ -65,10 +65,19 @@ const FILES = { write: 'Write', write_file: 'Write', create: 'Write', edit: 'Edi
 const toolName = (n) => SHELLS[n] || FILES[n] || n;
 // sqlite readers load node:sqlite lazily: a static import would print an ExperimentalWarning in every hook process.
 const require_ = createRequire(import.meta.url);
-/** Open another agent's live SQLite store: always a private snapshot copy, read-only, never the file in place. */
+/**
+ * Open another agent's live SQLite store read-only, in place. Editors keep these stores in WAL mode, which is built for
+ * a reader alongside a live writer: a read-only connection takes no write lock and sees a consistent snapshot.
+ * (Measured on an 11 GB Cursor store: 75 ms in place vs ~9 s and 11 GB of disk for a copy.) Only if the in-place
+ * open fails (an exclusive lock, an unusual journal mode) do we fall back to a temporary copy, deleted on exit.
+ */
 function openSqlite(file) {
   const { DatabaseSync } = require_('node:sqlite');
-  return new DatabaseSync(snapshotSqlite(file), { readOnly: true });
+  try {
+    return new DatabaseSync(`${pathToFileURL(file).href}?mode=ro`, { readOnly: true });
+  } catch {
+    return new DatabaseSync(snapshotSqlite(file), { readOnly: true });
+  }
 }
 
 // ---------- Claude Code ----------
@@ -236,7 +245,7 @@ function* codexSessions({ root, days }) {
 //    workspace.json gives the folder. The shell tool is run_terminal_command_v2: params { command, cwd }, result
 //    { output, rejected, exitCode (newer builds only) }. Cursor records no usage here: tokenCount is always zero, so
 //    these sessions yield no usage events. agentKv:blob:* is a content-addressed checkpoint store, not read.
-//    Cursor may hold the file open, so it is never opened in place: a snapshot copy is read (see snapshotSqlite).
+//    Cursor holds the file open; it is read in place through a read-only WAL connection (see openSqlite).
 // 2. The agent CLI, ~/.cursor/projects/<workspace-slug>/agent-transcripts/<session>/<session>.jsonl (+ subagents/):
 //    { role, message: { content: [text | tool_use{name,input}] } } and { type: 'turn_ended', status }. No tool ids,
 //    results or timestamps, so these carry commands but never errors.
@@ -277,18 +286,14 @@ function editorWorkspaces(user) {
   return out;
 }
 /**
- * A private, read-only-openable copy of a live SQLite file (plus -wal/-shm), reused while the source is unchanged.
- * Editors hold their stores open and may write mid-read; the snapshot means we never touch the original.
+ * Fallback only: a temporary copy of a live SQLite file (plus -wal/-shm) when it can't be opened in place.
+ * Never kept: the copy is removed when the process exits, so a large editor store never piles up on disk.
  */
 export function snapshotSqlite(file) {
-  const dir = path.join(os.tmpdir(), 'qbranch-snapshots', crypto.createHash('sha256').update(path.resolve(file)).digest('hex').slice(0, 16));
-  const parts = ['', '-wal', '-shm'].filter(s => fs.existsSync(file + s));
-  const stamp = JSON.stringify(parts.map(s => { const st = fs.statSync(file + s); return [s, st.size, st.mtimeMs]; }));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qbranch-snap-'));
+  process.once('exit', () => { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ } });
   const snap = path.join(dir, path.basename(file));
-  try { if (fs.readFileSync(path.join(dir, 'stamp'), 'utf8') === stamp && fs.existsSync(snap)) return snap; } catch {}
-  fs.mkdirSync(dir, { recursive: true });
-  for (const s of parts) fs.copyFileSync(file + s, snap + s);
-  fs.writeFileSync(path.join(dir, 'stamp'), stamp);
+  for (const s of ['', '-wal', '-shm']) if (fs.existsSync(file + s)) fs.copyFileSync(file + s, snap + s);
   return snap;
 }
 const CURSOR_TOOLS = { run_terminal_command_v2: 'Bash', run_terminal_cmd: 'Bash', read_file_v2: 'Read', read_file: 'Read', edit_file_v2: 'Edit', edit_file: 'Edit', search_replace: 'Edit',
@@ -321,6 +326,9 @@ export function* cursorBubbles(bubbles, { cwd, at, model: fallbackModel } = {}) 
     }
     const u = b.tokenCount;
     if (u && (u.inputTokens || u.outputTokens)) yield { t: 'usage', model: b.modelInfo?.modelName || fallbackModel || '', id: b.bubbleId, usage: { input_tokens: u.inputTokens || 0, output_tokens: u.outputTokens || 0 } };
+    // Cursor bills per request and (in every store seen so far) records zero tokens; the model is still known, which
+    // is enough to measure whether a model finishes a kind of task. `usage: null` = unpriced, not free.
+    else if (b.type === 2 && (b.modelInfo?.modelName || fallbackModel)) yield { t: 'usage', model: b.modelInfo?.modelName || fallbackModel, id: b.bubbleId, usage: null };
   }
 }
 function* cursorIdeSessions({ root, days }) {

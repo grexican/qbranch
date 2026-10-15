@@ -42,6 +42,12 @@ test('graduate only on evidence, judged per completed task', () => {
   assert.equal(decide(cfg, { prior: 'judgment', tiers: { opus: tier(30, 29, 30) } }).action, 'keep');
   assert.equal(decide(cfg, { prior: 'unclear', tiers: { opus: tier(30, 29, 30) } }).action, 'try-effort');
   assert.match(decide(cfg, { ...base, tiers: { sonnet: tier(20, 10, 4), opus: tier(10, 10, 10) } }).why, /move it up/);
+  // a platform that records no tokens (Cursor): graduate on outcomes alone, saving unknown, never "free"
+  const unpriced = (n, ok) => ({ ...tier(n, ok, 0), priced: 0 });
+  const g = decide(cfg, { ...base, tiers: { opus: unpriced(30, 29), sonnet: unpriced(12, 12) } });
+  assert.equal(g.action, 'graduate');
+  assert.equal(g.saving, null);
+  assert.match(g.why, /cost not recorded/);
 });
 
 test('hook: suggest, enforce, explore, and caller pins are respected', () => {

@@ -116,7 +116,7 @@ import path4 from "node:path";
 import crypto from "node:crypto";
 import zlib from "node:zlib";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 var PRICES = {
   "claude-fable-5-1": [10, 50, 12.5, 0.25],
   "claude-fable-5": [10, 50, 12.5, 0.25],
@@ -207,7 +207,11 @@ var toolName = (n) => SHELLS[n] || FILES[n] || n;
 var require_ = createRequire(import.meta.url);
 function openSqlite(file2) {
   const { DatabaseSync } = require_("node:sqlite");
-  return new DatabaseSync(snapshotSqlite(file2), { readOnly: true });
+  try {
+    return new DatabaseSync(`${pathToFileURL(file2).href}?mode=ro`, { readOnly: true });
+  } catch {
+    return new DatabaseSync(snapshotSqlite(file2), { readOnly: true });
+  }
 }
 var claudeHome = () => home("CLAUDE_CONFIG_DIR", ".claude");
 var encodeProject = (dir) => path4.resolve(dir).replace(/[^A-Za-z0-9]/g, "-");
@@ -444,20 +448,15 @@ function editorWorkspaces(user) {
   return out;
 }
 function snapshotSqlite(file2) {
-  const dir = path4.join(os2.tmpdir(), "qbranch-snapshots", crypto.createHash("sha256").update(path4.resolve(file2)).digest("hex").slice(0, 16));
-  const parts = ["", "-wal", "-shm"].filter((s) => fs3.existsSync(file2 + s));
-  const stamp = JSON.stringify(parts.map((s) => {
-    const st = fs3.statSync(file2 + s);
-    return [s, st.size, st.mtimeMs];
-  }));
+  const dir = fs3.mkdtempSync(path4.join(os2.tmpdir(), "qbranch-snap-"));
+  process.once("exit", () => {
+    try {
+      fs3.rmSync(dir, { recursive: true, force: true });
+    } catch {
+    }
+  });
   const snap = path4.join(dir, path4.basename(file2));
-  try {
-    if (fs3.readFileSync(path4.join(dir, "stamp"), "utf8") === stamp && fs3.existsSync(snap)) return snap;
-  } catch {
-  }
-  fs3.mkdirSync(dir, { recursive: true });
-  for (const s of parts) fs3.copyFileSync(file2 + s, snap + s);
-  fs3.writeFileSync(path4.join(dir, "stamp"), stamp);
+  for (const s of ["", "-wal", "-shm"]) if (fs3.existsSync(file2 + s)) fs3.copyFileSync(file2 + s, snap + s);
   return snap;
 }
 var CURSOR_TOOLS = {
@@ -515,6 +514,7 @@ exit code ${code}` : "")
     }
     const u = b.tokenCount;
     if (u && (u.inputTokens || u.outputTokens)) yield { t: "usage", model: b.modelInfo?.modelName || fallbackModel || "", id: b.bubbleId, usage: { input_tokens: u.inputTokens || 0, output_tokens: u.outputTokens || 0 } };
+    else if (b.type === 2 && (b.modelInfo?.modelName || fallbackModel)) yield { t: "usage", model: b.modelInfo?.modelName || fallbackModel, id: b.bubbleId, usage: null };
   }
 }
 function* cursorIdeSessions({ root, days }) {

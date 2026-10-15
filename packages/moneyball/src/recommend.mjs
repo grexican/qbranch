@@ -7,13 +7,13 @@ import { db } from './store.mjs';
 
 export function classStats(cfg) {
   const d = db(cfg);
-  const rows = d.prepare(`select c.id, c.label, c.prior, r.tier, count(*) n, sum(r.ok) ok, sum(r.cost) cost, sum(coalesce(r.credit, 0)) credit
+  const rows = d.prepare(`select c.id, c.label, c.prior, r.tier, count(*) n, sum(r.ok) ok, coalesce(sum(r.cost), 0) cost, sum(r.cost is not null) priced, sum(coalesce(r.credit, 0)) credit
     from runs r join classes c on c.id = r.class_id group by c.id, r.tier`).all();
   const classes = new Map();
   for (const r of rows) {
     const c = classes.get(r.id) || classes.set(r.id, { id: r.id, label: r.label, prior: r.prior, tiers: {}, n: 0, cost: 0, credit: 0 }).get(r.id);
     // per completed task, net of the delegation credit (parent context the subagent kept out; see scan.mjs)
-    c.tiers[r.tier] = { n: r.n, ok: r.ok, rate: r.ok / r.n, cost: r.cost, credit: r.credit, perTask: r.ok ? (r.cost - r.credit) / r.ok : Infinity };
+    c.tiers[r.tier] = { n: r.n, ok: r.ok, rate: r.ok / r.n, cost: r.cost, priced: r.priced, credit: r.credit, perTask: r.ok ? (r.cost - r.credit) / r.ok : Infinity };
     c.n += r.n; c.cost += r.cost; c.credit += r.credit;
   }
   return [...classes.values()];
@@ -35,6 +35,10 @@ export function decide(cfg, c) {
   const cand = c.tiers[down];
   if (cand && cand.n >= cfg.minRuns && cand.rate >= cfg.bar && cand.rate >= cur.rate - cfg.margin) {
     const perRun = cur.cost / cur.n, perRunDown = cand.cost / cand.n;
+    // the platform records no tokens (e.g. Cursor bills per request): graduate on outcomes alone, saving unknown
+    if (cur.priced === 0 || cand.priced === 0) {
+      return { action: 'graduate', from: top, to: down, why: `${down} passed ${cand.ok}/${cand.n} (${pct(cand.rate)}) vs ${top} ${pct(cur.rate)}; cost not recorded on this platform`, saving: null };
+    }
     // false savings: judge on cost per completed task, not per run
     if (cand.perTask < cur.perTask) {
       return { action: 'graduate', from: top, to: down, why: `${down} passed ${cand.ok}/${cand.n} (${pct(cand.rate)}) vs ${top} ${pct(cur.rate)}`,

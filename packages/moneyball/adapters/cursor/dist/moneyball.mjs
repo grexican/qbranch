@@ -257,7 +257,7 @@ import path4 from "node:path";
 import crypto from "node:crypto";
 import zlib from "node:zlib";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 var PRICES = {
   "claude-fable-5-1": [10, 50, 12.5, 0.25],
   "claude-fable-5": [10, 50, 12.5, 0.25],
@@ -349,7 +349,11 @@ var toolName = (n) => SHELLS[n] || FILES[n] || n;
 var require_ = createRequire(import.meta.url);
 function openSqlite(file) {
   const { DatabaseSync: DatabaseSync2 } = require_("node:sqlite");
-  return new DatabaseSync2(snapshotSqlite(file), { readOnly: true });
+  try {
+    return new DatabaseSync2(`${pathToFileURL(file).href}?mode=ro`, { readOnly: true });
+  } catch {
+    return new DatabaseSync2(snapshotSqlite(file), { readOnly: true });
+  }
 }
 var claudeHome = () => home("CLAUDE_CONFIG_DIR", ".claude");
 var encodeProject = (dir) => path4.resolve(dir).replace(/[^A-Za-z0-9]/g, "-");
@@ -586,20 +590,15 @@ function editorWorkspaces(user) {
   return out;
 }
 function snapshotSqlite(file) {
-  const dir = path4.join(os2.tmpdir(), "qbranch-snapshots", crypto.createHash("sha256").update(path4.resolve(file)).digest("hex").slice(0, 16));
-  const parts = ["", "-wal", "-shm"].filter((s) => fs3.existsSync(file + s));
-  const stamp = JSON.stringify(parts.map((s) => {
-    const st = fs3.statSync(file + s);
-    return [s, st.size, st.mtimeMs];
-  }));
+  const dir = fs3.mkdtempSync(path4.join(os2.tmpdir(), "qbranch-snap-"));
+  process.once("exit", () => {
+    try {
+      fs3.rmSync(dir, { recursive: true, force: true });
+    } catch {
+    }
+  });
   const snap = path4.join(dir, path4.basename(file));
-  try {
-    if (fs3.readFileSync(path4.join(dir, "stamp"), "utf8") === stamp && fs3.existsSync(snap)) return snap;
-  } catch {
-  }
-  fs3.mkdirSync(dir, { recursive: true });
-  for (const s of parts) fs3.copyFileSync(file + s, snap + s);
-  fs3.writeFileSync(path4.join(dir, "stamp"), stamp);
+  for (const s of ["", "-wal", "-shm"]) if (fs3.existsSync(file + s)) fs3.copyFileSync(file + s, snap + s);
   return snap;
 }
 var CURSOR_TOOLS2 = {
@@ -657,6 +656,7 @@ exit code ${code}` : "")
     }
     const u = b.tokenCount;
     if (u && (u.inputTokens || u.outputTokens)) yield { t: "usage", model: b.modelInfo?.modelName || fallbackModel || "", id: b.bubbleId, usage: { input_tokens: u.inputTokens || 0, output_tokens: u.outputTokens || 0 } };
+    else if (b.type === 2 && (b.modelInfo?.modelName || fallbackModel)) yield { t: "usage", model: b.modelInfo?.modelName || fallbackModel, id: b.bubbleId, usage: null };
   }
 }
 function* cursorIdeSessions({ root, days }) {
@@ -724,9 +724,9 @@ function* cursorSessions({ root, days }) {
     yield s;
   }
   const since = Date.now() - days * 864e5, base = path4.join(home("CURSOR_HOME", ".cursor"), "projects");
-  const slug = root ? cursorSlug(root).toLowerCase() : null;
+  const slug2 = root ? cursorSlug(root).toLowerCase() : null;
   for (const d of ls(base)) {
-    if (slug && !(d.toLowerCase() === slug || d.toLowerCase().startsWith(slug + "-"))) continue;
+    if (slug2 && !(d.toLowerCase() === slug2 || d.toLowerCase().startsWith(slug2 + "-"))) continue;
     const tdir = path4.join(base, d, "agent-transcripts");
     if (!isDir(tdir)) continue;
     let cwd = root || "";
@@ -1007,7 +1007,7 @@ function* geminiSessions({ root, days }) {
   const since = Date.now() - days * 864e5, gdir = path4.join(process.env.GEMINI_CLI_HOME || os2.homedir(), ".gemini"), base = path4.join(gdir, "tmp");
   const owner = /* @__PURE__ */ new Map();
   try {
-    for (const [p, slug] of Object.entries(JSON.parse(fs3.readFileSync(path4.join(gdir, "projects.json"), "utf8")).projects || {})) owner.set(slug, p);
+    for (const [p, slug2] of Object.entries(JSON.parse(fs3.readFileSync(path4.join(gdir, "projects.json"), "utf8")).projects || {})) owner.set(slug2, p);
   } catch {
   }
   const hash = root ? crypto.createHash("sha256").update(root).digest("hex") : null;
@@ -1195,7 +1195,7 @@ function classify(cfg, agentType, desc) {
 }
 
 // packages/moneyball/src/scan.mjs
-var promptTokens = (u) => (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+var promptTokens = (u) => !u ? 0 : (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
 var MAX_CARRY = 50;
 function delegationCredit({ startup, peak, report = "", parent }) {
   if (!parent?.model || !startup) return 0;
@@ -1240,13 +1240,16 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
     const id = `${s.platform}:${s.id}`;
     if (known.has(id)) continue;
     const models = {};
-    let cost = 0, calls = 0, toolCalls = 0, toolErrors = 0, startup = null, peak = 0;
+    let cost = 0, priced = false, calls = 0, toolCalls = 0, toolErrors = 0, startup = null, peak = 0;
     for (const e of s.events()) {
       if (e.t === "usage") {
         const m = modelId(e.model);
         models[m] = (models[m] || 0) + 1;
-        cost += costOf(e.model, e.usage);
         calls++;
+        if (e.usage) {
+          cost += costOf(e.model, e.usage);
+          priced = true;
+        }
         const ctx = promptTokens(e.usage);
         startup ??= ctx;
         peak = Math.max(peak, ctx);
@@ -1265,7 +1268,7 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
       description: desc,
       model,
       tier: tierOf(model),
-      cost,
+      cost: priced ? cost : null,
       calls,
       tool_calls: toolCalls,
       tool_errors: toolErrors,
@@ -1324,12 +1327,12 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
 // packages/moneyball/src/recommend.mjs
 function classStats(cfg) {
   const d = db(cfg);
-  const rows = d.prepare(`select c.id, c.label, c.prior, r.tier, count(*) n, sum(r.ok) ok, sum(r.cost) cost, sum(coalesce(r.credit, 0)) credit
+  const rows = d.prepare(`select c.id, c.label, c.prior, r.tier, count(*) n, sum(r.ok) ok, coalesce(sum(r.cost), 0) cost, sum(r.cost is not null) priced, sum(coalesce(r.credit, 0)) credit
     from runs r join classes c on c.id = r.class_id group by c.id, r.tier`).all();
   const classes = /* @__PURE__ */ new Map();
   for (const r of rows) {
     const c = classes.get(r.id) || classes.set(r.id, { id: r.id, label: r.label, prior: r.prior, tiers: {}, n: 0, cost: 0, credit: 0 }).get(r.id);
-    c.tiers[r.tier] = { n: r.n, ok: r.ok, rate: r.ok / r.n, cost: r.cost, credit: r.credit, perTask: r.ok ? (r.cost - r.credit) / r.ok : Infinity };
+    c.tiers[r.tier] = { n: r.n, ok: r.ok, rate: r.ok / r.n, cost: r.cost, priced: r.priced, credit: r.credit, perTask: r.ok ? (r.cost - r.credit) / r.ok : Infinity };
     c.n += r.n;
     c.cost += r.cost;
     c.credit += r.credit;
@@ -1349,6 +1352,9 @@ function decide(cfg, c) {
   const cand = c.tiers[down];
   if (cand && cand.n >= cfg.minRuns && cand.rate >= cfg.bar && cand.rate >= cur.rate - cfg.margin) {
     const perRun = cur.cost / cur.n, perRunDown = cand.cost / cand.n;
+    if (cur.priced === 0 || cand.priced === 0) {
+      return { action: "graduate", from: top, to: down, why: `${down} passed ${cand.ok}/${cand.n} (${pct(cand.rate)}) vs ${top} ${pct(cur.rate)}; cost not recorded on this platform`, saving: null };
+    }
     if (cand.perTask < cur.perTask) {
       return {
         action: "graduate",
@@ -1541,7 +1547,7 @@ var read = (p) => {
     return "";
   }
 };
-var home = () => process.env.CLAUDE_CONFIG_DIR || path8.join(os3.homedir(), ".claude");
+var home2 = () => process.env.CLAUDE_CONFIG_DIR || path8.join(os3.homedir(), ".claude");
 function instructionFiles(root) {
   const out = [], seen = /* @__PURE__ */ new Set();
   const add = (file, kind, depth = 0) => {
@@ -1560,13 +1566,13 @@ function instructionFiles(root) {
     for (const n of ["CLAUDE.md", "CLAUDE.local.md", path8.join(".claude", "CLAUDE.md")]) add(path8.join(d, n), d === path8.resolve(root) ? "project" : "ancestor");
     if (path8.dirname(d) === d) break;
   }
-  add(path8.join(home(), "CLAUDE.md"), "user");
+  add(path8.join(home2(), "CLAUDE.md"), "user");
   return out;
 }
-var walk = (dir, test, acc = []) => {
+var walk2 = (dir, test, acc = []) => {
   for (const e of exists(dir)?.isDirectory() ? fs6.readdirSync(dir, { withFileTypes: true }) : []) {
     const p = path8.join(dir, e.name);
-    if (e.isDirectory()) walk(p, test, acc);
+    if (e.isDirectory()) walk2(p, test, acc);
     else if (test(p)) acc.push(p);
   }
   return acc;
@@ -1577,8 +1583,8 @@ var listingTokens = (file) => {
 };
 function enabledPlugins(root) {
   const on = {};
-  for (const f of [path8.join(home(), "settings.json"), path8.join(root, ".claude", "settings.json"), path8.join(root, ".claude", "settings.local.json")]) Object.assign(on, readJson(f, {}).enabledPlugins || {});
-  const installed = readJson(path8.join(home(), "plugins", "installed_plugins.json"), {}).plugins || {};
+  for (const f of [path8.join(home2(), "settings.json"), path8.join(root, ".claude", "settings.json"), path8.join(root, ".claude", "settings.local.json")]) Object.assign(on, readJson(f, {}).enabledPlugins || {});
+  const installed = readJson(path8.join(home2(), "plugins", "installed_plugins.json"), {}).plugins || {};
   return Object.entries(on).filter(([, v]) => v).map(([id]) => {
     const inst = (installed[id] || []).find((i) => !i.projectPath || path8.resolve(i.projectPath) === path8.resolve(root)) || (installed[id] || [])[0];
     return { id, dir: inst?.installPath };
@@ -1596,18 +1602,18 @@ function mcpServers(root) {
 var mcpKey = (name) => name.replace(/[^A-Za-z0-9_-]/g, "_");
 function staticContributors(root, usage = null) {
   const rows = instructionFiles(root).map((f) => ({ ...f, label: f.path }));
-  for (const [kind, dir] of [["rules", path8.join(root, ".claude", "rules")], ["rules", path8.join(home(), "rules")]]) {
-    for (const f of walk(dir, (p) => p.endsWith(".md"))) rows.push({ kind, label: f, tokens: tok(read(f)) });
+  for (const [kind, dir] of [["rules", path8.join(root, ".claude", "rules")], ["rules", path8.join(home2(), "rules")]]) {
+    for (const f of walk2(dir, (p) => p.endsWith(".md"))) rows.push({ kind, label: f, tokens: tok(read(f)) });
   }
   const listing = (kind, label, files) => files.length && rows.push({ kind, label, count: files.length, tokens: files.reduce((a, f) => a + listingTokens(f), 0) });
-  const skillFiles = (d) => walk(d, (p) => path8.basename(p) === "SKILL.md");
-  const mdFiles = (d) => walk(d, (p) => p.endsWith(".md"));
+  const skillFiles = (d) => walk2(d, (p) => path8.basename(p) === "SKILL.md");
+  const mdFiles = (d) => walk2(d, (p) => p.endsWith(".md"));
   listing("skills", path8.join(root, ".claude", "skills"), skillFiles(path8.join(root, ".claude", "skills")));
-  listing("skills", path8.join(home(), "skills"), skillFiles(path8.join(home(), "skills")));
+  listing("skills", path8.join(home2(), "skills"), skillFiles(path8.join(home2(), "skills")));
   listing("commands", path8.join(root, ".claude", "commands"), mdFiles(path8.join(root, ".claude", "commands")));
-  listing("commands", path8.join(home(), "commands"), mdFiles(path8.join(home(), "commands")));
+  listing("commands", path8.join(home2(), "commands"), mdFiles(path8.join(home2(), "commands")));
   listing("agents", path8.join(root, ".claude", "agents"), mdFiles(path8.join(root, ".claude", "agents")));
-  listing("agents", path8.join(home(), "agents"), mdFiles(path8.join(home(), "agents")));
+  listing("agents", path8.join(home2(), "agents"), mdFiles(path8.join(home2(), "agents")));
   for (const p of enabledPlugins(root)) {
     if (!p.dir || !exists(p.dir)) {
       rows.push({ kind: "plugin", label: `${p.id} (enabled, not installed)`, tokens: 0 });
@@ -1730,7 +1736,7 @@ var read2 = (p) => {
     return null;
   }
 };
-var isDir = (p) => {
+var isDir2 = (p) => {
   try {
     return fs7.statSync(p).isDirectory();
   } catch {
@@ -1770,7 +1776,7 @@ function deriveVariants(root, { condensed = null, usage = null } = {}) {
     ops: instr.map((p) => ({ op: "remove", path: p }))
   });
   const skills = path9.join(root, ".claude", "skills");
-  if (isDir(skills) && fs7.readdirSync(skills).length) out.push({
+  if (isDir2(skills) && fs7.readdirSync(skills).length) out.push({
     id: "no-project-skills",
     kind: "trim-skills",
     description: "no project skills in the startup listing (load them just in time instead, e.g. headjack)",
@@ -1787,8 +1793,8 @@ function deriveVariants(root, { condensed = null, usage = null } = {}) {
   }
   return out;
 }
-var sizeOf = (p) => isDir(p) ? walk2(p).reduce((a, f) => a + tok(read2(f)), 0) : tok(read2(p));
-var walk2 = (d) => fs7.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk2(path9.join(d, e.name)) : [path9.join(d, e.name)]);
+var sizeOf = (p) => isDir2(p) ? walk3(p).reduce((a, f) => a + tok(read2(f)), 0) : tok(read2(p));
+var walk3 = (d) => fs7.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk3(path9.join(d, e.name)) : [path9.join(d, e.name)]);
 function applyVariant(dir, v) {
   for (const o of v.ops) {
     const p = path9.join(dir, o.path);
@@ -1850,7 +1856,7 @@ function patchFor(root, v) {
   for (const o of v.ops) {
     const p = path9.join(root, o.path);
     if (o.op === "write") parts.push(unifiedDiff(read2(p), o.content, o.path));
-    else for (const f of isDir(p) ? walk2(p) : [p]) {
+    else for (const f of isDir2(p) ? walk3(p) : [p]) {
       const rel = posix(path9.relative(root, f));
       if (binary(f)) manual.push(rel);
       else parts.push(unifiedDiff(read2(f), null, rel));
@@ -1864,7 +1870,7 @@ ${manual.map((f) => `  ${f}`).join("\n")}
 }
 function writeVariants(cfg, variants) {
   const dir = expDir(cfg);
-  if (isDir(dir)) {
+  if (isDir2(dir)) {
     for (const d of fs7.readdirSync(dir)) if (fs7.existsSync(path9.join(dir, d, "manifest.json"))) fs7.rmSync(path9.join(dir, d), { recursive: true, force: true });
   }
   for (const v of variants) {
@@ -1877,7 +1883,7 @@ function writeVariants(cfg, variants) {
 }
 function loadVariants(cfg) {
   const dir = expDir(cfg);
-  if (!isDir(dir)) return [];
+  if (!isDir2(dir)) return [];
   return fs7.readdirSync(dir).map((d) => read2(path9.join(dir, d, "manifest.json"))).filter(Boolean).map((t) => JSON.parse(t));
 }
 async function condense(root, { budget, model = "sonnet", run = claudeProbe }) {

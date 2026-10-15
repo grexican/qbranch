@@ -5,7 +5,7 @@
 import { sessions, costOf, tierOf, modelId, PRICES } from '@qbranch/core';
 import { db, classify } from './store.mjs';
 
-const promptTokens = (u) => (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+const promptTokens = (u) => !u ? 0 : (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
 const MAX_CARRY = 50; // parent turns we credit at most: long sessions compact, so context is not carried forever
 
 /**
@@ -57,10 +57,12 @@ export async function scan(cfg, { days = cfg.days, allProjects = false, onProgre
   for (const s of subs) {
     const id = `${s.platform}:${s.id}`;
     if (known.has(id)) continue;
-    const models = {}; let cost = 0, calls = 0, toolCalls = 0, toolErrors = 0, startup = null, peak = 0;
+    const models = {}; let cost = 0, priced = false, calls = 0, toolCalls = 0, toolErrors = 0, startup = null, peak = 0;
     for (const e of s.events()) {
       if (e.t === 'usage') {
-        const m = modelId(e.model); models[m] = (models[m] || 0) + 1; cost += costOf(e.model, e.usage); calls++;
+        // usage null = the platform records no tokens (e.g. Cursor bills per request): unpriced, not free
+        const m = modelId(e.model); models[m] = (models[m] || 0) + 1; calls++;
+        if (e.usage) { cost += costOf(e.model, e.usage); priced = true; }
         const ctx = promptTokens(e.usage); startup ??= ctx; peak = Math.max(peak, ctx);
       }
       else if (e.t === 'tool') toolCalls++;
@@ -71,7 +73,7 @@ export async function scan(cfg, { days = cfg.days, allProjects = false, onProgre
     const desc = s.meta.description || '';
     const report = parentReports.get(s.meta.toolUseId) || '';
     rows.push({ id, session: s.parent || s.id, platform: s.platform, agent_type: s.meta.agentType || 'agent', description: desc, model, tier: tierOf(model),
-      cost, calls, tool_calls: toolCalls, tool_errors: toolErrors, fail_words: FAIL.test(report.slice(-1500)) ? 1 : 0, mtime: s.mtime,
+      cost: priced ? cost : null, calls, tool_calls: toolCalls, tool_errors: toolErrors, fail_words: FAIL.test(report.slice(-1500)) ? 1 : 0, mtime: s.mtime,
       startup_tokens: startup || 0, credit: delegationCredit({ startup, peak, report, parent: parentAfter.get(s.meta.toolUseId) }) });
     onProgress?.(rows.length);
   }
