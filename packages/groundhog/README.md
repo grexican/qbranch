@@ -23,6 +23,7 @@ Across one developer's last 30 days (1,187 sessions, 81k shell commands), the sa
 | **Miner** | Reads transcripts and normalizes each shell command to its shape (paths, strings and numbers generalized; `cd` prefixes and wrappers stripped; `npx tsc` and `npx vitest` kept apart). Looking around (grep, cat, ls) is ignored. A lesson needs the fix to be *related* to the failure, to recur in 2+ sessions, and to point one way: A→B and B→A both is flailing, not a fix. |
 | **Ledger** | `groundhog.lessons.json`, committed: each lesson is a command pattern, what to do instead, and which shell it applies to. You accept mined lessons (or write your own); nothing is enforced without review. |
 | **Hooks** | `SessionStart` injects the ledger as a short list. `PreToolUse` on shell commands blocks the first matching command per session with the fix, then lets it through with a reminder, so a false positive can never deadlock the agent. |
+| **Replay check** | `groundhog accept L3 --verify --budget 1` proves a lesson before it goes in. It replays real past tasks where the failure happened, in a throwaway sandbox, once without the lesson and once with it (the real hooks enforce it in both runs). A held-out sample of unrelated recurring tasks then runs the same way: the **no-regression gate** rejects any lesson whose presence turns a pass into a fail. The evidence goes into the ledger entry. |
 | **Runbook drafts** | `groundhog draft S3` turns a repeated sequence into an Agent Skill draft. Adopt it into your skill library; when its steps stop changing, promote it to a script. |
 | **Stats** | `.groundhog-stats.json`: injections, guard hits and denies, and whether each accepted lesson's failing command still recurs. |
 
@@ -63,11 +64,11 @@ Native packages are in [`adapters/`](adapters/): a Cursor plugin, a Codex plugin
 | Platform | What works |
 |---|---|
 | Claude Code | everything |
-| GitHub Copilot (CLI, VS Code) | mining reads Claude Code transcripts today |
-| Cursor | mining reads Claude Code transcripts today |
-| OpenAI Codex | mining reads Claude Code transcripts today |
-| Gemini CLI | mining reads Claude Code transcripts today |
-| Windsurf / Devin | no session-start context; the guard blocks; mining reads Claude Code transcripts today |
+| GitHub Copilot (CLI, VS Code) | mining reads VS Code Copilot Chat and Copilot CLI sessions (storage verified on a real install; message details unverified); --verify replays with Claude Code |
+| Cursor | mining reads Cursor IDE conversations and agent CLI transcripts (verified on real data); --verify replays with Claude Code |
+| OpenAI Codex | mining reads Codex rollouts (format checked against the Codex source, not yet seen on a real install); --verify replays with Claude Code |
+| Gemini CLI | mining reads Gemini CLI chats (format checked against the Gemini CLI source, not yet seen on a real install); --verify replays with Claude Code |
+| Windsurf / Devin | no session-start context; the guard blocks; no Windsurf transcript reader yet; --verify replays with Claude Code |
 <!-- /generated:install -->
 
 ## Commands
@@ -76,13 +77,49 @@ Native packages are in [`adapters/`](adapters/): a Cursor plugin, a Codex plugin
 groundhog scan [--days 30] [--all-projects]    # mine recent transcripts
 groundhog report [--json]                      # numbered candidates: L (lessons), S (sequences), F (friction), R (repeats)
 groundhog accept L3                            # add a mined lesson to the ledger
+groundhog accept L3 --verify --budget 1        # ...only if replaying past tasks proves it helps and breaks nothing
+groundhog verify [L1] --budget 2               # re-check accepted lessons; one that breaks another task is flagged
+                                               #   [--model haiku] [--tasks 2] [--held-out 2] [--repeats 1] [--days 30]
 groundhog add --when '<regex>' --instead '<what to do>' [--remind]   # write one by hand (--remind never blocks)
 groundhog lessons                              # list the ledger
 groundhog draft S2 --name verify-backend       # runbook skill draft under .groundhog/drafts/
 groundhog stats                                # is it working?
 ```
 
-**Review every lesson before you accept it.** Mined fixes can go stale: on one machine the top mined lesson was "`python` fails, use `python3`", but by then both were broken and only `py -3` worked. The ledger got the corrected lesson instead.
+**Review every lesson before you accept it**, and verify it when you can. Mined fixes can go stale: on one machine the top mined lesson was "`python` fails, use `python3`", but by then both were broken and only `py -3` worked. The ledger got the corrected lesson instead.
+
+## Proving a lesson: `--verify`
+
+A lesson that reads well can still be wrong. `--verify` checks it against real work before it is enforced:
+
+1. **Find the evidence.** From the transcripts, take the read-only tasks where the lesson's failing command actually ran and failed (cheapest first). A task is a session's first real prompt; sessions whose prompts share most of their words are one recurring task.
+2. **Replay without and with.** Each task runs headless (`claude -p`) in a throwaway git worktree, never the live tree: once with the current ledger, once with the lesson added. Both runs install the real groundhog hooks, so the measurement is the lesson as enforced.
+3. **Grade deterministically.** The checks come from the original run: it completed, it changed the files the original changed, the commands that worked then work now, and the lesson's own failure did not happen. A command the guard blocked counts as prevented, not failed. An LLM judge is used only for a task with no deterministic check.
+4. **Gate regressions.** A held-out sample of unrelated recurring tasks runs both ways too. If the lesson turns any pass into a fail, it is rejected (`accept`) or flagged in the ledger (`verify`).
+
+The verdict is `helps` or `neutral` (accepted), `hurts` or `regressed` (rejected), or `no-evidence` / `inconclusive` when nothing could be replayed within the budget. The evidence is stored with the lesson:
+
+```json
+"verified": { "at": "2026-10-15T12:00:00Z", "tasks": 3, "before": { "runs": 1, "passRate": 0, "meanScore": 0.5 },
+              "after": { "runs": 1, "passRate": 1, "meanScore": 1 }, "regressions": [], "costUsd": 0.41, "verdict": "helps" }
+```
+
+**Safety.** Only tasks whose original run made no writes outside the repo and no outbound side effects (push, deploy, publish, messages, MCP writes) are replayed. The same rules run again as a PreToolUse guard during the replay. Git hooks are disabled in the sandbox and a pre-push hook refuses every push; MCP servers and user-level hooks are off; each run has a hard dollar cap (`--max-budget-usd`) and a kill timer. The guard reads commands, not what a script does on its own, so treat it as a strong filter, not an OS sandbox. Nothing spends money without `--budget`.
+
+One replay per variant is a single sample: a model can pass or fail the same task by chance. Use `--repeats 2` or more when the verdict matters more than the cost.
+
+## How groundhog compares to SkillOpt
+
+Microsoft's [SkillOpt-Sleep](https://github.com/microsoft/SkillOpt) mines agent transcripts, replays recurring tasks, and keeps an edit to CLAUDE.md or a skill only if it scores better on held-out tasks (`gate_no_regression` rejects any edit that lowers a held-out task). groundhog borrows its task mining, held-out gating and transcript locations, and differs on purpose:
+
+| | SkillOpt-Sleep | groundhog |
+|---|---|---|
+| What it changes | rewrites instruction text (CLAUDE.md, skills) | a ledger of narrow lessons, each enforced by a hook at the moment it applies |
+| How a task is replayed | single-shot text: the model answers the prompt without tools | a real headless agent run with tools, in a throwaway worktree |
+| How a replay is graded | rubric or rule judges over the answer text | deterministic checks from the original run (files changed, commands that worked, the failure gone) before any judge |
+| Safety | replays are tool-less | read-only filter on what may replay, a runtime guard, pushes blocked, a dollar cap per run |
+
+In short: **they write down the lesson; we stop the mistake, and now we prove it first.** SkillOpt is the broader tool: it optimizes whole skills, reads more agents (Devin, OpenClaw and VS Code Copilot Chat too), and ships an evaluation kit. groundhog does one narrow thing.
 
 ## Is it working? `groundhog stats`
 
@@ -108,11 +145,18 @@ The number that matters is the last line: an accepted lesson whose failing comma
 ## Evidence
 
 - **Verified live in Claude Code:** the lesson was injected at session start, the matching command was denied once and allowed on the forced retry, and the agent named the lesson in its answer.
+- **Replay verification, run live** (Windows, `--model haiku`, 1 target task and 1 held-out task, about $0.40 per verification). The ledger's hand-written lesson "`python` is broken here, use `py -3`" was checked with `groundhog verify L1 --repeats 3`: without it the task's `python` call failed in 3 of 3 runs, and with it 2 of 3 runs avoided the failure (pass 0 → 0.67). The held-out task passed 3 of 3 both ways, so the verdict was `helps`. A mined duplicate of the same lesson came out `neutral` (1/3 → 1/3), since the ledger already covered it. Its first single-sample run read `regressed`, which was noise. That is why the CLI now asks you to confirm any non-neutral one-sample verdict with `--repeats 3`.
 - **The miner was tuned on real data, not by feel.** The first scan proposed "`tsc` fails → `vitest` works" (two steps of a verify run, not a fix) and missed the real Python lessons. Runner-aware program names, kept inline scripts and the one-way rule fixed both.
 
 ## Requirements
 
-Node 22.13+. Transcripts: Claude Code today; the reader is pluggable for other agents.
+Node 22.13+. Transcripts (readers in `@qbranch/core/transcripts`):
+
+- **Verified on real data:** Claude Code, and Cursor (IDE conversations and agent CLI transcripts). On one machine the Cursor history gave 614 sessions and 13,316 shell calls with results, which mined into 28 lesson candidates. Cursor's store can be several GB; it is read from a snapshot copy, never in place, and the copy is reused until Cursor writes again.
+- **Checked against the writer's source, not yet seen on a real install:** Codex (rollouts, including compressed `.jsonl.zst`, which needs Node 22.15+) and Gemini CLI (JSONL chat logs).
+- **Storage verified, message details not:** VS Code Copilot Chat and Copilot CLI. OpenCode and Pi follow SkillOpt's readers.
+
+`--verify` needs the `claude` CLI.
 
 ## From Q Branch
 

@@ -3,8 +3,9 @@
 import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);
 
 // packages/groundhog/bin/groundhog.mjs
-import fs7 from "node:fs";
-import path9 from "node:path";
+import fs9 from "node:fs";
+import path11 from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // packages/core/src/project.mjs
 import fs from "node:fs";
@@ -30,6 +31,14 @@ async function readStdin() {
   let raw = "";
   for await (const c of process.stdin) raw += c;
   return raw;
+}
+async function selfCommand(tool, script) {
+  try {
+    const sea = await import("node:sea");
+    if (sea.isSea()) return [process.execPath, [tool]];
+  } catch {
+  }
+  return [process.execPath, [script]];
 }
 
 // packages/core/src/stats.mjs
@@ -104,7 +113,103 @@ var CACHE = path3.join(os.homedir(), ".qbranch", "models");
 import fs3 from "node:fs";
 import os2 from "node:os";
 import path4 from "node:path";
-var claudeHome = () => process.env.CLAUDE_CONFIG_DIR || path4.join(os2.homedir(), ".claude");
+import crypto from "node:crypto";
+import zlib from "node:zlib";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+var PRICES = {
+  "claude-fable-5-1": [10, 50, 12.5, 0.25],
+  "claude-fable-5": [10, 50, 12.5, 0.25],
+  "claude-opus-5-5": [4, 20, 5, 0.2],
+  "claude-opus-5": [5, 25, 6.25, 0.25],
+  "claude-opus-4-8": [5, 25, 6.25, 0.5],
+  "claude-sonnet-5-5": [2, 10, 2.5, 0.2],
+  "claude-sonnet-5": [2, 10, 2.5, 0.2],
+  "claude-sonnet-4-6": [3, 15, 3.75, 0.3],
+  "claude-haiku-5-5": [0.1, 0.5, 0.125, 0.01],
+  "claude-haiku-4-5": [1, 5, 1.25, 0.1]
+};
+var modelId = (m) => (m || "").replace(/-\d{8}$/, "");
+function costOf(model, u, prices = PRICES) {
+  const p = prices[modelId(model)];
+  if (!p || !u) return 0;
+  return ((u.input_tokens || 0) * p[0] + (u.output_tokens || 0) * p[1] + (u.cache_creation_input_tokens || 0) * p[2] + (u.cache_read_input_tokens || 0) * p[3]) / 1e6;
+}
+var home = (env, dir) => process.env[env] || path4.join(os2.homedir(), dir);
+var mtimeOf = (f) => {
+  try {
+    return fs3.statSync(f).mtimeMs;
+  } catch {
+    return 0;
+  }
+};
+var isDir = (d) => {
+  try {
+    return fs3.statSync(d).isDirectory();
+  } catch {
+    return false;
+  }
+};
+var ls = (d) => {
+  try {
+    return fs3.readdirSync(d);
+  } catch {
+    return [];
+  }
+};
+var within = (p, root) => {
+  if (!p || !root) return false;
+  const r = path4.relative(path4.resolve(root), path4.resolve(p));
+  return !r.startsWith("..") && !path4.isAbsolute(r);
+};
+function readText(file2) {
+  if (!file2.endsWith(".zst")) return fs3.readFileSync(file2, "utf8");
+  return zlib.zstdDecompressSync ? zlib.zstdDecompressSync(fs3.readFileSync(file2)).toString("utf8") : "";
+}
+function jsonl(file2) {
+  const out = [];
+  let raw;
+  try {
+    raw = readText(file2);
+  } catch {
+    return out;
+  }
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const v = JSON.parse(line);
+      if (v && typeof v === "object") out.push(v);
+    } catch {
+    }
+  }
+  return out;
+}
+function* walk(dir, pred, depth = 6) {
+  for (const f of ls(dir)) {
+    const p = path4.join(dir, f);
+    if (isDir(p)) {
+      if (depth > 0) yield* walk(p, pred, depth - 1);
+    } else if (pred(f, p)) yield p;
+  }
+}
+var textOf = (c) => typeof c === "string" ? c : Array.isArray(c) ? c.map((b) => typeof b === "string" ? b : b?.text ?? "").filter(Boolean).join("\n") : c?.text ?? "";
+var parseArgs = (a) => {
+  if (a && typeof a === "object") return a;
+  try {
+    return JSON.parse(a);
+  } catch {
+    return { value: a };
+  }
+};
+var SHELLS = { bash: "Bash", shell: "Bash", sh: "Bash", run_shell_command: "Bash", run_terminal_cmd: "Bash", Shell: "Bash", powershell: "PowerShell", pwsh: "PowerShell" };
+var FILES = { write: "Write", write_file: "Write", create: "Write", edit: "Edit", replace: "Edit", str_replace: "Edit", read: "Read", read_file: "Read", view: "Read" };
+var toolName = (n) => SHELLS[n] || FILES[n] || n;
+var require_ = createRequire(import.meta.url);
+function openSqlite(file2) {
+  const { DatabaseSync } = require_("node:sqlite");
+  return new DatabaseSync(snapshotSqlite(file2), { readOnly: true });
+}
+var claudeHome = () => home("CLAUDE_CONFIG_DIR", ".claude");
 var encodeProject = (dir) => path4.resolve(dir).replace(/[^A-Za-z0-9]/g, "-");
 function claudeProjectDirs(root) {
   const base = path4.join(claudeHome(), "projects");
@@ -115,6 +220,7 @@ function claudeProjectDirs(root) {
 }
 function* claudeEvents(file2) {
   const seen = /* @__PURE__ */ new Map();
+  let meta = false;
   for (const line of fs3.readFileSync(file2, "utf8").split("\n")) {
     if (!line) continue;
     let m;
@@ -123,9 +229,16 @@ function* claudeEvents(file2) {
     } catch {
       continue;
     }
+    if (!meta && m.cwd) {
+      meta = true;
+      yield { t: "meta", cwd: m.cwd, at: m.timestamp, entrypoint: m.entrypoint };
+    }
     if (m.type === "assistant" && m.message) {
       if (m.message.usage) seen.set(m.message.id || m.uuid, { t: "usage", model: m.message.model, usage: m.message.usage, id: m.message.id });
-      for (const b of m.message.content || []) if (b.type === "tool_use") yield { t: "tool", name: b.name, input: b.input || {}, id: b.id };
+      for (const b of m.message.content || []) {
+        if (b.type === "tool_use") yield { t: "tool", name: b.name, input: b.input || {}, id: b.id };
+        else if (b.type === "text" && b.text) yield { t: "text", text: b.text };
+      }
     } else if (m.type === "user" && m.message) {
       const c = m.message.content;
       if (typeof c === "string") {
@@ -167,9 +280,702 @@ function* claudeSessions({ root, days }) {
     }
   }
 }
-var READERS = { "claude-code": claudeSessions };
+function codexShell(name, a) {
+  let c = a.command ?? a.cmd ?? a.action?.command;
+  if (c == null || !/shell|exec|command/i.test(name)) return null;
+  let tool = "Bash";
+  if (Array.isArray(c)) {
+    if (/^(pwsh|powershell)(\.exe)?$/i.test(path4.basename(String(c[0] || "")))) tool = "PowerShell";
+    const i = c.findIndex((x) => /^-(lc|c|command)$/i.test(x));
+    c = (i >= 0 ? c.slice(i + 1) : c).join(" ");
+  }
+  return { name: tool, input: { command: String(c), ...a.workdir ? { cwd: a.workdir } : {} } };
+}
+function codexOutput(o) {
+  let text = typeof o === "string" ? o : Array.isArray(o) ? textOf(o) : JSON.stringify(o ?? ""), code = null;
+  try {
+    const j = JSON.parse(text);
+    if (j && typeof j === "object") {
+      code = j.metadata?.exit_code ?? j.exit_code ?? null;
+      text = j.output ?? text;
+    }
+  } catch {
+  }
+  if (code == null) {
+    const m = String(text).match(/(?:exit code|exit_code|exited with code)[:\s]+(-?\d+)/i);
+    if (m) code = Number(m[1]);
+  }
+  return { text: String(text), isError: code != null && code !== 0 };
+}
+function* codexEvents(file2) {
+  const recs = jsonl(file2).map((r) => r.payload && typeof r.payload === "object" ? { ...r.payload, _w: r.type, _ts: r.timestamp } : r);
+  const evUser = recs.some((p) => p.type === "user_message"), evAgent = recs.some((p) => p.type === "agent_message");
+  let model = "", lastTotal = -1, n = 0, meta = false;
+  for (const p of recs) {
+    if (!meta && p.cwd) {
+      meta = true;
+      yield { t: "meta", cwd: p.cwd, at: p.timestamp || p._ts };
+    }
+    if (p.model && (p._w === "turn_context" || !p.type)) model = p.model;
+    const say = (role, text) => {
+      text = (text || "").trim();
+      if (!text || text.startsWith("<") || text.startsWith("# AGENTS.md")) return null;
+      return role === "user" ? { t: "user", text } : { t: "text", text };
+    };
+    let e = null;
+    switch (p.type) {
+      case "message":
+        if (p.role === "user" && !evUser) e = say("user", textOf(p.content));
+        else if (p.role === "assistant" && !evAgent) e = say("assistant", textOf(p.content));
+        break;
+      case "user_message":
+        e = say("user", textOf(p.message));
+        break;
+      case "agent_message":
+        e = say("assistant", textOf(p.message));
+        break;
+      case "function_call":
+      case "custom_tool_call":
+      case "local_shell_call": {
+        const a = p.type === "local_shell_call" ? { command: p.action?.command } : parseArgs(p.arguments ?? p.input);
+        const sh = codexShell(p.type === "local_shell_call" ? "shell" : p.name || "", a);
+        e = sh ? { t: "tool", ...sh, id: p.call_id || p.id } : { t: "tool", name: toolName(p.name || p.type), input: typeof a === "object" ? a : { value: a }, id: p.call_id || p.id };
+        break;
+      }
+      case "function_call_output":
+      case "custom_tool_call_output":
+        e = { t: "result", id: p.call_id, ...codexOutput(p.output) };
+        break;
+      case "token_count": {
+        const tot = p.info?.total_token_usage?.total_tokens, u = p.info?.last_token_usage;
+        if (!u || tot === lastTotal) break;
+        lastTotal = tot;
+        const cached = u.cached_input_tokens || 0, wrote = u.cache_write_input_tokens || 0;
+        e = { t: "usage", model, id: `codex-${n++}`, usage: { input_tokens: Math.max(0, (u.input_tokens || 0) - cached - wrote), output_tokens: u.output_tokens || 0, cache_read_input_tokens: cached, cache_creation_input_tokens: wrote } };
+        break;
+      }
+    }
+    if (e) yield e;
+  }
+}
+function headCwd(file2, pick2) {
+  let head2 = "";
+  if (file2.endsWith(".zst")) {
+    try {
+      head2 = readText(file2);
+    } catch {
+    }
+  } else {
+    let fd;
+    try {
+      fd = fs3.openSync(file2, "r");
+      const buf = Buffer.alloc(1 << 20);
+      head2 = buf.subarray(0, fs3.readSync(fd, buf, 0, buf.length, 0)).toString("utf8");
+    } catch {
+    } finally {
+      if (fd !== void 0) fs3.closeSync(fd);
+    }
+  }
+  for (const line of head2.split("\n")) {
+    try {
+      const c = pick2(JSON.parse(line));
+      if (c) return c;
+    } catch {
+    }
+  }
+  return "";
+}
+function* codexSessions({ root, days }) {
+  const since = Date.now() - days * 864e5, base = home("CODEX_HOME", ".codex");
+  const isRollout = (f) => /^rollout-.*\.jsonl(\.zst)?$/.test(f);
+  const files = [...walk(path4.join(base, "sessions"), isRollout), ...walk(path4.join(base, "archived_sessions"), isRollout, 0)];
+  for (const file2 of files) {
+    const mtime = mtimeOf(file2);
+    if (mtime <= since) continue;
+    const cwd = headCwd(file2, (r) => (r.payload || r).cwd);
+    if (root && !within(cwd, root)) continue;
+    yield { platform: "codex", id: path4.basename(file2).replace(/\.jsonl(\.zst)?$/, ""), file: file2, kind: "main", meta: { cwd }, mtime, events: () => codexEvents(file2) };
+  }
+}
+var cursorSlug = (dir) => path4.resolve(dir).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+function* cursorEvents(file2, cwd) {
+  if (cwd) yield { t: "meta", cwd, at: null };
+  let n = 0;
+  for (const r of jsonl(file2)) {
+    const role = r.role || r.message?.role, c = r.message?.content;
+    if (!role || !c) continue;
+    if (role === "user") {
+      let text = textOf(c).trim();
+      const q2 = text.match(/<user_query>\s*([\s\S]*?)\s*<\/user_query>\s*$/);
+      if (q2) text = q2[1];
+      if (text && !text.startsWith("<")) yield { t: "user", text };
+      for (const b of Array.isArray(c) ? c : []) if (b.type === "tool_result") yield { t: "result", id: b.tool_use_id, isError: !!b.is_error, text: textOf(b.content) };
+    } else if (role === "assistant") {
+      for (const b of Array.isArray(c) ? c : [{ type: "text", text: c }]) {
+        if (b.type === "tool_use") {
+          const input = b.input || {};
+          yield { t: "tool", name: toolName(b.name), input: input.path && !input.file_path ? { ...input, file_path: input.path } : input, id: b.id || `cursor-${n++}` };
+        } else if (b.type === "text" && b.text) yield { t: "text", text: b.text };
+      }
+    }
+  }
+}
+function editorUserDirs(app, env) {
+  if (process.env[env]) return [process.env[env]];
+  const base = process.platform === "win32" ? process.env.APPDATA || path4.join(os2.homedir(), "AppData", "Roaming") : process.platform === "darwin" ? path4.join(os2.homedir(), "Library", "Application Support") : process.env.XDG_CONFIG_HOME || path4.join(os2.homedir(), ".config");
+  return app.map((a) => path4.join(base, a, "User"));
+}
+var uriPath = (u) => {
+  try {
+    return typeof u === "string" && u.startsWith("file:") ? fileURLToPath(u) : "";
+  } catch {
+    return "";
+  }
+};
+function editorWorkspaces(user) {
+  const out = /* @__PURE__ */ new Map();
+  for (const id of ls(path4.join(user, "workspaceStorage"))) {
+    try {
+      const w = JSON.parse(fs3.readFileSync(path4.join(user, "workspaceStorage", id, "workspace.json"), "utf8"));
+      out.set(id, uriPath(w.folder) || uriPath(w.workspace) && path4.dirname(uriPath(w.workspace)));
+    } catch {
+    }
+  }
+  return out;
+}
+function snapshotSqlite(file2) {
+  const dir = path4.join(os2.tmpdir(), "qbranch-snapshots", crypto.createHash("sha256").update(path4.resolve(file2)).digest("hex").slice(0, 16));
+  const parts = ["", "-wal", "-shm"].filter((s) => fs3.existsSync(file2 + s));
+  const stamp = JSON.stringify(parts.map((s) => {
+    const st = fs3.statSync(file2 + s);
+    return [s, st.size, st.mtimeMs];
+  }));
+  const snap = path4.join(dir, path4.basename(file2));
+  try {
+    if (fs3.readFileSync(path4.join(dir, "stamp"), "utf8") === stamp && fs3.existsSync(snap)) return snap;
+  } catch {
+  }
+  fs3.mkdirSync(dir, { recursive: true });
+  for (const s of parts) fs3.copyFileSync(file2 + s, snap + s);
+  fs3.writeFileSync(path4.join(dir, "stamp"), stamp);
+  return snap;
+}
+var CURSOR_TOOLS = {
+  run_terminal_command_v2: "Bash",
+  run_terminal_cmd: "Bash",
+  read_file_v2: "Read",
+  read_file: "Read",
+  edit_file_v2: "Edit",
+  edit_file: "Edit",
+  search_replace: "Edit",
+  write: "Write",
+  delete_file: "Delete",
+  ripgrep_raw_search: "Grep",
+  grep_search: "Grep",
+  glob_file_search: "Glob",
+  list_dir_v2: "LS",
+  list_dir: "LS",
+  web_search: "WebSearch",
+  web_fetch: "WebFetch",
+  task_v2: "Task",
+  todo_write: "TodoWrite"
+};
+var cursorTool = (n = "") => {
+  if (CURSOR_TOOLS[n]) return CURSOR_TOOLS[n];
+  const m = n.match(/^mcp-(.+?)-project-\d+-(.+)$/);
+  if (m) return `mcp__${m[1]}__${m[2].startsWith(m[1] + "-") ? m[2].slice(m[1].length + 1) : m[2]}`;
+  return n.startsWith("mcp-") ? `mcp__cursor__${n.slice(4)}` : n;
+};
+function* cursorBubbles(bubbles, { cwd, at, model: fallbackModel } = {}) {
+  yield { t: "meta", cwd: cwd || "", at: at || null };
+  for (const b of bubbles) {
+    if (!b) continue;
+    const text = typeof b.text === "string" ? b.text.trim() : "";
+    if (b.type === 1) {
+      if (text && !text.startsWith("<")) yield { t: "user", text };
+      continue;
+    }
+    if (text) yield { t: "text", text };
+    const tf = b.toolFormerData;
+    if (tf?.name) {
+      const id = tf.toolCallId || b.bubbleId, input = parseArgs(tf.params || tf.rawArgs || "{}");
+      const file2 = input.targetFile ?? input.relativeWorkspacePath ?? input.target_file ?? input.path;
+      yield { t: "tool", name: cursorTool(tf.name), input: file2 && !input.file_path ? { ...input, file_path: file2 } : input, id };
+      if (/^(completed|error|cancelled)$/.test(tf.status || "")) {
+        const res = typeof tf.result === "string" ? parseArgs(tf.result) : tf.result || {};
+        const code = res.exitCode ?? null;
+        yield {
+          t: "result",
+          id,
+          isError: tf.status !== "completed" || tf.additionalData?.status === "error" || !!res.rejected || code != null && code !== 0,
+          text: res.rejected ? "rejected by the user" : String(res.output ?? res.value ?? (typeof tf.result === "string" ? tf.result : "")) + (code ? `
+exit code ${code}` : "")
+        };
+      }
+    }
+    const u = b.tokenCount;
+    if (u && (u.inputTokens || u.outputTokens)) yield { t: "usage", model: b.modelInfo?.modelName || fallbackModel || "", id: b.bubbleId, usage: { input_tokens: u.inputTokens || 0, output_tokens: u.outputTokens || 0 } };
+  }
+}
+function* cursorIdeSessions({ root, days }) {
+  const since = Date.now() - days * 864e5;
+  for (const user of editorUserDirs(["Cursor"], "CURSOR_USER_DIR")) {
+    const file2 = path4.join(user, "globalStorage", "state.vscdb");
+    if (!fs3.existsSync(file2)) continue;
+    let db;
+    try {
+      db = openSqlite(file2);
+    } catch {
+      continue;
+    }
+    const ws = editorWorkspaces(user), where = /* @__PURE__ */ new Map();
+    try {
+      for (const h of db.prepare("SELECT composerId, workspaceId FROM composerHeaders").all()) where.set(h.composerId, ws.get(h.workspaceId) || "");
+    } catch {
+    }
+    let rows = [];
+    try {
+      rows = db.prepare("SELECT value FROM cursorDiskKV WHERE key >= 'composerData:' AND key < 'composerData;'").all();
+    } catch {
+      continue;
+    }
+    const bubbles = db.prepare("SELECT key, value FROM cursorDiskKV WHERE key >= ? AND key < ?");
+    for (const r of rows) {
+      let c;
+      try {
+        c = JSON.parse(r.value);
+      } catch {
+        continue;
+      }
+      if (!c?.composerId || !c.fullConversationHeadersOnly?.length) continue;
+      const mtime = c.lastUpdatedAt || c.createdAt || 0;
+      if (mtime <= since) continue;
+      const cwd = where.get(c.composerId) || c.gitWorktree?.mainWorktreePath || c.gitWorktree?.worktreePath || "";
+      if (root && !within(cwd, root)) continue;
+      const parent = c.subagentInfo?.parentComposerId;
+      yield {
+        platform: "cursor",
+        id: c.composerId,
+        file: `${file2}#${c.composerId}`,
+        kind: parent ? "subagent" : "main",
+        ...parent ? { parent } : {},
+        meta: { cwd, description: c.name || "" },
+        mtime,
+        events: () => {
+          const pre = `bubbleId:${c.composerId}:`, byId = /* @__PURE__ */ new Map();
+          for (const b of bubbles.all(pre, `bubbleId:${c.composerId};`)) {
+            try {
+              byId.set(b.key.slice(pre.length), JSON.parse(b.value));
+            } catch {
+            }
+          }
+          return cursorBubbles(c.fullConversationHeadersOnly.map((h) => byId.get(h.bubbleId)), { cwd, at: c.createdAt ? new Date(c.createdAt).toISOString() : null, model: c.modelConfig?.modelName });
+        }
+      };
+    }
+  }
+}
+function* cursorSessions({ root, days }) {
+  const seen = /* @__PURE__ */ new Set();
+  for (const s of cursorIdeSessions({ root, days })) {
+    seen.add(s.id);
+    yield s;
+  }
+  const since = Date.now() - days * 864e5, base = path4.join(home("CURSOR_HOME", ".cursor"), "projects");
+  const slug2 = root ? cursorSlug(root).toLowerCase() : null;
+  for (const d of ls(base)) {
+    if (slug2 && !(d.toLowerCase() === slug2 || d.toLowerCase().startsWith(slug2 + "-"))) continue;
+    const tdir = path4.join(base, d, "agent-transcripts");
+    if (!isDir(tdir)) continue;
+    let cwd = root || "";
+    try {
+      cwd = JSON.parse(fs3.readFileSync(path4.join(base, d, ".workspace-trusted"), "utf8")).workspacePath || cwd;
+    } catch {
+    }
+    for (const f of walk(tdir, (x) => x.endsWith(".jsonl"), 2)) {
+      const mtime = mtimeOf(f);
+      if (mtime <= since || seen.has(path4.basename(f, ".jsonl"))) continue;
+      const sub = path4.basename(path4.dirname(f)) === "subagents";
+      const parent = sub ? path4.basename(path4.dirname(path4.dirname(f))) : void 0;
+      yield { platform: "cursor", id: path4.basename(f, ".jsonl"), file: f, kind: sub ? "subagent" : "main", ...sub ? { parent } : {}, meta: { cwd }, mtime, events: () => cursorEvents(f, cwd) };
+    }
+  }
+}
+function* copilotEvents(file2) {
+  let meta = false;
+  const tools = /* @__PURE__ */ new Set();
+  for (const r of jsonl(file2)) {
+    const d = r.data || {};
+    const cwd = d.context?.cwd || d.cwd || d.workingDirectory;
+    if (!meta && cwd) {
+      meta = true;
+      yield { t: "meta", cwd, at: r.timestamp || d.startTime };
+    }
+    const tool = (id, name, args) => {
+      if (!id || tools.has(id)) return null;
+      tools.add(id);
+      return { t: "tool", name: toolName(name), input: parseArgs(args ?? {}), id };
+    };
+    switch (r.type) {
+      case "user.message": {
+        const text = textOf(d.content ?? d.text).trim();
+        if (text && !text.startsWith("<")) yield { t: "user", text };
+        break;
+      }
+      case "assistant.message": {
+        const text = textOf(d.content).trim();
+        if (text) yield { t: "text", text };
+        for (const q2 of d.toolRequests || []) {
+          const e = tool(q2.toolCallId || q2.id, q2.name, q2.arguments);
+          if (e) yield e;
+        }
+        break;
+      }
+      case "tool.execution_start": {
+        const e = tool(d.toolCallId, d.toolName || d.name, d.arguments);
+        if (e) yield e;
+        break;
+      }
+      case "tool.execution_complete":
+        yield { t: "result", id: d.toolCallId, isError: d.success === false || !!d.error, text: textOf(d.result?.content ?? d.result ?? d.error?.message ?? "") };
+        break;
+      case "assistant.usage":
+        yield { t: "usage", model: d.model || "", id: r.id || d.id, usage: { input_tokens: d.inputTokens || 0, output_tokens: d.outputTokens || 0, cache_read_input_tokens: d.cacheReadTokens || 0, cache_creation_input_tokens: d.cacheWriteTokens || 0 } };
+        break;
+    }
+  }
+}
+function* copilotSessions({ root, days }) {
+  const since = Date.now() - days * 864e5, base = home("COPILOT_HOME", ".copilot");
+  const logged = /* @__PURE__ */ new Set();
+  for (const d of ls(path4.join(base, "session-state"))) {
+    const f = path4.join(base, "session-state", d, "events.jsonl");
+    const mtime = mtimeOf(f);
+    if (!mtime) continue;
+    logged.add(d);
+    if (mtime <= since) continue;
+    const cwd = headCwd(f, (r) => r.data?.context?.cwd || r.data?.cwd);
+    if (root && !within(cwd, root)) continue;
+    yield { platform: "copilot-cli", id: d, file: f, kind: "main", meta: { cwd }, mtime, events: () => copilotEvents(f) };
+  }
+  const stores = [path4.join(base, "session-store.db"), ...editorUserDirs(["Code", "Code - Insiders"], "VSCODE_USER_DIR").map((u) => path4.join(u, "globalStorage", "github.copilot-chat", "session-store.db"))];
+  for (const store of stores) yield* copilotStore(store, { root, since, logged });
+}
+function* copilotStore(store, { root, since, logged }) {
+  if (!fs3.existsSync(store)) return;
+  let rows = [], db;
+  try {
+    db = openSqlite(store);
+    rows = db.prepare("SELECT id, cwd, created_at, updated_at FROM sessions").all();
+  } catch {
+    db?.close();
+    return;
+  }
+  for (const s of rows) {
+    const mtime = Date.parse(String(s.updated_at || "").replace(" ", "T")) || 0;
+    if (logged.has(String(s.id)) || mtime <= since || !s.cwd || root && !within(s.cwd, root)) continue;
+    yield { platform: "copilot-cli", id: String(s.id), file: `${store}#${s.id}`, kind: "main", meta: { cwd: s.cwd }, mtime, events: function* () {
+      yield { t: "meta", cwd: s.cwd, at: s.created_at };
+      try {
+        for (const t of db.prepare("SELECT user_message, assistant_response FROM turns WHERE session_id = ? ORDER BY turn_index").all(s.id)) {
+          if (t.user_message) yield { t: "user", text: String(t.user_message) };
+          if (t.assistant_response) yield { t: "text", text: String(t.assistant_response) };
+        }
+        let n = 0;
+        for (const f of db.prepare("SELECT file_path, tool_name FROM session_files WHERE session_id = ?").all(s.id)) yield { t: "tool", name: toolName(f.tool_name || "edit"), input: { file_path: f.file_path }, id: `copilot-${n++}` };
+      } catch {
+      }
+    } };
+  }
+}
+function vscodeChatState(file2) {
+  let state = null;
+  if (file2.endsWith(".json")) {
+    try {
+      return JSON.parse(fs3.readFileSync(file2, "utf8"));
+    } catch {
+      return null;
+    }
+  }
+  const parent = (k) => {
+    let cur = state;
+    for (const p of k.slice(0, -1)) {
+      cur = cur?.[p];
+      if (cur == null) return null;
+    }
+    return cur;
+  };
+  for (const r of jsonl(file2)) {
+    if (r.kind === 0 && r.v && typeof r.v === "object") {
+      state = r.v;
+      continue;
+    }
+    if (!state || !Array.isArray(r.k) || !r.k.length) continue;
+    const p = parent(r.k), key = r.k[r.k.length - 1];
+    if (!p || typeof p !== "object") continue;
+    if (r.kind === 1) p[key] = r.v;
+    else if (r.kind === 2 && Array.isArray(p[key])) {
+      if (Number.isInteger(r.i)) p[key].length = Math.min(p[key].length, r.i);
+      p[key].push(...Array.isArray(r.v) ? r.v : []);
+    } else if (r.kind === 3) {
+      if (Array.isArray(p)) p.splice(key, 1);
+      else delete p[key];
+    }
+  }
+  return state;
+}
+var VSCODE_TOOLS = {
+  readFile: "Read",
+  createFile: "Write",
+  replaceString: "Edit",
+  multiReplaceString: "Edit",
+  insertEdit: "Edit",
+  applyPatch: "Edit",
+  editFile: "Edit",
+  findTextInFiles: "Grep",
+  findFiles: "Glob",
+  listDirectory: "LS",
+  fetchWebPage: "WebFetch",
+  runInTerminal: "Bash"
+};
+var vscodeTool = (id = "") => VSCODE_TOOLS[id.replace(/^copilot_/, "")] || toolName(id);
+function* vscodeChatEvents(file2, cwd) {
+  const s = vscodeChatState(file2);
+  if (!s) return;
+  yield { t: "meta", cwd: cwd || "", at: s.creationDate ? new Date(s.creationDate).toISOString() : null };
+  let n = 0;
+  for (const q2 of s.requests || []) {
+    if (!q2 || q2.isSystemInitiated) continue;
+    const ask = String(q2.message?.text ?? "").trim();
+    if (ask && !ask.startsWith("<")) yield { t: "user", text: ask };
+    let prose = "";
+    for (const p of q2.response || []) {
+      if (!p) continue;
+      if (p.kind == null || p.kind === "markdownContent") {
+        prose += typeof p.value === "string" ? p.value : p.value?.value ?? "";
+        continue;
+      }
+      if (p.kind !== "toolInvocationSerialized") continue;
+      if (prose.trim()) {
+        yield { t: "text", text: prose.trim() };
+        prose = "";
+      }
+      const d = p.toolSpecificData || {}, id = p.toolCallId || `${q2.requestId || "req"}-${n++}`;
+      const terminal = d.kind === "terminal" || /terminal/i.test(p.toolId || "");
+      const command = d.commandLine?.toolEdited ?? d.commandLine?.userEdited ?? d.commandLine?.original ?? d.command;
+      yield terminal && command ? { t: "tool", name: /pwsh|powershell/i.test(d.language || "") ? "PowerShell" : "Bash", input: { command: String(command) }, id } : { t: "tool", name: vscodeTool(p.toolId || "tool"), input: parseArgs(d.input ?? d.rawInput ?? {}), id };
+      if (p.isComplete !== false) {
+        const code = d.terminalCommandState?.exitCode;
+        yield { t: "result", id, isError: !!p.resultDetails?.isError || code != null && code !== 0, text: textOf(p.resultDetails?.output ?? d.terminalCommandOutput?.text ?? "") };
+      }
+    }
+    if (prose.trim()) yield { t: "text", text: prose.trim() };
+    const u = q2.result?.usage || q2.result?.metadata?.usage;
+    if (u && (u.promptTokens || u.completionTokens)) yield { t: "usage", model: q2.modelId || "", id: q2.requestId, usage: { input_tokens: u.promptTokens || 0, output_tokens: u.completionTokens || 0 } };
+  }
+}
+function* vscodeChatSessions({ root, days }) {
+  const since = Date.now() - days * 864e5;
+  for (const user of editorUserDirs(["Code", "Code - Insiders"], "VSCODE_USER_DIR")) {
+    const dirs = [...editorWorkspaces(user)].map(([id, cwd]) => [path4.join(user, "workspaceStorage", id, "chatSessions"), cwd]);
+    dirs.push([path4.join(user, "globalStorage", "emptyWindowChatSessions"), ""]);
+    for (const [dir, cwd] of dirs) {
+      if (root && !within(cwd, root)) continue;
+      for (const f of walk(dir, (x) => /\.jsonl?$/.test(x), 0)) {
+        const mtime = mtimeOf(f);
+        if (mtime <= since) continue;
+        yield { platform: "copilot-chat", id: path4.basename(f).replace(/\.jsonl?$/, ""), file: f, kind: "main", meta: { cwd }, mtime, events: () => vscodeChatEvents(f, cwd) };
+      }
+    }
+  }
+}
+function geminiChat(file2) {
+  if (file2.endsWith(".json")) {
+    try {
+      const d = JSON.parse(fs3.readFileSync(file2, "utf8"));
+      return { meta: d, messages: d.messages || [] };
+    } catch {
+      return null;
+    }
+  }
+  const meta = {}, msgs = /* @__PURE__ */ new Map();
+  const patch = (u) => {
+    const m = u?.id && msgs.get(u.id);
+    if (!m) return;
+    if (u.content !== void 0) m.content = u.content;
+    for (const tc of u.toolCalls || []) {
+      const t = (m.toolCalls || []).find((x) => x.id === tc.id);
+      if (t) Object.assign(t, tc);
+    }
+  };
+  for (const r of jsonl(file2)) {
+    if (r.$rewindTo !== void 0) {
+      const ids = [...msgs.keys()], i = ids.indexOf(r.$rewindTo);
+      for (const id of i < 0 ? ids : ids.slice(i)) msgs.delete(id);
+    } else if (r.$set) {
+      const { messages, ...rest2 } = r.$set;
+      Object.assign(meta, rest2);
+      if (Array.isArray(messages)) {
+        msgs.clear();
+        for (const m of messages) if (m?.id) msgs.set(m.id, m);
+      }
+    } else if (r.$patch) {
+      const p = r.$patch;
+      patch(p);
+      for (const u of p.updates || []) patch(u);
+      for (const id of p.removeIds || []) msgs.delete(id);
+      for (const id of p.orderIds || []) if (msgs.has(id)) {
+        const m = msgs.get(id);
+        msgs.delete(id);
+        msgs.set(id, m);
+      }
+    } else if (typeof r.sessionId === "string" && typeof r.projectHash === "string") Object.assign(meta, r);
+    else if (typeof r.id === "string") msgs.set(r.id, r);
+  }
+  return { meta, messages: [...msgs.values()] };
+}
+function* geminiEvents(file2, cwd) {
+  const chat = geminiChat(file2);
+  if (!chat) return;
+  yield { t: "meta", cwd: cwd || "", at: chat.meta.startTime || null };
+  let n = 0;
+  for (const m of chat.messages) {
+    const text = textOf(m.content).trim();
+    if (m.type === "user") {
+      if (text && !text.startsWith("<") && !text.startsWith("/")) yield { t: "user", text };
+      continue;
+    }
+    if (m.type !== "gemini") continue;
+    if (text) yield { t: "text", text };
+    for (const c of m.toolCalls || []) {
+      const id = c.id || `gemini-${n++}`;
+      yield { t: "tool", name: toolName(c.name), input: parseArgs(c.args ?? {}), id };
+      const resp = (Array.isArray(c.result) ? c.result : [c.result]).map((r) => r?.functionResponse?.response ?? r).filter(Boolean);
+      const out = resp.map((r) => typeof r === "string" ? r : [r.output, r.error].filter(Boolean).join("\n") || JSON.stringify(r)).join("\n") || (typeof c.resultDisplay === "string" ? c.resultDisplay : "");
+      const code = Number(out.match(/^Exit Code: (-?\d+)/m)?.[1] || 0);
+      if (/^(success|error|cancelled)$/.test(c.status || "") || out) yield { t: "result", id, isError: c.status === "error" || c.status === "cancelled" || code !== 0, text: out.replace(/<\/?untrusted_context>\n?/g, "") };
+    }
+    if (m.tokens) {
+      const cached = m.tokens.cached || 0;
+      yield { t: "usage", model: m.model || "", id: m.id || `gemini-u${n++}`, usage: { input_tokens: Math.max(0, (m.tokens.input || 0) - cached), output_tokens: (m.tokens.output || 0) + (m.tokens.thoughts || 0), cache_read_input_tokens: cached } };
+    }
+  }
+}
+function* geminiSessions({ root, days }) {
+  const since = Date.now() - days * 864e5, gdir = path4.join(process.env.GEMINI_CLI_HOME || os2.homedir(), ".gemini"), base = path4.join(gdir, "tmp");
+  const owner = /* @__PURE__ */ new Map();
+  try {
+    for (const [p, slug2] of Object.entries(JSON.parse(fs3.readFileSync(path4.join(gdir, "projects.json"), "utf8")).projects || {})) owner.set(slug2, p);
+  } catch {
+  }
+  const hash = root ? crypto.createHash("sha256").update(root).digest("hex") : null;
+  for (const d of ls(base)) {
+    let cwd = owner.get(d) || "";
+    try {
+      cwd = fs3.readFileSync(path4.join(base, d, ".project_root"), "utf8").trim() || cwd;
+    } catch {
+    }
+    if (!cwd && d === hash) cwd = root;
+    if (root && !within(cwd, root)) continue;
+    const chats = path4.join(base, d, "chats"), files = new Set(walk(chats, (x) => /\.jsonl?$/.test(x), 1));
+    for (const f of files) {
+      if (f.endsWith(".json") && files.has(f + "l")) continue;
+      const mtime = mtimeOf(f);
+      if (mtime <= since) continue;
+      const parent = path4.dirname(f) !== chats ? path4.basename(path4.dirname(f)) : void 0;
+      yield { platform: "gemini-cli", id: path4.basename(f).replace(/\.jsonl?$/, ""), file: f, kind: parent ? "subagent" : "main", ...parent ? { parent } : {}, meta: { cwd }, mtime, events: () => geminiEvents(f, cwd) };
+    }
+  }
+}
+function opencodeDb() {
+  if (process.env.OPENCODE_DB) return process.env.OPENCODE_DB;
+  const bases = [process.env.XDG_DATA_HOME, process.env.LOCALAPPDATA, process.env.APPDATA, path4.join(os2.homedir(), ".local", "share")].filter(Boolean);
+  return bases.map((b) => path4.join(b, "opencode", "opencode.db")).find((f) => fs3.existsSync(f)) || "";
+}
+function* opencodeEvents(db, s) {
+  yield { t: "meta", cwd: s.directory, at: s.time_created ? new Date(Number(s.time_created)).toISOString() : null };
+  const obj = (raw) => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  };
+  const parts = /* @__PURE__ */ new Map();
+  for (const p of db.prepare("SELECT message_id, data FROM part WHERE session_id = ? ORDER BY message_id, id").all(s.id)) {
+    if (!parts.has(p.message_id)) parts.set(p.message_id, []);
+    parts.get(p.message_id).push(obj(p.data));
+  }
+  for (const m of db.prepare("SELECT id, data FROM message WHERE session_id = ? ORDER BY time_created, id").all(s.id)) {
+    const msg = obj(m.data);
+    for (const p of parts.get(m.id) || []) {
+      if (p.type === "text" && p.text && !p.synthetic) yield msg.role === "user" ? { t: "user", text: p.text } : { t: "text", text: p.text };
+      else if (p.type === "tool" && msg.role === "assistant") {
+        const st = p.state || {}, input = st.input || {}, id = p.callID || p.id;
+        yield { t: "tool", name: toolName(p.tool), input: input.filePath && !input.file_path ? { ...input, file_path: input.filePath } : input, id };
+        if (st.status === "completed" || st.status === "error") yield { t: "result", id, isError: st.status === "error" || (st.metadata?.exit ?? 0) !== 0, text: String(st.output ?? st.error ?? "") };
+      } else if (p.type === "step-finish" && p.tokens) {
+        yield { t: "usage", model: msg.modelID || "", id: p.id, usage: { input_tokens: p.tokens.input || 0, output_tokens: (p.tokens.output || 0) + (p.tokens.reasoning || 0), cache_read_input_tokens: p.tokens.cache?.read || 0, cache_creation_input_tokens: p.tokens.cache?.write || 0 } };
+      }
+    }
+  }
+}
+function* opencodeSessions({ root, days }) {
+  const file2 = opencodeDb();
+  if (!file2 || !fs3.existsSync(file2)) return;
+  const since = Date.now() - days * 864e5;
+  let db, rows;
+  try {
+    db = openSqlite(file2);
+    rows = db.prepare("SELECT id, parent_id, directory, time_created, time_updated FROM session WHERE time_updated > ?").all(since);
+  } catch {
+    db?.close();
+    return;
+  }
+  for (const s of rows) {
+    if (!s.directory || root && !within(s.directory, root)) continue;
+    yield { platform: "opencode", id: String(s.id), file: `${file2}#${s.id}`, kind: s.parent_id ? "subagent" : "main", ...s.parent_id ? { parent: String(s.parent_id) } : {}, meta: { cwd: s.directory }, mtime: Number(s.time_updated), events: () => opencodeEvents(db, s) };
+  }
+}
+function* piEvents(file2) {
+  for (const r of jsonl(file2)) {
+    if (r.type === "session") {
+      yield { t: "meta", cwd: r.cwd || "", at: r.timestamp || null };
+      continue;
+    }
+    const m = r.type === "message" ? r.message : null;
+    if (!m) continue;
+    if (m.role === "user") {
+      const text = textOf(m.content).trim();
+      if (text && !text.startsWith("<")) yield { t: "user", text };
+    } else if (m.role === "assistant") {
+      for (const b of Array.isArray(m.content) ? m.content : [{ type: "text", text: m.content }]) {
+        if (b?.type === "toolCall") yield { t: "tool", name: toolName(b.name), input: parseArgs(b.arguments ?? {}), id: b.id };
+        else if (b?.type === "text" && b.text) yield { t: "text", text: b.text };
+      }
+      if (m.usage) yield { t: "usage", model: m.model || "", id: r.id, usage: { input_tokens: m.usage.input || 0, output_tokens: m.usage.output || 0, cache_read_input_tokens: m.usage.cacheRead || 0, cache_creation_input_tokens: m.usage.cacheWrite || 0 } };
+    } else if (m.role === "toolResult") yield { t: "result", id: m.toolCallId, isError: !!m.isError, text: textOf(m.content) };
+  }
+}
+function* piSessions({ root, days }) {
+  const since = Date.now() - days * 864e5, base = path4.join(process.env.PI_CODING_AGENT_DIR || path4.join(os2.homedir(), ".pi", "agent"), "sessions");
+  for (const f of walk(base, (x) => x.endsWith(".jsonl"), 2)) {
+    const mtime = mtimeOf(f);
+    if (mtime <= since) continue;
+    const cwd = headCwd(f, (r) => r.type === "session" ? r.cwd : "");
+    if (root && !within(cwd, root)) continue;
+    yield { platform: "pi", id: path4.basename(f, ".jsonl"), file: f, kind: "main", meta: { cwd }, mtime, events: () => piEvents(f) };
+  }
+}
+var READERS = { "claude-code": claudeSessions, codex: codexSessions, cursor: cursorSessions, "copilot-cli": copilotSessions, "copilot-chat": vscodeChatSessions, "gemini-cli": geminiSessions, opencode: opencodeSessions, pi: piSessions };
 function* sessions({ root = null, days = 30, platforms = Object.keys(READERS) } = {}) {
-  for (const p of platforms) if (READERS[p]) yield* READERS[p]({ root, days });
+  for (const p of platforms) {
+    if (!READERS[p]) continue;
+    try {
+      yield* READERS[p]({ root, days });
+    } catch {
+    }
+  }
 }
 
 // packages/core/src/hooks.mjs
@@ -201,7 +1007,7 @@ var EVENTS = {
   post_run_command: "PostToolUse"
 };
 var GEMINI_TOOLS = { run_shell_command: "Bash", write_file: "Write", replace: "Edit", read_file: "Read" };
-var CURSOR_TOOLS = { Shell: "Bash" };
+var CURSOR_TOOLS2 = { Shell: "Bash" };
 function detectPlatform(raw) {
   if (raw.agent_action_name || raw.trajectory_id) return "windsurf";
   if (raw.cursor_version || raw.conversation_id) return "cursor";
@@ -224,7 +1030,7 @@ function normalize(raw, platform = detectPlatform(raw), eventHint) {
   if (platform === "gemini") tool = GEMINI_TOOLS[tool] || tool;
   if (platform === "cursor") {
     if (tool.startsWith("MCP:")) tool = `mcp__${raw.server || raw.mcp_server || "mcp"}__${tool.slice(4)}`;
-    tool = CURSOR_TOOLS[tool] || tool;
+    tool = CURSOR_TOOLS2[tool] || tool;
   }
   if (platform === "windsurf" && raw.tool_info?.mcp_server_name) tool = `mcp__${raw.tool_info.mcp_server_name}__${tool}`;
   const response = raw.tool_response ?? raw.tool_output ?? raw.toolResult ?? raw.result ?? null;
@@ -491,6 +1297,14 @@ function accept(cfg, entry) {
   });
   return l;
 }
+function updateLesson(cfg, id, patch) {
+  const lessons = loadLessons(cfg);
+  const l = lessons.find((x) => x.id === id);
+  if (!l) return null;
+  Object.assign(l, patch);
+  saveLessons(cfg, lessons);
+  return l;
+}
 var matches = (l, cmd2) => {
   try {
     return new RegExp(l.when, "i").test(cmd2);
@@ -511,11 +1325,11 @@ ${lessons.slice(0, 25).map((l) => `- ${l.instead}`).join("\n")}` };
 function preToolUse(cfg, h) {
   if (cfg.guard === "off" || !/^(Bash|PowerShell|Shell)$/.test(h.tool)) return null;
   const cmd2 = h.input?.command || "";
-  const hit = loadLessons(cfg).find((l) => (!l.tool || l.tool === h.tool) && matches(l, cmd2));
-  if (!hit) return null;
+  const hit2 = loadLessons(cfg).find((l) => (!l.tool || l.tool === h.tool) && matches(l, cmd2));
+  if (!hit2) return null;
   let deny = false;
-  if (hit.action === "deny-once") {
-    const mark = path7.join(os3.tmpdir(), `groundhog-${(h.sessionId || "x").replace(/\W/g, "")}-${hit.id}`);
+  if (hit2.action === "deny-once") {
+    const mark = path7.join(os3.tmpdir(), `groundhog-${(h.sessionId || "x").replace(/\W/g, "")}-${hit2.id}`);
     if (!fs5.existsSync(mark)) {
       fs5.writeFileSync(mark, "1");
       deny = true;
@@ -526,7 +1340,7 @@ function preToolUse(cfg, h) {
     day.guard_hits++;
     if (deny) s.totals.denies++;
   });
-  const msg = `groundhog lesson ${hit.id}: ${hit.instead}`;
+  const msg = `groundhog lesson ${hit2.id}: ${hit2.instead}`;
   return deny ? { deny: `${msg}. If this command is right anyway, run it again unchanged.` } : { context: msg };
 }
 function recurrences(cfg, calls) {
@@ -539,16 +1353,600 @@ function recurrences(cfg, calls) {
   }));
 }
 
-// packages/groundhog/src/draft.mjs
+// packages/groundhog/src/verify.mjs
+import fs7 from "node:fs";
+import path9 from "node:path";
+
+// packages/core/src/replay.mjs
 import fs6 from "node:fs";
+import os4 from "node:os";
 import path8 from "node:path";
+import crypto2 from "node:crypto";
+import { spawn, spawnSync } from "node:child_process";
+function unsafeAction({ tool = "", input = {} } = {}, { root = "", allow = [] } = {}) {
+  input = input || {};
+  const win = /^[A-Za-z]:/.test(root);
+  const slash = (p) => String(p).replace(/\\/g, "/");
+  const canon = (abs) => {
+    const m = slash(abs).match(/^([A-Za-z]:)?\/(.*)$/);
+    if (!m) return null;
+    const out = [];
+    for (const s of m[2].split("/")) {
+      if (s === "..") out.pop();
+      else if (s && s !== ".") out.push(s);
+    }
+    const p = (m[1] || "") + "/" + out.join("/");
+    return win ? p.toLowerCase() : p;
+  };
+  const absolute = (p, base) => {
+    let s = slash(String(p).replace(/^['"]|['"]$/g, ""));
+    if (win) s = s.replace(/^\/([A-Za-z])(\/|$)/, "$1:/");
+    if (/^(\$TMPDIR|\$\{TMPDIR\}|\$TEMP|\$TMP|%TEMP%|%TMP%|\$env:TEMP|\$env:TMP)/i.test(s)) return "TMP";
+    if (/^(~|\$HOME|\$\{HOME\}|%USERPROFILE%|\$env:USERPROFILE|\$env:APPDATA|%APPDATA%|%LOCALAPPDATA%)/i.test(s)) return null;
+    if (/^([A-Za-z]:)?\//.test(s)) return canon(s);
+    if (/^[A-Za-z]:/.test(s) || !base) return null;
+    return canon(slash(base) + "/" + s);
+  };
+  const roots = [root, "/tmp", ...allow].filter(Boolean).map(canon).filter(Boolean);
+  const inside = (p, base = root) => {
+    if (/^(\/dev\/(null|stdout|stderr)|nul|\$null)$/i.test(String(p))) return true;
+    const a = absolute(p, base);
+    if (a === "TMP") return true;
+    return !!a && roots.some((r) => a === r || a.startsWith(r.replace(/\/$/, "") + "/"));
+  };
+  const file2 = input.file_path ?? input.path ?? input.notebook_path ?? input.filePath;
+  if (/^(Write|Edit|MultiEdit|NotebookEdit)$/.test(tool) && file2 && !inside(file2)) return `writes outside the sandbox (${file2})`;
+  if (/apply_patch/i.test(tool)) {
+    for (const m of String(input.patch ?? input.input ?? input.value ?? "").matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)) if (!inside(m[1].trim())) return `patches outside the sandbox (${m[1].trim()})`;
+  }
+  if (/^mcp__/.test(tool) && !/(^|[_-])(get|list|search|read|query|fetch|find|describe|show|view|lookup|status|count|think|recall)([_-]|$)/i.test(tool.split("__").pop())) return `MCP call with side effects (${tool})`;
+  if (!/^(Bash|PowerShell|Shell)$/.test(tool)) return "";
+  const cmd2 = String(input.command || "");
+  const OUT = [
+    [/\bgit\s+(push|send-email)\b|\bgit\s+remote\s+(add|set-url|remove|rm)\b/, "pushes to a remote"],
+    [/\bgit\s+(config\s+(?!--get|-l\b|--list)\S|worktree\s+(add|remove|move|prune)|update-ref|symbolic-ref\s+\S+\s+\S|stash(?!\s+(list|show))\b|gc\b|reflog\s+(expire|delete)|notes\s+(add|edit|remove|append))/, "changes git state shared with the live repository"],
+    [/\bgit\s+(branch\s+(?!(-a|-r|-l|-v|-vv|--list|--show-current|--contains|--merged|--no-merged)\b)[\w-]|tag\s+(?!(-l|--list|-n)\b)[\w-]|(checkout|switch)\s+(-b|-B|-c|-C|--orphan)\b)/, "creates refs in the live repository"],
+    [/\bgh\s+(pr|issue|release|repo|gist|workflow|run|secret|variable|label|project|cache)\s+(create|merge|close|comment|edit|delete|reopen|review|ready|run|rerun|cancel|set|upload|fork|archive|rename|transfer|enable|disable|lock|unlock|pin|transfer|develop)\b/, "changes GitHub"],
+    [/\bgh\s+api\b.*(\s(-X|--method)\s*(POST|PUT|PATCH|DELETE)|\s(-f|-F|--field|--raw-field|--input)\s)/i, "writes to the GitHub API"],
+    [/\b(npm|pnpm|yarn|bun)\s+(publish|unpublish|deprecate|dist-tag|owner|access|login|adduser)\b/, "publishes a package"],
+    [/\b(npm|pnpm|yarn|bun)\s+((i|install|add|remove|uninstall)\s+.*(-g|--global)\b|(-g|--global)\s)|\byarn\s+global\b/, "installs globally"],
+    [/\b(pip3?|uv\s+pip|py(thon3?)?\s+(-\d\s+)?-m\s+pip)\s+(install|uninstall)\b|\b(winget|choco|scoop|brew|apt|apt-get|yum|dnf|pacman|snap)\s+(install|uninstall|remove|upgrade)\b/, "installs software"],
+    [/\b(docker|podman)\s+(push|login|logout)\b|\b(kubectl|oc)\s+(apply|delete|create|patch|replace|scale|rollout|edit|set|annotate|label|exec|drain|cordon)\b|\bhelm\s+(install|upgrade|uninstall|delete|rollback)\b/, "changes a deployment"],
+    [/\b(terraform|tofu)\s+(apply|destroy|import)\b|\bpulumi\s+(up|destroy)\b|\bgcloud\s+.*\b(deploy|create|delete|update)\b|\baz\s+.*\s(create|delete|update|set|deploy|restart|start|stop|purge|upload|assign|add|remove)\b|\baws\s+\S+\s+(put|create|delete|update|send|publish|invoke|start|stop|terminate|run|cp|mv|rm|sync)\b/, "changes cloud resources"],
+    [/\b(vercel|netlify|railway|fly|flyctl|heroku|wrangler|firebase|eas|serverless|sls)\b.*\b(deploy|up|publish|submit|release|push|--prod)\b/, "deploys"],
+    [/\bcurl\b.*(\s(-X|--request)\s*(POST|PUT|PATCH|DELETE)\b|\s(-d|--data\S*|-F|--form|-T|--upload-file|--json)\s)|\bwget\b.*--post-|\b(Invoke-RestMethod|Invoke-WebRequest|irm|iwr)\b.*-Method\s+(Post|Put|Patch|Delete)/i, "sends data to a server"],
+    [/(^|[\s;&|(])(ssh|scp|sftp|rsync|sendmail|mutt|telnet|ftp)\s/, "talks to another machine"],
+    [/(^|[\s;&|(])sudo\s|\b(shutdown|reboot|diskpart|mkfs|setx|schtasks|crontab|launchctl|systemctl)\b|\breg\s+(add|delete|import)\b|\bsc\s+(create|delete|stop|start|config)\b|\b(Set|New|Remove)-ItemProperty\b.*\bHK(LM|CU)/i, "changes the machine"],
+    [/\b(claude|codex|gemini|copilot|opencode|cursor-agent|aider)\s+(-p|--print|exec|run|-c)\b/, "starts another agent (spend outside the budget)"]
+  ];
+  for (const [re, why] of OUT) if (re.test(cmd2)) return why;
+  const WRITERS = /^(rm|rmdir|del|erase|rd|mv|move|cp|copy|xcopy|robocopy|mkdir|md|touch|ln|chmod|chown|tee|install|truncate|remove-item|move-item|copy-item|new-item|set-content|add-content|out-file|rename-item|ri|mi|cpi|ni|sc|ac)$/i;
+  let cwd = root;
+  for (const seg of cmd2.split(/&&|\|\||;|\n|\|/)) {
+    const t = seg.trim().match(/"[^"]*"|'[^']*'|\S+/g) || [];
+    while (t.length && (/^(rtk|proxy|time|nohup|command|env|exec)$/i.test(t[0]) || /^\w+=/.test(t[0]))) t.shift();
+    if (/^timeout$/i.test(t[0] || "")) t.splice(0, 2);
+    const prog = (t[0] || "").toLowerCase().replace(/\.exe$/, "");
+    if (/^(cd|set-location|pushd|sl|chdir)$/.test(prog)) {
+      const target = t.find((x, i) => i > 0 && !x.startsWith("-"));
+      if (target) {
+        const a = absolute(target, cwd);
+        cwd = a === "TMP" ? "/tmp" : a;
+      }
+      continue;
+    }
+    for (const m of seg.matchAll(/(?:^|[^0-9&<=>-])>>?\s*("[^"]*"|'[^']*'|[^\s;&|>]+)/g)) if (!inside(m[1], cwd)) return `redirects output outside the sandbox (${m[1]})`;
+    if (WRITERS.test(prog)) {
+      for (const a of t.slice(1)) if (!a.startsWith("-") && !inside(a, cwd)) return `${prog} outside the sandbox (${a})`;
+    }
+  }
+  return "";
+}
+var guardSource = () => `// qbranch replay guard (generated per run): deny tool calls with side effects outside the sandbox.
+const unsafeAction = ${unsafeAction.toString()};
+let raw = '';
+process.stdin.on('data', (d) => { raw += d; });
+process.stdin.on('end', () => {
+  let h = {}; try { h = JSON.parse(raw); } catch {}
+  let allow = []; try { allow = JSON.parse(process.env.QBRANCH_REPLAY_ALLOW || '[]'); } catch {}
+  const why = unsafeAction({ tool: h.tool_name, input: h.tool_input }, { root: process.env.QBRANCH_REPLAY_ROOT || h.cwd || '', allow });
+  if (why) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'replay sandbox: ' + why + '. Do the task without it.' } }));
+});
+`;
+var STOP = new Set("the and for with this that are you can please into from about just then also what when your our has have was were will would should could but not all any its use using make need want there here them they how why which been being does did done get got let lets".split(" "));
+function signature(prompt) {
+  return new Set(String(prompt).toLowerCase().replace(/https?:\/\/\S+/g, " url ").replace(/[a-z]:[\\/]\S*|(^|\s)[.~]?\/\S+/g, " path ").replace(/\d+/g, " n ").split(/[^a-z_]+/).filter((w) => w.length > 2 && !STOP.has(w)).slice(0, 60));
+}
+var jaccard = (a, b) => {
+  if (!a.size && !b.size) return 1;
+  let n = 0;
+  for (const x of a) if (b.has(x)) n++;
+  return n / (a.size + b.size - n);
+};
+var isMeta = (t) => {
+  t = t.trim();
+  return t.length < 8 || t.startsWith("<") || t.startsWith("Caveat:") || t.startsWith("[Pasted text") || t.startsWith("/") && t.split(/\s+/).length <= 3 || t.startsWith("[Request interrupted");
+};
+var READS = /^(grep|rg|sed|cat|head|tail|ls|dir|echo|sleep|find|wc|pwd|which|where|type|less|awk|sort|uniq|printf|true|test|diff|jq|stat|file|get-content|select-string|get-childitem|start-sleep|write-output|write-host|test-path|cd|set-location|for|while|if|until|case|do|then|foreach|foreach-object|\$\w*|\(|\{|\[)$/i;
+function commandKey(cmd2) {
+  const seg = String(cmd2).split(/&&|\|\||;|\n/).map((s) => s.trim()).find((s) => s && !/^(cd|Set-Location|pushd|export|set)\b/i.test(s)) || "";
+  const t = seg.replace(/^(\w+=\S+\s+)+/, "").replace(/^(rtk proxy|rtk|timeout\s+\S+|time|sudo|env|command)\s+/, "").split(/\s+/);
+  const prog = path8.basename(t[0] || "").replace(/\.(exe|cmd|bat)$/i, "").toLowerCase();
+  return /^[a-z][\w:-]*$/i.test(t[1] || "") ? `${prog} ${t[1]}` : prog;
+}
+var SHELL2 = /^(Bash|PowerShell|Shell)$/;
+var DENIED = /hook|denied|replay sandbox|groundhog lesson/i;
+function digest(s, root) {
+  let meta = {}, prompt = "", finalText = "", cost = 0;
+  const calls = [], byId = /* @__PURE__ */ new Map(), files = [], unsafe = [];
+  for (const e of s.events()) {
+    if (e.t === "meta") meta = e;
+    else if (e.t === "user" && !prompt && !isMeta(e.text)) prompt = e.text.trim();
+    else if (e.t === "text") finalText = e.text;
+    else if (e.t === "usage") cost += costOf(e.model, e.usage);
+    else if (e.t === "tool") {
+      const cwd2 = meta.cwd || s.meta?.cwd || root;
+      const why = unsafeAction({ tool: e.name, input: e.input }, { root: cwd2, allow: [os4.tmpdir()] });
+      if (why) unsafe.push(why);
+      if (SHELL2.test(e.name) && e.input?.command) {
+        const c = { tool: e.name, cmd: String(e.input.command).slice(0, 300), err: false, ran: false };
+        calls.push(c);
+        if (e.id) byId.set(e.id, c);
+      }
+      const f = e.input?.file_path ?? e.input?.path;
+      if (/^(Write|Edit|MultiEdit)$/.test(e.name) && f && within(path8.resolve(cwd2, f), cwd2)) files.push(path8.relative(cwd2, path8.resolve(cwd2, f)).split(path8.sep).join("/"));
+    } else if (e.t === "result" && byId.has(e.id)) {
+      const c = byId.get(e.id);
+      c.ran = true;
+      c.err = !!e.isError || /exit code [1-9]|command not found|not recognized as/i.test((e.text || "").slice(0, 400));
+      if (c.err && DENIED.test((e.text || "").slice(0, 200))) c.denied = true;
+    }
+  }
+  if (!prompt) return null;
+  const cwd = meta.cwd || s.meta?.cwd || root;
+  if (!cwd || /qbranch-replay-/.test(cwd)) return null;
+  const ok = calls.filter((c) => c.ran && !c.err && !READS.test(commandKey(c.cmd).split(" ")[0]));
+  const keys = [...new Map(ok.map((c) => [commandKey(c.cmd), c])).values()].slice(-3);
+  const checks = [
+    { kind: "completed", hard: true },
+    ...[...new Set(files)].slice(-5).map((p) => ({ kind: "fileChanged", path: p, hard: true })),
+    ...keys.map((c) => ({ kind: "commandOk", key: commandKey(c.cmd), example: c.cmd.slice(0, 160), hard: false })),
+    { kind: "rubric", text: `Request:
+${prompt.slice(0, 800)}
+
+What the original run delivered:
+${finalText.slice(0, 1200)}`, hard: false }
+  ];
+  return {
+    platform: s.platform,
+    prompt,
+    cwd,
+    sessionId: s.parent ? `${s.parent}/${s.id}` : s.id,
+    startedAt: meta.at || new Date(s.mtime).toISOString(),
+    readOnly: unsafe.length === 0,
+    unsafe: [...new Set(unsafe)].slice(0, 5),
+    checks,
+    kind: s.kind,
+    origCostUsd: +cost.toFixed(4),
+    history: calls.map(({ tool, cmd: cmd2, err, denied }) => ({ tool, cmd: cmd2, err, ...denied ? { denied } : {} })),
+    mtime: s.mtime
+  };
+}
+function harvestTasks({ root = null, days = 30, limit = 20, filter = (t) => t.readOnly, platforms, minRecurrence = 2, similarity = 0.6, includeSubagents = true } = {}) {
+  const clusters = [];
+  for (const s of sessions({ root, days, ...platforms ? { platforms } : {} })) {
+    if (!includeSubagents && s.kind === "subagent") continue;
+    let d;
+    try {
+      d = digest(s, root);
+    } catch {
+      continue;
+    }
+    if (!d) continue;
+    const sig = signature(d.prompt);
+    const c = clusters.find((x) => x.cwd === d.cwd && jaccard(x.sig, sig) >= similarity);
+    if (c) c.members.push(d);
+    else clusters.push({ cwd: d.cwd, sig, members: [d] });
+  }
+  const tasks = clusters.map(({ cwd, sig, members }) => {
+    members.sort((a, b) => b.mtime - a.mtime);
+    const rep = members[0];
+    const id = "task_" + crypto2.createHash("sha256").update(`${cwd}::${[...sig].sort().join(" ")}`).digest("hex").slice(0, 12);
+    const { mtime, history, ...t } = rep;
+    return {
+      id,
+      ...t,
+      readOnly: members.every((m) => m.readOnly),
+      unsafe: [...new Set(members.flatMap((m) => m.unsafe))].slice(0, 5),
+      sessions: members.map((m) => m.sessionId),
+      recurrence: members.length,
+      tags: [rep.platform, rep.kind, `recurring:${members.length}`],
+      history: members.flatMap((m) => m.history).slice(-400),
+      lastSeen: mtime
+    };
+  });
+  return tasks.filter((t) => t.recurrence >= minRecurrence).filter(filter).sort((a, b) => b.recurrence - a.recurrence || b.lastSeen - a.lastSeen).slice(0, limit);
+}
+var git = (args, opts = {}) => spawnSync("git", args, { encoding: "utf8", windowsHide: true, ...opts });
+function makeSandbox(cwd, { mode = "auto" } = {}) {
+  if (!fs6.existsSync(cwd)) throw new Error(`task directory no longer exists: ${cwd}`);
+  const base = fs6.realpathSync.native(fs6.mkdtempSync(path8.join(os4.tmpdir(), "qbranch-replay-")));
+  const hooks = path8.join(base, "git-hooks");
+  fs6.mkdirSync(hooks);
+  fs6.writeFileSync(path8.join(hooks, "pre-push"), '#!/bin/sh\necho "qbranch replay sandbox: push refused" >&2\nexit 1\n', { mode: 493 });
+  const top = mode === "copy" ? "" : (git(["-C", cwd, "rev-parse", "--show-toplevel"]).stdout || "").trim();
+  const work = path8.join(base, "work");
+  let dir = work;
+  if (top) {
+    const r = git(["-c", `core.hooksPath=${hooks}`, "-C", top, "worktree", "add", "--detach", work, "HEAD"]);
+    if (r.status !== 0) {
+      fs6.rmSync(base, { recursive: true, force: true });
+      throw new Error(`git worktree add failed: ${(r.stderr || "").trim()}`);
+    }
+    dir = path8.join(work, path8.relative(path8.resolve(top), path8.resolve(cwd)));
+  } else {
+    fs6.cpSync(cwd, work, { recursive: true, filter: (src) => !/[\\/](node_modules|\.git|\.venv|venv|dist|build|\.next)$/.test(src) });
+  }
+  const env = { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "core.hooksPath", GIT_CONFIG_VALUE_0: hooks };
+  const status = () => top ? git(["-C", work, "status", "--porcelain", "-uall"], { env: { ...process.env, ...env } }).stdout || "" : "";
+  const cleanup = () => {
+    if (top) {
+      git(["-C", top, "worktree", "remove", "--force", work]);
+    }
+    try {
+      fs6.rmSync(base, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    } catch {
+    }
+    if (top) git(["-C", top, "worktree", "prune"]);
+  };
+  return { base, root: work, dir, git: !!top, env, status, cleanup };
+}
+var AGENTS = {};
+var registerAgent = (name, adapter) => {
+  AGENTS[name] = adapter;
+};
+function which(bin) {
+  if (path8.isAbsolute(bin)) return bin;
+  const exts = process.platform === "win32" ? (process.env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
+  for (const d of (process.env.PATH || "").split(path8.delimiter)) for (const e of exts) {
+    const f = path8.join(d, bin + e.toLowerCase());
+    if (fs6.existsSync(f)) return f;
+    const g = path8.join(d, bin + e);
+    if (fs6.existsSync(g)) return g;
+  }
+  return bin;
+}
+function killTree(child) {
+  if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
+  else {
+    try {
+      process.kill(-child.pid, "SIGKILL");
+    } catch {
+      child.kill("SIGKILL");
+    }
+  }
+}
+function exec(bin, args, { cwd, env, input = "", timeoutMs = 3e5 } = {}) {
+  return new Promise((resolve) => {
+    const file2 = which(bin), shim = /\.(cmd|bat)$/i.test(file2);
+    const q2 = (a) => /[\s"&|<>^]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a;
+    const child = spawn(shim ? `"${file2}"` : file2, shim ? args.map(q2) : args, { cwd, env, shell: shim, windowsHide: true, detached: process.platform !== "win32" });
+    let stdout = "", stderr = "", killed = false;
+    const timer = setTimeout(() => {
+      killed = true;
+      killTree(child);
+    }, timeoutMs);
+    child.stdout.on("data", (d) => {
+      stdout += d;
+    });
+    child.stderr.on("data", (d) => {
+      stderr += d;
+    });
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      resolve({ exitCode: -1, stdout, stderr: stderr + e.message, killed });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ exitCode: code ?? -1, stdout, stderr, killed });
+    });
+    child.stdin.on("error", () => {
+    });
+    child.stdin.end(input);
+  });
+}
+var claudeHome2 = () => process.env.CLAUDE_CONFIG_DIR || path8.join(os4.homedir(), ".claude");
+var mergeHooks = (...sets) => {
+  const out = {};
+  for (const s of sets) for (const [ev, list] of Object.entries(s?.hooks || {})) out[ev] = [...out[ev] || [], ...list];
+  return out;
+};
+var fwd = (p) => p.split(path8.sep).join("/");
+registerAgent("claude", async ({ prompt, dir, base, model, budgetUsd, timeoutMs, settings, env, artifactsDir }) => {
+  const guard = path8.join(base, "guard.mjs");
+  fs6.writeFileSync(guard, guardSource());
+  const all = { ...settings || {}, hooks: mergeHooks({ hooks: { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: `node "${fwd(guard)}"` }] }] } }, settings) };
+  const settingsFile = path8.join(base, "settings.json");
+  fs6.writeFileSync(settingsFile, JSON.stringify(all, null, 2));
+  const args = [
+    "-p",
+    "--output-format",
+    "json",
+    "--max-budget-usd",
+    budgetUsd.toFixed(2),
+    "--permission-mode",
+    "bypassPermissions",
+    "--setting-sources",
+    "project",
+    "--strict-mcp-config",
+    "--settings",
+    settingsFile,
+    ...model ? ["--model", model] : []
+  ];
+  const r = await exec(process.env.QBRANCH_CLAUDE || "claude", args, {
+    cwd: dir,
+    input: prompt,
+    timeoutMs,
+    env: { ...process.env, ...env, QBRANCH_REPLAY_ROOT: dir, QBRANCH_REPLAY_ALLOW: JSON.stringify([os4.tmpdir()]), CLAUDECODE: "" }
+  });
+  let j = null;
+  try {
+    const v = JSON.parse(r.stdout.trim());
+    j = Array.isArray(v) ? v.find((x) => x.type === "result") : v;
+  } catch {
+  }
+  const pdir = path8.join(claudeHome2(), "projects", encodeProject(dir));
+  let transcript = j?.session_id && path8.join(pdir, `${j.session_id}.jsonl`);
+  if (!transcript || !fs6.existsSync(transcript)) transcript = (fs6.existsSync(pdir) ? fs6.readdirSync(pdir).filter((f) => f.endsWith(".jsonl")).map((f) => path8.join(pdir, f)) : [])[0] || null;
+  let events = [], transcriptPath = null;
+  if (transcript) {
+    events = [...claudeEvents(transcript)];
+    fs6.mkdirSync(artifactsDir, { recursive: true });
+    transcriptPath = path8.join(artifactsDir, `${path8.basename(base)}.jsonl`);
+    fs6.copyFileSync(transcript, transcriptPath);
+  }
+  if (/qbranch-replay-/.test(pdir)) fs6.rmSync(pdir, { recursive: true, force: true });
+  const used = events.filter((e) => e.t === "usage");
+  return {
+    exitCode: r.exitCode,
+    killed: r.killed,
+    costUsd: j?.total_cost_usd ?? used.reduce((s, e) => s + costOf(e.model, e.usage), 0),
+    usage: j?.usage ?? null,
+    finalText: j?.result ?? (events.filter((e) => e.t === "text").pop()?.text || ""),
+    events,
+    transcriptPath,
+    isError: j ? !!j.is_error || j.subtype !== "success" : true,
+    error: j ? j.subtype !== "success" ? j.subtype : "" : r.killed ? "timeout" : r.stderr.slice(0, 300)
+  };
+});
+var swapRoot = (text, from, to) => {
+  const dbl = (p) => p.replace(/\\/g, "\\\\");
+  let out = String(text);
+  for (const [a, b] of [[dbl(from), dbl(to)], [from, to], [fwd(from), fwd(to)]]) if (a.length > 3) out = out.split(a).join(b);
+  return out;
+};
+async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeoutMs = 3e5, sandbox = "auto", keep = false, allowUnsafe = false, artifactsDir = path8.join(os4.tmpdir(), "qbranch-replay-runs") } = {}) {
+  if (!(budgetUsd > 0)) throw new Error("runTask needs an explicit budgetUsd (spending is opt-in)");
+  if (!task.readOnly && !allowUnsafe) throw new Error(`task ${task.id} is not read-only (${(task.unsafe || []).join("; ")}): refusing to replay it`);
+  const adapter = AGENTS[agent];
+  if (!adapter) throw new Error(`unknown agent '${agent}' (registered: ${Object.keys(AGENTS).join(", ")})`);
+  const sb = makeSandbox(task.cwd, { mode: sandbox });
+  const t0 = Date.now();
+  try {
+    const variant = setup && await setup(sb.dir, { task, sandbox: sb }) || {};
+    const before = new Set(sb.status().split("\n").filter(Boolean));
+    const r = await adapter({ prompt: swapRoot(task.prompt, task.cwd, sb.dir), dir: sb.dir, base: sb.base, model, budgetUsd, timeoutMs, settings: variant.settings, env: sb.env, artifactsDir });
+    const changed = new Set(sb.status().split("\n").filter((l) => l && !before.has(l)).map((l) => path8.relative(sb.dir, path8.join(sb.root, l.slice(3).replace(/^"|"$/g, ""))).split(path8.sep).join("/")));
+    for (const e of r.events || []) {
+      const f = e.t === "tool" && /^(Write|Edit|MultiEdit)$/.test(e.name) && (e.input?.file_path ?? e.input?.path);
+      if (f && within(path8.resolve(sb.dir, f), sb.dir)) changed.add(path8.relative(sb.dir, path8.resolve(sb.dir, f)).split(path8.sep).join("/"));
+    }
+    const usage = r.events?.find((e) => e.t === "usage")?.usage;
+    return {
+      ok: r.exitCode === 0 && !r.killed && !r.isError,
+      costUsd: r.costUsd || 0,
+      usage: r.usage,
+      durationMs: Date.now() - t0,
+      transcriptPath: r.transcriptPath,
+      finalText: r.finalText || "",
+      exitCode: r.exitCode,
+      sandboxDir: sb.dir,
+      events: r.events || [],
+      changedFiles: [...changed],
+      killed: !!r.killed,
+      error: r.error || "",
+      startupTokens: usage ? (usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0) : null
+    };
+  } finally {
+    if (!keep) sb.cleanup();
+  }
+}
+function runCommands(events) {
+  const out = [], byId = /* @__PURE__ */ new Map();
+  for (const e of events || []) {
+    if (e.t === "tool" && SHELL2.test(e.name) && e.input?.command) {
+      const c = { tool: e.name, cmd: String(e.input.command), err: false, denied: false, ran: false };
+      out.push(c);
+      if (e.id) byId.set(e.id, c);
+    } else if (e.t === "result" && byId.has(e.id)) {
+      const c = byId.get(e.id), head2 = (e.text || "").slice(0, 400);
+      c.ran = true;
+      if (e.isError || /exit code [1-9]|command not found|not recognized as/i.test(head2)) {
+        if (DENIED.test(head2.slice(0, 200)) && !/exit code/i.test(head2)) c.denied = true;
+        else c.err = true;
+      }
+    }
+  }
+  return out;
+}
+var CHECKS = {
+  completed: (t, run) => [run.ok, run.ok ? "" : `run did not complete (${run.error || `exit ${run.exitCode}`})`],
+  fileChanged: (t, run, c) => [run.changedFiles?.includes(c.path), `did not change ${c.path}`],
+  commandOk: (t, run, c) => [runCommands(run.events).some((x) => x.ran && !x.err && !x.denied && commandKey(x.cmd) === c.key), `never ran \`${c.key}\` successfully`],
+  noFailure: (t, run, c) => {
+    let re;
+    try {
+      re = new RegExp(c.pattern, "i");
+    } catch {
+      return [false, `bad pattern ${c.pattern}`];
+    }
+    const bad = runCommands(run.events).filter((x) => x.err && (!c.tool || x.tool === c.tool) && re.test(x.cmd));
+    return [bad.length === 0, `ran and failed: ${bad[0]?.cmd.slice(0, 120)}`];
+  },
+  mentions: (t, run, c) => [String(run.finalText).toLowerCase().includes(String(c.text).toLowerCase()), `final answer does not mention ${c.text}`]
+};
+async function gradeRun(task, run, { judge } = {}) {
+  const checks = task.checks?.length ? task.checks : [{ kind: "completed", hard: true }];
+  const det = checks.filter((c) => CHECKS[c.kind]);
+  const rubric = checks.find((c) => c.kind === "rubric");
+  if (judge && rubric && det.every((c) => c.kind === "completed")) {
+    const j = await judge(task, run, rubric.text);
+    return { pass: !!j.pass && run.ok, score: Math.max(0, Math.min(1, Number(j.score) || 0)), reasons: [j.reason || ""].filter(Boolean), judged: true, costUsd: j.costUsd || 0 };
+  }
+  let got = 0, total = 0, pass = true;
+  const reasons = [];
+  for (const c of det) {
+    const [ok, why] = CHECKS[c.kind](task, run, c);
+    const w = c.weight ?? (c.hard ? 1 : 0.5);
+    total += w;
+    if (ok) got += w;
+    else {
+      reasons.push(why);
+      if (c.hard) pass = false;
+    }
+  }
+  return { pass, score: total ? got / total : 0, reasons };
+}
+async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRunUsd, agent = "claude", model, timeoutMs, judge, runner = runTask, onRun = () => {
+}, sandbox } = {}) {
+  if (!(budgetUsd > 0)) throw new Error("compareVariants needs an explicit budgetUsd (spending is opt-in)");
+  const names = Object.keys(variants);
+  const per = perRunUsd ?? budgetUsd / Math.max(1, tasks.length * names.length * repeats);
+  let spent = 0;
+  const perTask = [], skipped = [], runs = [];
+  const stat = () => ({ runs: 0, passes: 0, scoreSum: 0, costUsd: 0, startup: [] });
+  const totals = Object.fromEntries(names.map((n) => [n, stat()]));
+  for (const task of tasks) {
+    const row = { id: task.id, prompt: task.prompt.slice(0, 120), variants: Object.fromEntries(names.map((n) => [n, stat()])), reasons: {} };
+    for (let rep = 0; rep < repeats; rep++) {
+      if (budgetUsd - spent < names.length * Math.min(per, 0.1)) {
+        skipped.push({ id: task.id, rep, why: "budget" });
+        continue;
+      }
+      for (const [i, name] of names.entries()) {
+        const cap = Math.min(per, (budgetUsd - spent) / (names.length - i));
+        let run, grade;
+        try {
+          run = await runner(task, { agent, model, setup: variants[name], budgetUsd: cap, timeoutMs, ...sandbox ? { sandbox } : {} });
+          grade = await gradeRun(task, run, { judge });
+        } catch (e) {
+          run = { ok: false, costUsd: 0, error: e.message, events: [] };
+          grade = { pass: false, score: 0, reasons: [e.message] };
+        }
+        spent += (run.costUsd || 0) + (grade.costUsd || 0);
+        for (const s of [row.variants[name], totals[name]]) {
+          s.runs++;
+          s.passes += grade.pass ? 1 : 0;
+          s.scoreSum += grade.score;
+          s.costUsd += (run.costUsd || 0) + (grade.costUsd || 0);
+          if (run.startupTokens != null) s.startup.push(run.startupTokens);
+        }
+        if (grade.reasons.length) row.reasons[name] = grade.reasons;
+        runs.push({ task: task.id, variant: name, rep, pass: grade.pass, score: grade.score, costUsd: run.costUsd || 0, transcriptPath: run.transcriptPath || null });
+        onRun({ task, variant: name, rep, run, grade, spent });
+      }
+    }
+    perTask.push(row);
+  }
+  const summary = (s) => ({
+    runs: s.runs,
+    passRate: s.runs ? s.passes / s.runs : null,
+    meanScore: s.runs ? s.scoreSum / s.runs : null,
+    costUsd: +s.costUsd.toFixed(4),
+    startupTokens: s.startup.length ? Math.round(s.startup.reduce((a, b) => a + b, 0) / s.startup.length) : null
+  });
+  for (const row of perTask) for (const n of names) row.variants[n] = summary(row.variants[n]);
+  const regressions = [];
+  const [base, ...rest2] = names;
+  for (const row of perTask) for (const n of rest2) {
+    const b = row.variants[base], v = row.variants[n];
+    if (b.runs && v.runs && v.passRate < b.passRate) regressions.push({ task: row.id, variant: n, before: b.passRate, after: v.passRate, reasons: row.reasons[n] || [] });
+  }
+  return { perVariant: Object.fromEntries(names.map((n) => [n, summary(totals[n])])), perTask, regressions, skipped, runs, spentUsd: +spent.toFixed(4), complete: skipped.length === 0 };
+}
+
+// packages/groundhog/src/verify.mjs
+var test = (re, s) => {
+  try {
+    return new RegExp(re, "i").test(s);
+  } catch {
+    return false;
+  }
+};
+var hit = (l, c) => c.err && !c.denied && (!l.tool || l.tool === c.tool) && test(l.when, c.cmd);
+var cheapest = (a, b) => (a.origCostUsd ?? 0) - (b.origCostUsd ?? 0);
+function lessonTasks(cfg, lesson, { days = cfg.days, tasks = 2, heldOut = 2, harvest = harvestTasks } = {}) {
+  const all = harvest({ root: cfg.root, days, limit: 1e3, minRecurrence: 1, filter: (t) => t.readOnly });
+  const target = all.filter((t) => t.history?.some((c) => hit(lesson, c))).sort(cheapest).slice(0, tasks).map((t) => ({ ...t, checks: [...t.checks || [], { kind: "noFailure", pattern: lesson.when, ...lesson.tool ? { tool: lesson.tool } : {}, hard: true }] }));
+  const others = all.filter((t) => t.recurrence >= 2 && !t.history?.some((c) => hit(lesson, c)));
+  return { target, held: others.sort(cheapest).slice(0, heldOut), candidates: all.length };
+}
+var ledgerVariant = (cfg, lessons, hookCommand) => async (dir) => {
+  fs7.writeFileSync(path9.join(dir, cfg.lessons), JSON.stringify({ lessons }, null, 2) + "\n");
+  if (!hookCommand) return {};
+  return { settings: { hooks: {
+    SessionStart: [{ hooks: [{ type: "command", command: `${hookCommand} hook session` }] }],
+    PreToolUse: [{ matcher: "Bash|PowerShell", hooks: [{ type: "command", command: `${hookCommand} hook pre` }] }]
+  } } };
+};
+var rate = (v) => v ? { runs: v.runs, passRate: v.passRate == null ? null : +v.passRate.toFixed(3), meanScore: v.meanScore == null ? null : +v.meanScore.toFixed(3) } : null;
+var paired = (r) => r ? r.perTask.filter((t) => t.variants.without.runs && t.variants.with.runs).length : 0;
+async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks = 2, heldOut = 2, repeats = 1, agent = "claude", hookCommand, timeoutMs = 3e5, compare = compareVariants, harvest, log = () => {
+} } = {}) {
+  if (!(budgetUsd > 0)) throw new Error("verification spends money: pass --budget <usd>");
+  const ledger = loadLessons(cfg).filter((l) => l.when !== lesson.when);
+  const cand = { id: lesson.id || `L${ledger.length + 1}`, action: lesson.action || (cfg.guard === "remind" ? "remind" : "deny-once"), ...lesson };
+  const { target, held, candidates } = lessonTasks(cfg, cand, { days, tasks, heldOut, harvest });
+  const at = (/* @__PURE__ */ new Date()).toISOString();
+  const base = { at, model: model || null, agent, repeats };
+  if (!target.length) return { verdict: "no-evidence", verified: { ...base, tasks: 0, before: null, after: null, regressions: [], costUsd: 0, verdict: "no-evidence", note: `none of ${candidates} replayable tasks hit this failure` } };
+  const variants = { without: ledgerVariant(cfg, ledger, hookCommand), with: ledgerVariant(cfg, [...ledger, cand], hookCommand) };
+  const opts = { variants, repeats, agent, model, timeoutMs, onRun: ({ task, variant, grade, run, spent }) => log(`  ${variant.padEnd(7)} ${task.id}  ${grade.pass ? "pass" : "fail"} ${grade.score.toFixed(2)}  $${(run.costUsd || 0).toFixed(3)} (spent $${spent.toFixed(3)})${grade.pass ? "" : `  ${(grade.reasons || []).join("; ").slice(0, 140)}`}`) };
+  log(`replaying ${target.length} task(s) where the failure happened, without and with ${cand.id}`);
+  const a = await compare({ ...opts, tasks: target, budgetUsd: held.length ? budgetUsd * 0.6 : budgetUsd });
+  let b = null;
+  if (held.length && budgetUsd - a.spentUsd > 0.02) {
+    log(`no-regression gate: ${held.length} held-out recurring task(s)`);
+    b = await compare({ ...opts, tasks: held, budgetUsd: budgetUsd - a.spentUsd });
+  }
+  const before = rate(a.perVariant.without), after = rate(a.perVariant.with);
+  const regressions = [...a.regressions, ...b?.regressions || []].map((r) => r.task);
+  const ran = paired(a);
+  const verdict = !ran ? "inconclusive" : regressions.length ? "regressed" : after.passRate < before.passRate || after.meanScore < before.meanScore ? "hurts" : after.passRate > before.passRate || after.meanScore > before.meanScore ? "helps" : "neutral";
+  const verified = {
+    ...base,
+    tasks: ran + paired(b),
+    before,
+    after,
+    regressions,
+    heldOut: b ? { tasks: paired(b), before: rate(b.perVariant.without), after: rate(b.perVariant.with), skipped: b.skipped.length } : { tasks: 0, skipped: held.length },
+    costUsd: +(a.spentUsd + (b?.spentUsd || 0)).toFixed(4),
+    verdict
+  };
+  return { verdict, verified, report: { target: a, heldOut: b } };
+}
+var acceptable = (verdict) => verdict === "helps" || verdict === "neutral";
+
+// packages/groundhog/src/draft.mjs
+import fs8 from "node:fs";
+import path10 from "node:path";
 var slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "runbook";
 function draftRunbook(cfg, item, name) {
   const steps = item.steps || [item.shape];
   const examples = item.examples || [item.example];
   const n = slug(name || steps.map((s) => s.split(" ").slice(0, 2).join(" ")).join(" then "));
-  const dir = path8.join(cfg.dataDir, "drafts", n);
-  fs6.mkdirSync(dir, { recursive: true });
+  const dir = path10.join(cfg.dataDir, "drafts", n);
+  fs8.mkdirSync(dir, { recursive: true });
   const body = [
     `# ${n}`,
     "",
@@ -566,7 +1964,7 @@ function draftRunbook(cfg, item, name) {
     ""
   ].join("\n");
   const meta = { name: n, description: `Runbook: ${steps.join(" -> ").slice(0, 300)}. Use when doing this procedure by hand. (groundhog draft: review before use)` };
-  fs6.writeFileSync(path8.join(dir, "SKILL.md"), renderFrontmatter(meta, body));
+  fs8.writeFileSync(path10.join(dir, "SKILL.md"), renderFrontmatter(meta, body));
   upsert(cfg, (s) => {
     s.totals.drafts++;
   });
@@ -585,17 +1983,38 @@ var HELP = `groundhog: stop re-living the same session.
   groundhog scan [--days N] [--all-projects]   mine transcripts: repeated commands, sequences, error -> fix pairs
   groundhog report [--json]                    numbered candidates: lessons (L), sequences (S), friction (F), repeats (R)
   groundhog accept L<n>                        add mined lesson n to the ledger (groundhog.lessons.json; commit it)
+  groundhog accept L<n> --verify --budget USD  replay the tasks where it failed, without and with the lesson, plus a
+                                               held-out sample; add it only if it helps (or never hurts) and breaks nothing
+  groundhog verify [L<n>] --budget USD         re-check accepted lessons; a lesson that breaks another task is flagged
+      verify options: [--model M] [--tasks N] [--held-out N] [--repeats N] [--days N] [--timeout SEC]
   groundhog add --when <regex> --instead <text> [--remind]   add a lesson by hand
   groundhog lessons                            list the ledger
   groundhog draft S<n>|R<n> [--name x]         write a runbook skill draft to .groundhog/drafts/
   groundhog stats [--json]                     usage + whether accepted lessons stopped recurring
   groundhog hook session|pre [--platform P]    SessionStart (inject lessons) / PreToolUse (guard shell commands)`;
 function index(cfg) {
-  const ix = readJson(path9.join(cfg.dataDir, "index.json"), null);
+  const ix = readJson(path11.join(cfg.dataDir, "index.json"), null);
   if (!ix) throw new Error("no scan yet: run `groundhog scan`");
   return ix;
 }
 var pick = (list, ref, letter) => list[Number(String(ref || "").replace(new RegExp(`^${letter}`, "i"), "")) - 1] || null;
+async function verifyOpts(cfg) {
+  const budgetUsd = Number(opt("--budget"));
+  if (!(budgetUsd > 0)) throw new Error("verification replays real tasks with a model and spends money: pass --budget <usd>");
+  const [exe, pre] = await selfCommand("groundhog", fileURLToPath2(import.meta.url));
+  return {
+    budgetUsd,
+    model: opt("--model"),
+    days: Number(opt("--days", cfg.days)),
+    tasks: Number(opt("--tasks", 2)),
+    heldOut: Number(opt("--held-out", 2)),
+    repeats: Number(opt("--repeats", 1)),
+    timeoutMs: Number(opt("--timeout", 300)) * 1e3,
+    log: (m) => console.log(m),
+    hookCommand: [exe, ...pre].map((a) => `"${a.split(path11.sep).join("/")}"`).join(" ")
+  };
+}
+var showVerified = (v) => !v ? "" : v.before ? `${v.verdict}: pass ${v.before.passRate} -> ${v.after.passRate}, score ${v.before.meanScore} -> ${v.after.meanScore} on ${v.tasks} task(s)${v.regressions.length ? `, regressions: ${v.regressions.join(", ")}` : ""}, $${v.costUsd}` + (v.repeats === 1 && v.verdict !== "neutral" ? " (one sample per task and variant: confirm with --repeats 3)" : "") : `${v.verdict}${v.note ? ` (${v.note})` : ""}`;
 async function main() {
   const cfg = loadConfig();
   switch (cmd) {
@@ -627,9 +2046,33 @@ async function main() {
     case "accept": {
       const e = pick(index(cfg).lessons, rest[0], "L");
       if (!e) throw new Error(`no lesson ${rest[0]} (see groundhog report)`);
-      const l = accept(cfg, fromRecovery(e));
+      const entry = fromRecovery(e);
+      if (loadLessons(cfg).some((l2) => l2.when === entry.when)) return console.log("already in the ledger");
+      if (flag("--verify")) {
+        const { verdict, verified } = await verifyLesson(cfg, entry, await verifyOpts(cfg));
+        console.log(`verification: ${showVerified(verified)}`);
+        if (!acceptable(verdict)) {
+          process.exitCode = 1;
+          return console.log(`not accepted (${verdict}). Accept without --verify to add it unproven.`);
+        }
+        entry.verified = verified;
+      }
+      const l = accept(cfg, entry);
       return console.log(l ? `${l.id} added (${l.action}): when /${l.when}/ -> ${l.instead}
 Edit ${cfg.lessons} to refine the wording; commit it.` : "already in the ledger");
+    }
+    case "verify": {
+      const o = await verifyOpts(cfg);
+      const all = loadLessons(cfg), ids = rest.filter((x) => /^L\d+$/i.test(x)).map((x) => x.toUpperCase());
+      const todo = ids.length ? all.filter((l) => ids.includes(l.id)) : all;
+      if (!todo.length) throw new Error(ids.length ? `no lesson ${ids.join(", ")} in the ledger` : "ledger is empty");
+      for (const l of todo) {
+        console.log(`${l.id} /${l.when}/`);
+        const { verdict, verified } = await verifyLesson(cfg, l, { ...o, budgetUsd: o.budgetUsd / todo.length });
+        updateLesson(cfg, l.id, { verified, flagged: verdict === "regressed" || verdict === "hurts" ? verdict : void 0 });
+        console.log(`${l.id} ${showVerified(verified)}`);
+      }
+      return;
     }
     case "add": {
       if (!opt("--when") || !opt("--instead")) throw new Error("usage: groundhog add --when <regex> --instead <text>");
@@ -638,8 +2081,9 @@ Edit ${cfg.lessons} to refine the wording; commit it.` : "already in the ledger"
       return console.log(l ? `${l.id} added` : "already in the ledger");
     }
     case "lessons": {
-      const ls = loadLessons(cfg);
-      return console.log(ls.length ? ls.map((l) => `${l.id} [${l.action}] /${l.when}/  ${l.instead}`).join("\n") : "ledger is empty");
+      const ls2 = loadLessons(cfg);
+      return console.log(ls2.length ? ls2.map((l) => `${l.id} [${l.action}]${l.flagged ? ` [FLAGGED: ${l.flagged}]` : ""} /${l.when}/  ${l.instead}${l.verified ? `
+    verified ${l.verified.at.slice(0, 10)}: ${showVerified(l.verified)}` : ""}`).join("\n") : "ledger is empty");
     }
     case "draft": {
       const ix = index(cfg);
@@ -652,7 +2096,7 @@ Review it, then adopt it into a skill library (e.g. headjack add <dir>).`);
     case "stats": {
       let s;
       try {
-        s = JSON.parse(fs7.readFileSync(path9.join(cfg.root, cfg.stats || ".groundhog-stats.json"), "utf8"));
+        s = JSON.parse(fs9.readFileSync(path11.join(cfg.root, cfg.stats || ".groundhog-stats.json"), "utf8"));
       } catch {
         return console.log("no stats yet");
       }

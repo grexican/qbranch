@@ -5,11 +5,11 @@
   "tagline": "Stop re-living the same session: re-learned lessons become a committed ledger that hooks enforce, and repeated procedures become runbooks.",
   "spec": "lessons that stick",
   "platformNotes": {
-    "cursor": "mining reads Claude Code transcripts today",
-    "codex": "mining reads Claude Code transcripts today",
-    "gemini": "mining reads Claude Code transcripts today",
-    "copilot": "mining reads Claude Code transcripts today",
-    "windsurf": "the guard blocks; mining reads Claude Code transcripts today"
+    "cursor": "mining reads Cursor IDE conversations and agent CLI transcripts (verified on real data); --verify replays with Claude Code",
+    "codex": "mining reads Codex rollouts (format checked against the Codex source, not yet seen on a real install); --verify replays with Claude Code",
+    "gemini": "mining reads Gemini CLI chats (format checked against the Gemini CLI source, not yet seen on a real install); --verify replays with Claude Code",
+    "copilot": "mining reads VS Code Copilot Chat and Copilot CLI sessions (storage verified on a real install; message details unverified); --verify replays with Claude Code",
+    "windsurf": "the guard blocks; no Windsurf transcript reader yet; --verify replays with Claude Code"
   },
   "type": "module",
   "private": true,

@@ -187,8 +187,11 @@ var init_embed = __esm({
 });
 
 // packages/core/src/transcripts.mjs
+import { createRequire } from "node:module";
+var require_;
 var init_transcripts = __esm({
   "packages/core/src/transcripts.mjs"() {
+    require_ = createRequire(import.meta.url);
   }
 });
 

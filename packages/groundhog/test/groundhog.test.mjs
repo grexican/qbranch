@@ -10,6 +10,8 @@ import { draftRunbook } from '../src/draft.mjs';
 import { DEFAULTS } from '../src/config.mjs';
 import { parseFrontmatter } from '@qbranch/core';
 
+// never read the real machine's other-agent stores (only the synthetic Claude Code fixtures below)
+for (const k of ['CODEX_HOME', 'CURSOR_HOME', 'CURSOR_USER_DIR', 'VSCODE_USER_DIR', 'COPILOT_HOME', 'GEMINI_CLI_HOME', 'OPENCODE_DB', 'PI_CODING_AGENT_DIR']) process.env[k] = path.join(os.tmpdir(), 'qbranch-test-none', k);
 const tmpCfg = (over = {}) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'groundhog-'));
   return { ...DEFAULTS, root, dataDir: path.join(root, '.groundhog'), ...over };
@@ -105,4 +107,77 @@ test('draft writes a valid runbook skill', () => {
   assert.equal(meta.name, 'verify-backend');
   assert.match(meta.description, /dotnet build P -> dotnet test P --no-build/);
   assert.match(body, /9 sessions/);
+});
+
+// ---------- replay verification (fake agent: no model calls) ----------
+import { registerAgent } from '@qbranch/core/replay';
+import { verifyLesson, lessonTasks, acceptable } from '../src/verify.mjs';
+import { updateLesson } from '../src/lessons.mjs';
+
+let regress = false;
+// Behaves like an agent on this machine: without a python lesson in the sandbox ledger it tries python first and fails.
+registerAgent('fake-gh', async ({ prompt, dir }) => {
+  const ledger = JSON.parse(fs.readFileSync(path.join(dir, 'groundhog.lessons.json'), 'utf8')).lessons;
+  const knows = ledger.some(l => /python/.test(l.when));
+  const call = (id, command, err) => [{ t: 'tool', name: 'Bash', input: { command }, id }, { t: 'result', id, isError: err, text: err ? 'Exit code 9009' : 'ok' }];
+  if (/digest/.test(prompt)) return { exitCode: regress && knows ? 1 : 0, isError: regress && knows, costUsd: 0.05, finalText: 'digest', events: call('d', 'npm run digest', false) };
+  return { exitCode: 0, isError: false, costUsd: 0.05, finalText: 'generated', events: knows ? call('b', 'py gen.py', false) : [...call('a', 'python gen.py', true), ...call('b', 'py gen.py', false)] };
+});
+
+function verifyFixture() {
+  const cfg = tmpCfg();
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'gh-home-'));
+  const proj = path.join(home, 'projects', path.resolve(cfg.root).replace(/[^A-Za-z0-9]/g, '-'));
+  fs.mkdirSync(proj, { recursive: true });
+  const session = (name, prompt, calls) => {
+    const lines = [JSON.stringify({ type: 'user', cwd: cfg.root, message: { content: prompt } })];
+    calls.forEach(([cmd, err], i) => {
+      lines.push(JSON.stringify({ type: 'assistant', message: { id: `${name}-${i}`, content: [{ type: 'tool_use', id: `${name}-t${i}`, name: 'Bash', input: { command: cmd } }] } }));
+      lines.push(JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `${name}-t${i}`, is_error: !!err, content: err ? 'Exit code 9009' : 'ok' }] } }));
+    });
+    fs.writeFileSync(path.join(proj, `${name}.jsonl`), lines.join('\n') + '\n');
+  };
+  session('g1', 'Run the code generator for the schema', [['python gen.py', true], ['py gen.py']]);
+  session('d1', 'Build the weekly inbox digest', [['npm run digest']]);
+  session('d2', 'Build the weekly inbox digest again', [['npm run digest']]);
+  session('p1', 'Publish the digest', [['git push origin main']]); // never replayed
+  fs.writeFileSync(path.join(cfg.root, 'groundhog.lessons.json'), JSON.stringify({ lessons: [] }));
+  return { cfg, home };
+}
+const pyLesson = () => fromRecovery({ tool: 'Bash', from: 'python P', to: 'py P', toExample: 'py gen.py', count: 3 });
+
+test('verify picks the tasks that hit the failure, plus unrelated recurring held-out tasks', () => {
+  const { cfg, home } = verifyFixture();
+  process.env.CLAUDE_CONFIG_DIR = home;
+  try {
+    const { target, held } = lessonTasks(cfg, pyLesson(), { days: 1 });
+    assert.deepEqual(target.map(t => t.prompt), ['Run the code generator for the schema']);
+    assert.ok(target[0].checks.some(c => c.kind === 'noFailure'));
+    assert.deepEqual(held.map(t => t.recurrence), [2]);
+  } finally { delete process.env.CLAUDE_CONFIG_DIR; }
+});
+
+test('a lesson that stops the failure and breaks nothing verifies; one that breaks a held-out task is rejected', async () => {
+  const { cfg, home } = verifyFixture();
+  process.env.CLAUDE_CONFIG_DIR = home;
+  try {
+    await assert.rejects(verifyLesson(cfg, pyLesson(), { agent: 'fake-gh' }), /--budget/);
+    regress = false;
+    const ok = await verifyLesson(cfg, pyLesson(), { agent: 'fake-gh', budgetUsd: 1, days: 1 });
+    assert.equal(ok.verdict, 'helps');
+    assert.ok(acceptable(ok.verdict));
+    assert.deepEqual([ok.verified.before.passRate, ok.verified.after.passRate, ok.verified.tasks], [0, 1, 2]);
+    assert.deepEqual(ok.verified.regressions, []);
+    assert.equal(ok.verified.costUsd, 0.2);
+    regress = true;
+    const bad = await verifyLesson(cfg, pyLesson(), { agent: 'fake-gh', budgetUsd: 1, days: 1 });
+    assert.equal(bad.verdict, 'regressed');
+    assert.equal(bad.verified.regressions.length, 1);
+    assert.ok(!acceptable(bad.verdict));
+    const none = await verifyLesson(cfg, fromRecovery({ tool: 'Bash', from: 'cargo build', to: 'cargo build --locked', toExample: 'cargo build --locked', count: 3 }), { agent: 'fake-gh', budgetUsd: 1, days: 1 });
+    assert.equal(none.verdict, 'no-evidence');
+    const l = accept(cfg, { ...pyLesson(), verified: ok.verified });
+    assert.equal(updateLesson(cfg, l.id, { flagged: 'regressed' }).flagged, 'regressed');
+    assert.equal(loadLessons(cfg)[0].verified.verdict, 'helps');
+  } finally { regress = false; delete process.env.CLAUDE_CONFIG_DIR; }
 });
