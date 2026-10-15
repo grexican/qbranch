@@ -85,6 +85,29 @@ test('adopt --from <dir> --to personal', () => {
   assert.ok(fs.existsSync(path.join(home, 'library/my-style/SKILL.md')));
 });
 
+test('ledger records where every skill came from; release puts it back exactly', () => {
+  const h = hj('history', 'legacy-skill');
+  assert.match(h, /adopt\s+shared\/legacy-skill\s+from .claude[\\/]skills[\\/]legacy-skill/);
+  // edit it while it lives in the library, then leave
+  const lib = path.join(proj, '.headjack/library/legacy-skill/SKILL.md');
+  fs.appendFileSync(lib, '\nOne more rule.\n');
+  assert.match(hj('release', 'shared/legacy-skill', '--dry-run'), /would release shared\/legacy-skill -> .claude[\\/]skills[\\/]legacy-skill \(edited since it was adopted\)/);
+  hj('release', 'shared/legacy-skill');
+  assert.ok(fs.existsSync(path.join(proj, '.claude/skills/legacy-skill/SKILL.md')));
+  assert.ok(!fs.existsSync(lib));
+  assert.match(hj('history', 'legacy-skill'), /release\s+shared\/legacy-skill/);
+  // personal skill adopted from an arbitrary folder goes back to that folder
+  const ledger = JSON.parse(hj('history', 'my-style', '--json'));
+  const stored = ledger.find(e => e.action === 'adopt').from;   // portable: ~/... or project-relative
+  assert.ok(!/^[A-Za-z]:\\/.test(stored), 'ledger paths are portable, not machine-absolute');
+  const from = stored.startsWith('~/') ? path.join(os.homedir(), stored.slice(2)) : path.resolve(proj, stored);
+  hj('release', 'personal/my-style');
+  assert.ok(fs.existsSync(path.join(from, 'SKILL.md')));
+  // --all reports everything it would move, without touching anything in a dry run
+  assert.match(hj('release', '--all', '--dry-run'), /would release shared\/json-canvas/);
+  assert.ok(fs.existsSync(path.join(proj, '.headjack/library/json-canvas/SKILL.md')));
+});
+
 test('new scaffolds a skill; move promotes personal -> shared', () => {
   hj('new', 'release-notes', '--personal');
   assert.ok(fs.existsSync(path.join(home, 'library/release-notes/SKILL.md')));

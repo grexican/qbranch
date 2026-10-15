@@ -89,6 +89,28 @@ headjack get pr-review          # "Bundle loaded: shared/pr-review (3 skills, ap
 
 A skill's `description` is what search matches on. Write what the skill does, then "Use when ..." with the words a request would contain.
 
+### Every move is on the record, and leaving is one command
+
+Everything that enters or leaves a library space is appended to a **ledger** next to it: `.headjack/ledger.jsonl` for the shared space (commit it with the team's skills) and `~/.headjack/ledger.jsonl` for yours. Each line says what happened (`adopt`, `add`, `acquire`, `new`, `bundle`, `move`, `release`), where the skill came from, and a hash of its content. Paths are stored relative to the project or as `~/`, so the shared ledger reads the same on every machine. Skills fetched from the registry are pinned to the exact commit they came from.
+
+```bash
+headjack history                     # everything, oldest first
+headjack history terraform-style-guide
+# 2026-10-15 15:02  acquire  shared/terraform-style-guide  from hashicorp/agent-skills/terraform-style-guide
+#                            [registry:https://github.com/hashicorp/agent-skills/tree/f706481a.../terraform-style-guide]
+```
+
+To go back, `release` moves skills out of the library to **exactly where they were adopted from**. It tells you when a skill was edited while it lived in headjack, and it never overwrites anything already there:
+
+```bash
+headjack release shared/legacy-skill            # back to .claude/skills/legacy-skill
+headjack release --all --dry-run                # what leaving headjack would move, and where
+headjack release --all                          # empty the library; then uninstall the plugin
+headjack release personal/my-style --to user    # or choose: project | user | <dir>
+```
+
+The ledger survives a release, so the full history of what came and went stays with the repo.
+
 ## Is it working? `headjack stats`
 
 ```

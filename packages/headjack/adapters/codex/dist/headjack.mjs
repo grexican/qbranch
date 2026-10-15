@@ -79,8 +79,8 @@ var init_project = __esm({
 // packages/core/src/stats.mjs
 import fs2 from "node:fs";
 import path2 from "node:path";
-function lock(file2) {
-  const l = file2 + ".lock";
+function lock(file3) {
+  const l = file3 + ".lock";
   for (let i = 0; i < 40; i++) {
     try {
       fs2.writeFileSync(l, String(process.pid), { flag: "wx" });
@@ -99,9 +99,9 @@ function lock(file2) {
   };
 }
 function createStats({ tool, fresh, dayFresh, derive }) {
-  return function upsert2(root, file2, mutate) {
-    if (!file2 || process.env[`${tool.toUpperCase()}_STATS`] === "0") return;
-    const f = path2.join(root, file2);
+  return function upsert2(root, file3, mutate) {
+    if (!file3 || process.env[`${tool.toUpperCase()}_STATS`] === "0") return;
+    const f = path2.join(root, file3);
     const release = lock(f);
     try {
       let s;
@@ -551,9 +551,71 @@ var init_library = __esm({
   }
 });
 
-// packages/headjack/src/registry.mjs
+// packages/headjack/src/ledger.mjs
 import fs5 from "node:fs";
+import os4 from "node:os";
 import path6 from "node:path";
+import { createHash as createHash2 } from "node:crypto";
+function record(cfg3, space, entry) {
+  const f = file(cfg3, space);
+  fs5.mkdirSync(path6.dirname(f), { recursive: true });
+  const e = { at: (/* @__PURE__ */ new Date()).toISOString(), space, ...entry, from: portable(cfg3, entry.from), to: portable(cfg3, entry.to) };
+  if (e.source?.startsWith("path:")) e.source = `path:${portable(cfg3, e.source.slice(5))}`;
+  fs5.appendFileSync(f, JSON.stringify(e) + "\n");
+}
+function history(cfg3, { space, name } = {}) {
+  const out = [];
+  for (const sp of space ? [space] : ["shared", "personal"]) {
+    try {
+      for (const line of fs5.readFileSync(file(cfg3, sp), "utf8").split("\n")) if (line.trim()) out.push(JSON.parse(line));
+    } catch {
+    }
+  }
+  return out.filter((e) => !name || e.name === name).sort((a, b) => a.at.localeCompare(b.at));
+}
+function origin(cfg3, space, name) {
+  const h = history(cfg3, { space, name }).filter((e) => e.action === "adopt" || e.action === "add");
+  const last = h[h.length - 1];
+  return last?.from && !last.from.includes("://") ? { dir: resolvePath(cfg3, last.from), hash: last.hash } : null;
+}
+function sourceOf(dir, fallback) {
+  try {
+    return `registry:${fs5.readFileSync(path6.join(dir, ".headjack-source"), "utf8").trim()}`;
+  } catch {
+    return fallback;
+  }
+}
+var file, skillHash, portable, resolvePath;
+var init_ledger = __esm({
+  "packages/headjack/src/ledger.mjs"() {
+    file = (cfg3, space) => path6.join(path6.dirname(space === "personal" ? cfg3.personalDir : cfg3.sharedDir), "ledger.jsonl");
+    skillHash = (dir) => {
+      try {
+        return createHash2("sha1").update(fs5.readFileSync(path6.join(dir, "SKILL.md"))).digest("hex").slice(0, 12);
+      } catch {
+        return null;
+      }
+    };
+    portable = (cfg3, p) => {
+      if (typeof p !== "string" || !path6.isAbsolute(p)) return p;
+      const slash = (s) => s.split(path6.sep).join("/");
+      const inside = (base) => {
+        const r2 = path6.relative(base, p);
+        return r2 && !r2.startsWith("..") && !path6.isAbsolute(r2) ? r2 : null;
+      };
+      const r = inside(cfg3.root);
+      if (r) return slash(r);
+      const h = inside(os4.homedir());
+      if (h) return `~/${slash(h)}`;
+      return slash(p);
+    };
+    resolvePath = (cfg3, p) => p.startsWith("~/") ? path6.join(os4.homedir(), p.slice(2)) : path6.resolve(cfg3.root, p);
+  }
+});
+
+// packages/headjack/src/registry.mjs
+import fs6 from "node:fs";
+import path7 from "node:path";
 async function searchRegistry(query, k = 5) {
   const r = await fetch(`https://skills.sh/api/search?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(8e3) });
   if (!r.ok) throw new Error(`skills.sh ${r.status}`);
@@ -569,31 +631,37 @@ async function acquire(cfg3, extId, { dest } = {}) {
   const skillId = rest2.join("/");
   if (!owner || !repo || !skillId) throw new Error("id must look like owner/repo/skill");
   const gh = (u) => fetch(u, { headers: { "User-Agent": "headjack", ...process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {} } });
-  const tr = await gh(`https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`);
+  const cr = await gh(`https://api.github.com/repos/${owner}/${repo}/commits/HEAD`);
+  const sha = cr.ok ? (await cr.json()).sha : "HEAD";
+  const tr = await gh(`https://api.github.com/repos/${owner}/${repo}/git/trees/${sha}?recursive=1`);
   if (!tr.ok) throw new Error(`GitHub tree ${tr.status}`);
   const tree = (await tr.json()).tree;
   const mds = tree.filter((t) => t.type === "blob" && t.path.endsWith("SKILL.md"));
-  const hit = mds.find((t) => path6.posix.basename(path6.posix.dirname(t.path)) === skillId) || mds.find((t) => t.path.includes(skillId));
+  const hit = mds.find((t) => path7.posix.basename(path7.posix.dirname(t.path)) === skillId) || mds.find((t) => t.path.includes(skillId));
   if (!hit) throw new Error(`no SKILL.md for "${skillId}" in ${owner}/${repo}`);
-  const base = path6.posix.dirname(hit.path);
-  const out = path6.join(dest || cfg3.sharedDir, skillId.replace(/[\\/]/g, "_"));
+  const base = path7.posix.dirname(hit.path);
+  const out = path7.join(dest || cfg3.sharedDir, skillId.replace(/[\\/]/g, "_"));
   for (const f of tree.filter((t) => t.type === "blob" && t.path.startsWith(base + "/") && t.size < 2e5).slice(0, 40)) {
-    const raw = await gh(`https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${f.path}`);
+    const raw = await gh(`https://raw.githubusercontent.com/${owner}/${repo}/${sha}/${f.path}`);
     if (!raw.ok) continue;
-    const p = path6.join(out, f.path.slice(base.length + 1));
-    fs5.mkdirSync(path6.dirname(p), { recursive: true });
-    fs5.writeFileSync(p, Buffer.from(await raw.arrayBuffer()));
+    const p = path7.join(out, f.path.slice(base.length + 1));
+    fs6.mkdirSync(path7.dirname(p), { recursive: true });
+    fs6.writeFileSync(p, Buffer.from(await raw.arrayBuffer()));
   }
-  const parsed = parseSkill(fs5.readFileSync(path6.join(out, "SKILL.md"), "utf8"));
+  const parsed = parseSkill(fs6.readFileSync(path7.join(out, "SKILL.md"), "utf8"));
   if (!parsed) throw new Error("fetched SKILL.md has no name/description frontmatter");
-  fs5.writeFileSync(path6.join(out, ".headjack-source"), `https://github.com/${owner}/${repo}/tree/HEAD/${base}
+  const url2 = `https://github.com/${owner}/${repo}/tree/${sha}/${base}`;
+  fs6.writeFileSync(path7.join(out, ".headjack-source"), `${url2}
 `);
+  const space = dest === cfg3.personalDir ? "personal" : "shared";
+  record(cfg3, space, { action: "acquire", name: parsed.name, from: extId, to: out, source: `registry:${url2}`, hash: skillHash(out) });
   await reindex(cfg3);
-  return load(cfg3, `${dest === cfg3.personalDir ? "personal" : "shared"}/${parsed.name}`);
+  return load(cfg3, `${space}/${parsed.name}`);
 }
 var init_registry = __esm({
   "packages/headjack/src/registry.mjs"() {
     init_library();
+    init_ledger();
   }
 });
 
@@ -1068,8 +1136,8 @@ var init_parseUtil = __esm({
     init_errors();
     init_en();
     makeIssue = (params) => {
-      const { data, path: path8, errorMaps, issueData } = params;
-      const fullPath = [...path8, ...issueData.path || []];
+      const { data, path: path9, errorMaps, issueData } = params;
+      const fullPath = [...path9, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -1353,11 +1421,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util();
     ParseInputLazyPath = class {
-      constructor(parent, value, path8, key) {
+      constructor(parent, value, path9, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path8;
+        this._path = path9;
         this._key = key;
       }
       get path() {
@@ -4831,10 +4899,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path8) {
-  if (!path8)
+function getElementAtPath(obj, path9) {
+  if (!path9)
     return obj;
-  return path8.reduce((acc, key) => acc?.[key], obj);
+  return path9.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -5093,11 +5161,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path8, issues) {
+function prefixIssues(path9, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path8);
+    iss.path.unshift(path9);
     return iss;
   });
 }
@@ -5630,16 +5698,16 @@ function flattenError(error62, mapper = (issue2) => issue2.message) {
 }
 function formatError(error62, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error63, path8 = []) => {
+  const processError = (error63, path9 = []) => {
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else {
-        const fullpath = [...path8, ...issue2.path];
+        const fullpath = [...path9, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -5678,17 +5746,17 @@ function formatError(error62, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error62, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error63, path8 = []) => {
+  const processError = (error63, path9 = []) => {
     var _a3;
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else {
-        const fullpath = [...path8, ...issue2.path];
+        const fullpath = [...path9, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -5727,8 +5795,8 @@ function treeifyError(error62, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path8 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path8) {
+  const path9 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path9) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -6175,13 +6243,13 @@ var init_checks = __esm({
     };
     $ZodCheckLessThan = /* @__PURE__ */ $constructor("$ZodCheckLessThan", (inst, def) => {
       $ZodCheck.init(inst, def);
-      const origin = numericOriginMap[typeof def.value];
+      const origin2 = numericOriginMap[typeof def.value];
       inst._zod.check = (payload) => {
         if (def.inclusive ? payload.value <= def.value : payload.value < def.value) {
           return;
         }
         payload.issues.push({
-          origin: numericOriginMap[typeof payload.value] ?? origin,
+          origin: numericOriginMap[typeof payload.value] ?? origin2,
           code: "too_big",
           maximum: typeof def.value === "object" ? def.value.getTime() : def.value,
           input: payload.value,
@@ -6193,13 +6261,13 @@ var init_checks = __esm({
     });
     $ZodCheckGreaterThan = /* @__PURE__ */ $constructor("$ZodCheckGreaterThan", (inst, def) => {
       $ZodCheck.init(inst, def);
-      const origin = numericOriginMap[typeof def.value];
+      const origin2 = numericOriginMap[typeof def.value];
       inst._zod.check = (payload) => {
         if (def.inclusive ? payload.value >= def.value : payload.value > def.value) {
           return;
         }
         payload.issues.push({
-          origin: numericOriginMap[typeof payload.value] ?? origin,
+          origin: numericOriginMap[typeof payload.value] ?? origin2,
           code: "too_small",
           minimum: typeof def.value === "object" ? def.value.getTime() : def.value,
           input: payload.value,
@@ -6234,14 +6302,14 @@ var init_checks = __esm({
       $ZodCheck.init(inst, def);
       def.format = def.format || "float64";
       const isInt = def.format?.includes("int");
-      const origin = isInt ? "int" : "number";
+      const origin2 = isInt ? "int" : "number";
       const [minimum, maximum] = NUMBER_FORMAT_RANGES[def.format];
       inst._zod.check = (payload) => {
         const input2 = payload.value;
         if (isInt) {
           if (!Number.isInteger(input2)) {
             payload.issues.push({
-              expected: origin,
+              expected: origin2,
               format: def.format,
               code: "invalid_type",
               continue: false,
@@ -6258,7 +6326,7 @@ var init_checks = __esm({
                 maximum: Number.MAX_SAFE_INTEGER,
                 note: "Integers must be within the safe integer range.",
                 inst,
-                origin,
+                origin: origin2,
                 inclusive: true,
                 continue: !def.abort
               });
@@ -6269,7 +6337,7 @@ var init_checks = __esm({
                 minimum: Number.MIN_SAFE_INTEGER,
                 note: "Integers must be within the safe integer range.",
                 inst,
-                origin,
+                origin: origin2,
                 inclusive: true,
                 continue: !def.abort
               });
@@ -6401,9 +6469,9 @@ var init_checks = __esm({
         const length = typeof input2 === "string" && units > def.maximum ? codePointLength(input2) : units;
         if (length <= def.maximum)
           return;
-        const origin = getLengthableOrigin(input2);
+        const origin2 = getLengthableOrigin(input2);
         payload.issues.push({
-          origin,
+          origin: origin2,
           code: "too_big",
           maximum: def.maximum,
           inclusive: true,
@@ -6423,9 +6491,9 @@ var init_checks = __esm({
         const length = typeof input2 === "string" && units >= def.minimum && units < def.minimum * 2 ? codePointLength(input2) : units;
         if (length >= def.minimum)
           return;
-        const origin = getLengthableOrigin(input2);
+        const origin2 = getLengthableOrigin(input2);
         payload.issues.push({
-          origin,
+          origin: origin2,
           code: "too_small",
           minimum: def.minimum,
           inclusive: true,
@@ -6445,10 +6513,10 @@ var init_checks = __esm({
         const length = typeof input2 === "string" && units >= def.length && units <= def.length * 2 ? codePointLength(input2) : units;
         if (length === def.length)
           return;
-        const origin = getLengthableOrigin(input2);
+        const origin2 = getLengthableOrigin(input2);
         const tooBig = length > def.length;
         payload.issues.push({
-          origin,
+          origin: origin2,
           ...tooBig ? { code: "too_big", maximum: def.length } : { code: "too_small", minimum: def.length },
           inclusive: true,
           exact: true,
@@ -9439,8 +9507,8 @@ var init_ar = __esm({
         set: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
         map: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0645\u062F\u062E\u0644",
@@ -9557,8 +9625,8 @@ var init_az = __esm({
         set: { unit: "element", verb: "olmal\u0131d\u0131r" },
         map: { unit: "element", verb: "olmal\u0131d\u0131r" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "input",
@@ -9724,8 +9792,8 @@ var init_be = __esm({
           verb: "\u043C\u0435\u0446\u044C"
         }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0443\u0432\u043E\u0434",
@@ -9849,8 +9917,8 @@ var init_bg = __esm({
         set: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
         map: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0432\u0445\u043E\u0434",
@@ -9981,8 +10049,8 @@ var init_bn = __esm({
         set: { unit: "\u0986\u0987\u099F\u09C7\u09AE", verb: "\u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7" },
         map: { unit: "\u098F\u09A8\u09CD\u099F\u09CD\u09B0\u09BF", verb: "\u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0987\u09A8\u09AA\u09C1\u099F",
@@ -10101,8 +10169,8 @@ var init_ca = __esm({
         set: { unit: "elements", verb: "contenir" },
         map: { unit: "elements", verb: "contenir" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "entrada",
@@ -10221,8 +10289,8 @@ var init_ckb = __esm({
         set: { unit: "\u062F\u0627\u0646\u06D5", verb: "\u0628\u06CE\u062A" },
         map: { unit: "\u062F\u0627\u0646\u06D5", verb: "\u0628\u06CE\u062A" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "regex",
@@ -10360,8 +10428,8 @@ var init_cs = __esm({
         set: { unit: "prvk\u016F", verb: "m\xEDt" },
         map: { unit: "prvk\u016F", verb: "m\xEDt" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "regul\xE1rn\xED v\xFDraz",
@@ -10483,8 +10551,8 @@ var init_da = __esm({
         set: { unit: "elementer", verb: "indeholdt" },
         map: { unit: "elementer", verb: "indeholdt" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "input",
@@ -10548,19 +10616,19 @@ var init_da = __esm({
           case "too_big": {
             const adj = issue2.inclusive ? "<=" : "<";
             const sizing = getSizing(issue2.origin);
-            const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+            const origin2 = TypeDictionary[issue2.origin] ?? issue2.origin;
             if (sizing)
-              return `For stor: forventede ${origin ?? "value"} ${sizing.verb} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
-            return `For stor: forventede ${origin ?? "value"} havde ${adj} ${issue2.maximum.toString()}`;
+              return `For stor: forventede ${origin2 ?? "value"} ${sizing.verb} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
+            return `For stor: forventede ${origin2 ?? "value"} havde ${adj} ${issue2.maximum.toString()}`;
           }
           case "too_small": {
             const adj = issue2.inclusive ? ">=" : ">";
             const sizing = getSizing(issue2.origin);
-            const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+            const origin2 = TypeDictionary[issue2.origin] ?? issue2.origin;
             if (sizing) {
-              return `For lille: forventede ${origin} ${sizing.verb} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+              return `For lille: forventede ${origin2} ${sizing.verb} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
             }
-            return `For lille: forventede ${origin} havde ${adj} ${issue2.minimum.toString()}`;
+            return `For lille: forventede ${origin2} havde ${adj} ${issue2.minimum.toString()}`;
           }
           case "invalid_format": {
             const _issue = issue2;
@@ -10610,8 +10678,8 @@ var init_de = __esm({
         set: { unit: "Elemente", verb: "zu haben" },
         map: { unit: "Elemente", verb: "zu haben" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "Eingabe",
@@ -10730,8 +10798,8 @@ var init_el = __esm({
         set: { unit: "\u03C3\u03C4\u03BF\u03B9\u03C7\u03B5\u03AF\u03B1", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" },
         map: { unit: "\u03BA\u03B1\u03C4\u03B1\u03C7\u03C9\u03C1\u03AE\u03C3\u03B5\u03B9\u03C2", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u03B5\u03AF\u03C3\u03BF\u03B4\u03BF\u03C2",
@@ -10849,8 +10917,8 @@ var init_en2 = __esm({
         set: { unit: "items", verb: "to have" },
         map: { unit: "entries", verb: "to have" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "input",
@@ -10980,8 +11048,8 @@ var init_eo = __esm({
         set: { unit: "elementojn", verb: "havi" },
         map: { unit: "elementojn", verb: "havi" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "enigo",
@@ -11100,8 +11168,8 @@ var init_es = __esm({
         array: { unit: "elementos", verb: "tener" },
         set: { unit: "elementos", verb: "tener" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "entrada",
@@ -11182,19 +11250,19 @@ var init_es = __esm({
           case "too_big": {
             const adj = issue2.inclusive ? "<=" : "<";
             const sizing = getSizing(issue2.origin);
-            const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+            const origin2 = TypeDictionary[issue2.origin] ?? issue2.origin;
             if (sizing)
-              return `Demasiado grande: se esperaba que ${origin ?? "valor"} tuviera ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementos"}`;
-            return `Demasiado grande: se esperaba que ${origin ?? "valor"} fuera ${adj}${issue2.maximum.toString()}`;
+              return `Demasiado grande: se esperaba que ${origin2 ?? "valor"} tuviera ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementos"}`;
+            return `Demasiado grande: se esperaba que ${origin2 ?? "valor"} fuera ${adj}${issue2.maximum.toString()}`;
           }
           case "too_small": {
             const adj = issue2.inclusive ? ">=" : ">";
             const sizing = getSizing(issue2.origin);
-            const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+            const origin2 = TypeDictionary[issue2.origin] ?? issue2.origin;
             if (sizing) {
-              return `Demasiado peque\xF1o: se esperaba que ${origin} tuviera ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+              return `Demasiado peque\xF1o: se esperaba que ${origin2} tuviera ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
             }
-            return `Demasiado peque\xF1o: se esperaba que ${origin} fuera ${adj}${issue2.minimum.toString()}`;
+            return `Demasiado peque\xF1o: se esperaba que ${origin2} fuera ${adj}${issue2.minimum.toString()}`;
           }
           case "invalid_format": {
             const _issue = issue2;
@@ -11244,8 +11312,8 @@ var init_fa = __esm({
         set: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
         map: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0648\u0631\u0648\u062F\u06CC",
@@ -11374,8 +11442,8 @@ var init_fi = __esm({
         int: { unit: "", subject: "kokonaisluvun" },
         date: { unit: "", subject: "p\xE4iv\xE4m\xE4\xE4r\xE4n" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "s\xE4\xE4nn\xF6llinen lauseke",
@@ -11493,8 +11561,8 @@ var init_fr = __esm({
         array: { unit: "\xE9l\xE9ments", verb: "avoir" },
         set: { unit: "\xE9l\xE9ments", verb: "avoir" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "expression r\xE9guli\xE8re",
@@ -11630,8 +11698,8 @@ var init_fr_CA = __esm({
         set: { unit: "\xE9l\xE9ments", verb: "avoir" },
         map: { unit: "\xE9l\xE9ments", verb: "avoir" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "entr\xE9e",
@@ -11749,8 +11817,8 @@ var init_gu = __esm({
         set: { unit: "\u0A86\u0A87\u0A9F\u0AAE", verb: "\u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F" },
         map: { unit: "\u0A8F\u0AA8\u0ACD\u0A9F\u0ACD\u0AB0\u0AC0", verb: "\u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0A87\u0AA8\u0AAA\u0AC1\u0A9F",
@@ -11903,10 +11971,10 @@ var init_he = __esm({
         const gender = e?.gender ?? "m";
         return gender === "f" ? "\u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05D9\u05D5\u05EA" : "\u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA";
       };
-      const getSizing = (origin) => {
-        if (!origin)
+      const getSizing = (origin2) => {
+        if (!origin2)
           return null;
-        return Sizable[origin] ?? null;
+        return Sizable[origin2] ?? null;
       };
       const FormatDictionary = {
         regex: { label: "\u05E7\u05DC\u05D8", gender: "m" },
@@ -12077,8 +12145,8 @@ var init_hi = __esm({
         set: { unit: "\u0924\u0924\u094D\u0935", verb: "\u0930\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F" },
         map: { unit: "\u092A\u094D\u0930\u0935\u093F\u0937\u094D\u091F\u093F\u092F\u093E\u0901", verb: "\u0930\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0907\u0928\u092A\u0941\u091F",
@@ -12194,8 +12262,8 @@ var init_hr = __esm({
         array: { unit: "stavki", verb: "imati" },
         set: { unit: "stavki", verb: "imati" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "unos",
@@ -12266,19 +12334,19 @@ var init_hr = __esm({
           case "too_big": {
             const adj = issue2.inclusive ? "<=" : "<";
             const sizing = getSizing(issue2.origin);
-            const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+            const origin2 = TypeDictionary[issue2.origin] ?? issue2.origin;
             if (sizing)
-              return `Preveliko: o\u010Dekivano da ${origin ?? "vrijednost"} ima ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemenata"}`;
-            return `Preveliko: o\u010Dekivano da ${origin ?? "vrijednost"} bude ${adj}${issue2.maximum.toString()}`;
+              return `Preveliko: o\u010Dekivano da ${origin2 ?? "vrijednost"} ima ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemenata"}`;
+            return `Preveliko: o\u010Dekivano da ${origin2 ?? "vrijednost"} bude ${adj}${issue2.maximum.toString()}`;
           }
           case "too_small": {
             const adj = issue2.inclusive ? ">=" : ">";
             const sizing = getSizing(issue2.origin);
-            const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+            const origin2 = TypeDictionary[issue2.origin] ?? issue2.origin;
             if (sizing) {
-              return `Premalo: o\u010Dekivano da ${origin} ima ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+              return `Premalo: o\u010Dekivano da ${origin2} ima ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
             }
-            return `Premalo: o\u010Dekivano da ${origin} bude ${adj}${issue2.minimum.toString()}`;
+            return `Premalo: o\u010Dekivano da ${origin2} bude ${adj}${issue2.minimum.toString()}`;
           }
           case "invalid_format": {
             const _issue = issue2;
@@ -12328,8 +12396,8 @@ var init_hu = __esm({
         set: { unit: "elem", verb: "legyen" },
         map: { unit: "elem", verb: "legyen" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "bemenet",
@@ -12488,8 +12556,8 @@ var init_hy = __esm({
           verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
         }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0574\u0578\u0582\u057F\u0584",
@@ -12613,8 +12681,8 @@ var init_id = __esm({
         set: { unit: "item", verb: "memiliki" },
         map: { unit: "item", verb: "memiliki" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "input",
@@ -12731,8 +12799,8 @@ var init_is = __esm({
         set: { unit: "hluti", verb: "a\xF0 hafa" },
         map: { unit: "hluti", verb: "a\xF0 hafa" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "gildi",
@@ -12852,8 +12920,8 @@ var init_it = __esm({
         set: { unit: "elementi", verb: "avere" },
         map: { unit: "elementi", verb: "avere" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "input",
@@ -12972,8 +13040,8 @@ var init_ja = __esm({
         set: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" },
         map: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u5165\u529B\u5024",
@@ -13091,8 +13159,8 @@ var init_ka = __esm({
         set: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
         map: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0",
@@ -13215,8 +13283,8 @@ var init_km = __esm({
         set: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
         map: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B",
@@ -13347,8 +13415,8 @@ var init_kn = __esm({
         set: { unit: "\u0CB5\u0CB8\u0CCD\u0CA4\u0CC1\u0C97\u0CB3\u0CC1", verb: "\u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1" },
         map: { unit: "entries", verb: "\u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0C87\u0CA8\u0CCD\u0CAA\u0CC1\u0C9F\u0CCD",
@@ -13469,8 +13537,8 @@ var init_ko = __esm({
         set: { unit: "\uAC1C", verb: "to have" },
         map: { unit: "\uAC1C", verb: "to have" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\uC785\uB825",
@@ -13668,8 +13736,8 @@ var init_lt = __esm({
           }
         }
       };
-      function getSizing(origin, unitType, inclusive, targetShouldBe) {
-        const result = Sizable[origin] ?? null;
+      function getSizing(origin2, unitType, inclusive, targetShouldBe) {
+        const result = Sizable[origin2] ?? null;
         if (result === null)
           return result;
         return {
@@ -13740,20 +13808,20 @@ var init_lt = __esm({
               return `Privalo b\u016Bti ${stringifyPrimitive(issue2.values[0])}`;
             return `Privalo b\u016Bti vienas i\u0161 ${joinValues(issue2.values, "|")} pasirinkim\u0173`;
           case "too_big": {
-            const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+            const origin2 = TypeDictionary[issue2.origin] ?? issue2.origin;
             const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.maximum)), issue2.inclusive ?? false, "smaller");
             if (sizing?.verb)
-              return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.maximum.toString()} ${sizing.unit ?? "element\u0173"}`;
+              return `${capitalizeFirstCharacter(origin2 ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.maximum.toString()} ${sizing.unit ?? "element\u0173"}`;
             const adj = issue2.inclusive ? "ne didesnis kaip" : "ma\u017Eesnis kaip";
-            return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.maximum.toString()} ${sizing?.unit}`;
+            return `${capitalizeFirstCharacter(origin2 ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.maximum.toString()} ${sizing?.unit}`;
           }
           case "too_small": {
-            const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
+            const origin2 = TypeDictionary[issue2.origin] ?? issue2.origin;
             const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.minimum)), issue2.inclusive ?? false, "bigger");
             if (sizing?.verb)
-              return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.minimum.toString()} ${sizing.unit ?? "element\u0173"}`;
+              return `${capitalizeFirstCharacter(origin2 ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.minimum.toString()} ${sizing.unit ?? "element\u0173"}`;
             const adj = issue2.inclusive ? "ne ma\u017Eesnis kaip" : "didesnis kaip";
-            return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.minimum.toString()} ${sizing?.unit}`;
+            return `${capitalizeFirstCharacter(origin2 ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.minimum.toString()} ${sizing?.unit}`;
           }
           case "invalid_format": {
             const _issue = issue2;
@@ -13777,8 +13845,8 @@ var init_lt = __esm({
           case "invalid_union":
             return "Klaidinga \u012Fvestis";
           case "invalid_element": {
-            const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
-            return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi klaiding\u0105 \u012Fvest\u012F`;
+            const origin2 = TypeDictionary[issue2.origin] ?? issue2.origin;
+            return `${capitalizeFirstCharacter(origin2 ?? issue2.origin ?? "reik\u0161m\u0117")} turi klaiding\u0105 \u012Fvest\u012F`;
           }
           default:
             return "Klaidinga \u012Fvestis";
@@ -13806,8 +13874,8 @@ var init_mk = __esm({
         set: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
         map: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0432\u043D\u0435\u0441",
@@ -13927,8 +13995,8 @@ var init_ms = __esm({
         set: { unit: "elemen", verb: "mempunyai" },
         map: { unit: "elemen", verb: "mempunyai" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "input",
@@ -14046,8 +14114,8 @@ var init_ne = __esm({
         set: { unit: "\u0924\u0924\u094D\u0935", verb: "\u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B" },
         map: { unit: "\u092A\u094D\u0930\u0935\u093F\u0937\u094D\u091F\u093F", verb: "\u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0907\u0928\u092A\u0941\u091F",
@@ -14164,8 +14232,8 @@ var init_nl = __esm({
         set: { unit: "elementen", verb: "heeft" },
         map: { unit: "elementen", verb: "heeft" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "invoer",
@@ -14286,8 +14354,8 @@ var init_nn = __esm({
         set: { unit: "element", verb: "\xE5 innehalde" },
         map: { unit: "element", verb: "\xE5 innehalde" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "input",
@@ -14406,8 +14474,8 @@ var init_no = __esm({
         set: { unit: "elementer", verb: "\xE5 inneholde" },
         map: { unit: "elementer", verb: "\xE5 inneholde" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "input",
@@ -14526,8 +14594,8 @@ var init_ota = __esm({
         set: { unit: "unsur", verb: "olmal\u0131d\u0131r" },
         map: { unit: "unsur", verb: "olmal\u0131d\u0131r" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "giren",
@@ -14647,8 +14715,8 @@ var init_ps = __esm({
         set: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
         map: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0648\u0631\u0648\u062F\u064A",
@@ -14773,8 +14841,8 @@ var init_pl = __esm({
         set: { unit: "element\xF3w", verb: "mie\u0107" },
         map: { unit: "element\xF3w", verb: "mie\u0107" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "wyra\u017Cenie",
@@ -14894,8 +14962,8 @@ var init_pt = __esm({
         set: { unit: "elementos" },
         map: { unit: "entradas" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "a entrada",
@@ -15044,8 +15112,8 @@ var init_pt_BR = __esm({
         set: { unit: "elementos" },
         map: { unit: "entradas" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "a entrada",
@@ -15195,8 +15263,8 @@ var init_ro = __esm({
         set: { unit: "elemente", verb: "s\u0103 aib\u0103" },
         map: { unit: "intr\u0103ri", verb: "s\u0103 aib\u0103" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "intrare",
@@ -15374,8 +15442,8 @@ var init_ru = __esm({
           verb: "\u0438\u043C\u0435\u0442\u044C"
         }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0432\u0432\u043E\u0434",
@@ -15499,8 +15567,8 @@ var init_sk = __esm({
         set: { unit: "prvkov", verb: "ma\u0165" },
         map: { unit: "polo\u017Eiek", verb: "ma\u0165" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "regul\xE1rny v\xFDraz",
@@ -15622,8 +15690,8 @@ var init_sl = __esm({
         set: { unit: "elementov", verb: "imeti" },
         map: { unit: "elementov", verb: "imeti" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "vnos",
@@ -15743,8 +15811,8 @@ var init_sv = __esm({
         set: { unit: "objekt", verb: "att inneh\xE5lla" },
         map: { unit: "objekt", verb: "att inneh\xE5lla" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "regulj\xE4rt uttryck",
@@ -15865,8 +15933,8 @@ var init_ta = __esm({
         set: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
         map: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1",
@@ -15987,8 +16055,8 @@ var init_tg = __esm({
         set: { unit: "\u0443\u043D\u0441\u0443\u0440", verb: "\u0434\u043E\u0448\u0442\u0430 \u0431\u043E\u0448\u0430\u0434" },
         map: { unit: "\u0441\u0430\u0431\u0442", verb: "\u0434\u043E\u0448\u0442\u0430 \u0431\u043E\u0448\u0430\u0434" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0432\u0443\u0440\u0443\u0434",
@@ -16110,8 +16178,8 @@ var init_th = __esm({
         set: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
         map: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1B\u0E49\u0E2D\u0E19",
@@ -16232,8 +16300,8 @@ var init_tk = __esm({
         set: { unit: "elementler", verb: "bolmaly" },
         map: { unit: "elementler", verb: "bolmaly" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "giri\u015F",
@@ -16346,8 +16414,8 @@ var init_tr = __esm({
         set: { unit: "\xF6\u011Fe", verb: "olmal\u0131" },
         map: { unit: "\xF6\u011Fe", verb: "olmal\u0131" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "girdi",
@@ -16463,8 +16531,8 @@ var init_uk = __esm({
         set: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
         map: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456",
@@ -16593,8 +16661,8 @@ var init_ur = __esm({
         set: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" },
         map: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0627\u0646 \u067E\u0679",
@@ -16715,8 +16783,8 @@ var init_uz = __esm({
         set: { unit: "element", verb: "bo\u2018lishi kerak" },
         map: { unit: "yozuv", verb: "bo\u2018lishi kerak" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "kirish",
@@ -16835,8 +16903,8 @@ var init_vi = __esm({
         set: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" },
         map: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u0111\u1EA7u v\xE0o",
@@ -16955,8 +17023,8 @@ var init_zh_CN = __esm({
         set: { unit: "\u9879", verb: "\u5305\u542B" },
         map: { unit: "\u9879", verb: "\u5305\u542B" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u8F93\u5165",
@@ -17076,8 +17144,8 @@ var init_zh_TW = __esm({
         set: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" },
         map: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u8F38\u5165",
@@ -17195,8 +17263,8 @@ var init_yo = __esm({
         set: { unit: "nkan", verb: "n\xED" },
         map: { unit: "nkan", verb: "n\xED" }
       };
-      function getSizing(origin) {
-        return Sizable[origin] ?? null;
+      function getSizing(origin2) {
+        return Sizable[origin2] ?? null;
       }
       const FormatDictionary = {
         regex: "\u1EB9\u0300r\u1ECD \xECb\xE1w\u1ECDl\xE9",
@@ -20793,8 +20861,8 @@ function rewriteKeyNames(ctx) {
       bySchema.set(entry.schema, entry);
   }
   const rewrites = /* @__PURE__ */ new Map();
-  for (const record2 of pendingRecords.get(ctx) ?? []) {
-    const seen = ctx.seen.get(record2);
+  for (const record3 of pendingRecords.get(ctx) ?? []) {
+    const seen = ctx.seen.get(record3);
     const names = (seen?.def ?? seen?.schema)?.propertyNames;
     if (!names || names === true || rewrites.has(names))
       continue;
@@ -22266,11 +22334,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path8) {
-  if (path8.length === 0) {
+function getDotPath(path9) {
+  if (path9.length === 0) {
     return "object root";
   }
-  return path8.reduce((acc, seg, index) => {
+  return path9.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -22570,7 +22638,7 @@ __export(schemas_exports2, {
   emoji: () => emoji2,
   enum: () => _enum2,
   exactOptional: () => exactOptional,
-  file: () => file,
+  file: () => file2,
   float32: () => float32,
   float64: () => float64,
   function: () => _function,
@@ -22616,7 +22684,7 @@ __export(schemas_exports2, {
   preprocess: () => preprocess,
   promise: () => promise,
   readonly: () => readonly,
-  record: () => record,
+  record: () => record2,
   refine: () => refine,
   set: () => set,
   strictObject: () => strictObject,
@@ -22883,7 +22951,7 @@ function tuple(items, _paramsOrRest, _params) {
     ...util_exports.normalizeParams(params)
   });
 }
-function record(keyType, valueType, params) {
+function record2(keyType, valueType, params) {
   if (!valueType || !valueType._zod) {
     return new ZodRecord2({
       type: "record",
@@ -22954,7 +23022,7 @@ function literal(value, params) {
     ...util_exports.normalizeParams(params)
   });
 }
-function file(params) {
+function file2(params) {
   return _file(ZodFile, params);
 }
 function transform(fn) {
@@ -23125,7 +23193,7 @@ function _instanceof(cls, params = {}) {
 }
 function json(params) {
   const jsonSchema = lazy(() => {
-    return union([string2(params), number2(), boolean2(), _null3(), array(jsonSchema), record(string2(), jsonSchema)]);
+    return union([string2(params), number2(), boolean2(), _null3(), array(jsonSchema), record2(string2(), jsonSchema)]);
   });
   return jsonSchema;
 }
@@ -24208,13 +24276,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path8 = ref.slice(1).split("/").filter(Boolean);
-  if (path8.length === 0) {
+  const path9 = ref.slice(1).split("/").filter(Boolean);
+  if (path9.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path8[0] === defsKey) {
-    const key = path8[1] === void 0 ? void 0 : decodeJSONPointerSegment(path8[1]);
+  if (path9[0] === defsKey) {
+    const key = path9[1] === void 0 ? void 0 : decodeJSONPointerSegment(path9[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -25142,7 +25210,7 @@ __export(external_exports, {
   endsWith: () => _endsWith,
   enum: () => _enum2,
   exactOptional: () => exactOptional,
-  file: () => file,
+  file: () => file2,
   flattenError: () => flattenError,
   float32: () => float32,
   float64: () => float64,
@@ -25223,7 +25291,7 @@ __export(external_exports, {
   properties: () => _properties,
   property: () => _property,
   readonly: () => readonly,
-  record: () => record,
+  record: () => record2,
   refine: () => refine,
   regex: () => _regex,
   regexes: () => regexes_exports,
@@ -25541,7 +25609,7 @@ var init_types2 = __esm({
     });
     FormElicitationCapabilitySchema = intersection(object2({
       applyDefaults: boolean2().optional()
-    }), record(string2(), unknown()));
+    }), record2(string2(), unknown()));
     ElicitationCapabilitySchema = preprocess((value) => {
       if (value && typeof value === "object" && !Array.isArray(value)) {
         if (Object.keys(value).length === 0) {
@@ -25552,7 +25620,7 @@ var init_types2 = __esm({
     }, intersection(object2({
       form: FormElicitationCapabilitySchema.optional(),
       url: AssertObjectSchema.optional()
-    }), record(string2(), unknown()).optional()));
+    }), record2(string2(), unknown()).optional()));
     ClientTasksCapabilitySchema = looseObject({
       /**
        * Present if the client supports listing tasks.
@@ -25605,7 +25673,7 @@ var init_types2 = __esm({
       /**
        * Experimental, non-standard capabilities that the client supports.
        */
-      experimental: record(string2(), AssertObjectSchema).optional(),
+      experimental: record2(string2(), AssertObjectSchema).optional(),
       /**
        * Present if the client supports sampling from an LLM.
        */
@@ -25640,7 +25708,7 @@ var init_types2 = __esm({
       /**
        * Extensions that the client supports. Keys are extension identifiers (vendor-prefix/extension-name).
        */
-      extensions: record(string2(), AssertObjectSchema).optional()
+      extensions: record2(string2(), AssertObjectSchema).optional()
     });
     InitializeRequestParamsSchema = BaseRequestParamsSchema.extend({
       /**
@@ -25658,7 +25726,7 @@ var init_types2 = __esm({
       /**
        * Experimental, non-standard capabilities that the server supports.
        */
-      experimental: record(string2(), AssertObjectSchema).optional(),
+      experimental: record2(string2(), AssertObjectSchema).optional(),
       /**
        * Present if the server supports sending log messages to the client.
        */
@@ -25705,7 +25773,7 @@ var init_types2 = __esm({
       /**
        * Extensions that the server supports. Keys are extension identifiers (vendor-prefix/extension-name).
        */
-      extensions: record(string2(), AssertObjectSchema).optional()
+      extensions: record2(string2(), AssertObjectSchema).optional()
     });
     InitializeResultSchema = ResultSchema.extend({
       /**
@@ -25843,7 +25911,7 @@ var init_types2 = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     TextResourceContentsSchema = ResourceContentsSchema.extend({
       /**
@@ -26037,7 +26105,7 @@ var init_types2 = __esm({
       /**
        * Arguments to use for templating the prompt.
        */
-      arguments: record(string2(), string2()).optional()
+      arguments: record2(string2(), string2()).optional()
     });
     GetPromptRequestSchema = RequestSchema.extend({
       method: literal("prompts/get"),
@@ -26057,7 +26125,7 @@ var init_types2 = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     ImageContentSchema = object2({
       type: literal("image"),
@@ -26077,7 +26145,7 @@ var init_types2 = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     AudioContentSchema = object2({
       type: literal("audio"),
@@ -26097,7 +26165,7 @@ var init_types2 = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     ToolUseContentSchema = object2({
       type: literal("tool_use"),
@@ -26115,12 +26183,12 @@ var init_types2 = __esm({
        * Arguments to pass to the tool.
        * Must conform to the tool's inputSchema.
        */
-      input: record(string2(), unknown()),
+      input: record2(string2(), unknown()),
       /**
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     EmbeddedResourceSchema = object2({
       type: literal("resource"),
@@ -26133,7 +26201,7 @@ var init_types2 = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     ResourceLinkSchema = ResourceSchema.extend({
       type: literal("resource_link")
@@ -26223,7 +26291,7 @@ var init_types2 = __esm({
        */
       inputSchema: object2({
         type: literal("object"),
-        properties: record(string2(), AssertObjectSchema).optional(),
+        properties: record2(string2(), AssertObjectSchema).optional(),
         required: array(string2()).optional()
       }).catchall(unknown()),
       /**
@@ -26233,7 +26301,7 @@ var init_types2 = __esm({
        */
       outputSchema: object2({
         type: literal("object"),
-        properties: record(string2(), AssertObjectSchema).optional(),
+        properties: record2(string2(), AssertObjectSchema).optional(),
         required: array(string2()).optional()
       }).catchall(unknown()).optional(),
       /**
@@ -26248,7 +26316,7 @@ var init_types2 = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     ListToolsRequestSchema = PaginatedRequestSchema.extend({
       method: literal("tools/list")
@@ -26269,7 +26337,7 @@ var init_types2 = __esm({
        *
        * If the Tool defines an outputSchema, this field MUST be present in the result, and contain a JSON object that matches the schema.
        */
-      structuredContent: record(string2(), unknown()).optional(),
+      structuredContent: record2(string2(), unknown()).optional(),
       /**
        * Whether the tool call ended in an error.
        *
@@ -26297,7 +26365,7 @@ var init_types2 = __esm({
       /**
        * Arguments to pass to the tool.
        */
-      arguments: record(string2(), unknown()).optional()
+      arguments: record2(string2(), unknown()).optional()
     });
     CallToolRequestSchema = RequestSchema.extend({
       method: literal("tools/call"),
@@ -26399,7 +26467,7 @@ var init_types2 = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     SamplingContentSchema = discriminatedUnion("type", [TextContentSchema, ImageContentSchema, AudioContentSchema]);
     SamplingMessageContentBlockSchema = discriminatedUnion("type", [
@@ -26416,7 +26484,7 @@ var init_types2 = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     CreateMessageRequestParamsSchema = TaskAugmentedRequestParamsSchema.extend({
       messages: array(SamplingMessageSchema),
@@ -26604,7 +26672,7 @@ var init_types2 = __esm({
        */
       requestedSchema: object2({
         type: literal("object"),
-        properties: record(string2(), PrimitiveSchemaDefinitionSchema),
+        properties: record2(string2(), PrimitiveSchemaDefinitionSchema),
         required: array(string2()).optional()
       })
     });
@@ -26656,7 +26724,7 @@ var init_types2 = __esm({
        * Per MCP spec, content is "typically omitted" for decline/cancel actions.
        * We normalize null to undefined for leniency while maintaining type compatibility.
        */
-      content: preprocess((val) => val === null ? void 0 : val, record(string2(), union([string2(), number2(), boolean2(), array(string2())])).optional())
+      content: preprocess((val) => val === null ? void 0 : val, record2(string2(), union([string2(), number2(), boolean2(), array(string2())])).optional())
     });
     ResourceTemplateReferenceSchema = object2({
       type: literal("ref/resource"),
@@ -26691,7 +26759,7 @@ var init_types2 = __esm({
         /**
          * Previously-resolved variables in a URI template or prompt.
          */
-        arguments: record(string2(), string2()).optional()
+        arguments: record2(string2(), string2()).optional()
       }).optional()
     });
     CompleteRequestSchema = RequestSchema.extend({
@@ -26727,7 +26795,7 @@ var init_types2 = __esm({
        * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
        * for notes on _meta usage.
        */
-      _meta: record(string2(), unknown()).optional()
+      _meta: record2(string2(), unknown()).optional()
     });
     ListRootsRequestSchema = RequestSchema.extend({
       method: literal("roots/list"),
@@ -32691,8 +32759,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path8) {
-      let input2 = path8;
+    function removeDotSegments(path9) {
+      let input2 = path9;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -33101,8 +33169,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path8 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path8 && path8 !== "/" ? path8 : void 0;
+        const path9 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -36615,12 +36683,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs7, exportName) {
+    function addFormats(ajv, list, fs8, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs7[f]);
+        ajv.addFormat(f, fs8[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -38505,9 +38573,9 @@ init_config();
 init_library();
 init_registry();
 init_stats2();
-import fs6 from "node:fs";
-import os4 from "node:os";
-import path7 from "node:path";
+import fs7 from "node:fs";
+import os5 from "node:os";
+import path8 from "node:path";
 
 // packages/headjack/src/suggest.mjs
 init_library();
@@ -38554,6 +38622,7 @@ async function suggest(cfg3, prompt) {
 }
 
 // packages/headjack/bin/headjack.mjs
+init_ledger();
 init_hooks();
 var [cmd, ...rest] = process.argv.slice(2);
 var flag = (f) => {
@@ -38571,7 +38640,7 @@ var opt = (f, d) => {
 };
 var cfg2 = loadConfig();
 var ROOT_SKILLS = /* @__PURE__ */ new Set(["find-skill", "load-skill"]);
-var rel = (p) => p.startsWith(cfg2.root) ? path7.relative(cfg2.root, p) : p.replace(os4.homedir(), "~");
+var rel = (p) => p.startsWith(cfg2.root) ? path8.relative(cfg2.root, p) : p.replace(os5.homedir(), "~");
 var spaceDir = (space) => space === "personal" ? cfg2.personalDir : cfg2.sharedDir;
 var HELP = `headjack: skills, loaded the moment you need them ("I know kung fu.")
 
@@ -38591,6 +38660,9 @@ Build the library
   headjack source add|remove <dir> [--personal]   index a folder in place (never moved), e.g. a team skills repo
   headjack source list
   headjack list                          everything in the library, by space
+  headjack history [<name>] [--json]     every skill that entered or left the library, from where (the ledger)
+  headjack release <id>... | --all [--to origin|project|user|<dir>] [--dry-run]
+                                         move skills back out, by default to exactly where they came from
   headjack index                         rebuild the index
 
 Use it (agents do this through the root skills and the hook)
@@ -38606,24 +38678,24 @@ Plumbing
   headjack hook                          UserPromptSubmit hook (hook JSON on stdin; --platform to force a shape)
   headjack mcp                           MCP server (headjack_find / headjack_get / headjack_acquire)`;
 function moveDir(from, to) {
-  fs6.mkdirSync(path7.dirname(to), { recursive: true });
-  if (fs6.existsSync(to)) throw new Error(`${rel(to)} already exists`);
+  fs7.mkdirSync(path8.dirname(to), { recursive: true });
+  if (fs7.existsSync(to)) throw new Error(`${rel(to)} already exists`);
   try {
-    fs6.renameSync(from, to);
+    fs7.renameSync(from, to);
   } catch {
-    fs6.cpSync(from, to, { recursive: true });
-    fs6.rmSync(from, { recursive: true, force: true });
+    fs7.cpSync(from, to, { recursive: true });
+    fs7.rmSync(from, { recursive: true, force: true });
   }
 }
 async function main() {
   switch (cmd) {
     case "init": {
-      fs6.mkdirSync(cfg2.sharedDir, { recursive: true });
-      fs6.mkdirSync(cfg2.personalDir, { recursive: true });
-      const gi = path7.join(cfg2.dataDir, ".gitignore");
-      if (!fs6.existsSync(gi)) fs6.writeFileSync(gi, "index.db*\n");
+      fs7.mkdirSync(cfg2.sharedDir, { recursive: true });
+      fs7.mkdirSync(cfg2.personalDir, { recursive: true });
+      const gi = path8.join(cfg2.dataDir, ".gitignore");
+      if (!fs7.existsSync(gi)) fs7.writeFileSync(gi, "index.db*\n");
       const r = await reindex(cfg2);
-      const preloaded = fs6.existsSync(path7.join(cfg2.root, ".claude/skills")) ? fs6.readdirSync(path7.join(cfg2.root, ".claude/skills")).filter((n) => !ROOT_SKILLS.has(n)).length : 0;
+      const preloaded = fs7.existsSync(path8.join(cfg2.root, ".claude/skills")) ? fs7.readdirSync(path8.join(cfg2.root, ".claude/skills")).filter((n) => !ROOT_SKILLS.has(n)).length : 0;
       return console.log(`headjack ready in ${cfg2.root}
   shared library:   ${rel(cfg2.sharedDir)}
   personal library: ${rel(cfg2.personalDir)}
@@ -38635,14 +38707,18 @@ ${preloaded} skills are still preloaded from .claude/skills. Move them in with: 
     case "adopt": {
       const dry = flag("--dry-run");
       const fromArg = opt("--from", "project");
-      const from = fromArg === "project" ? path7.join(cfg2.root, ".claude", "skills") : fromArg === "user" ? path7.join(os4.homedir(), ".claude", "skills") : path7.resolve(fromArg);
+      const from = fromArg === "project" ? path8.join(cfg2.root, ".claude", "skills") : fromArg === "user" ? path8.join(os5.homedir(), ".claude", "skills") : path8.resolve(fromArg);
       const to = opt("--to", fromArg === "user" ? "personal" : "shared");
-      if (!fs6.existsSync(from)) return console.log(`nothing to adopt: ${rel(from)} does not exist`);
+      if (!fs7.existsSync(from)) return console.log(`nothing to adopt: ${rel(from)} does not exist`);
       const moved = [];
-      for (const e of fs6.readdirSync(from, { withFileTypes: true })) {
-        if (!e.isDirectory() || ROOT_SKILLS.has(e.name) || !fs6.existsSync(path7.join(from, e.name, "SKILL.md"))) continue;
+      for (const e of fs7.readdirSync(from, { withFileTypes: true })) {
+        if (!e.isDirectory() || ROOT_SKILLS.has(e.name) || !fs7.existsSync(path8.join(from, e.name, "SKILL.md"))) continue;
         moved.push(e.name);
-        if (!dry) moveDir(path7.join(from, e.name), path7.join(spaceDir(to), e.name));
+        if (dry) continue;
+        const src = path8.join(from, e.name), dest = path8.join(spaceDir(to), e.name);
+        const hash2 = skillHash(src), source = sourceOf(src, `path:${src}`);
+        moveDir(src, dest);
+        record(cfg2, to, { action: "adopt", name: e.name, from: src, to: dest, source, hash: hash2 });
       }
       if (!dry) await reindex(cfg2);
       return console.log(`${dry ? "would move" : "moved"} ${moved.length} skills from ${rel(from)} to the ${to} library (${rel(spaceDir(to))})${moved.length ? ":\n  " + moved.join("\n  ") : ""}`);
@@ -38651,12 +38727,13 @@ ${preloaded} skills are still preloaded from .claude/skills. Move them in with: 
       const personal = flag("--personal");
       const src = rest[0];
       if (!src) return console.log("usage: headjack add <dir | owner/repo/skill> [--personal]");
-      if (fs6.existsSync(src)) {
-        const parsed = parseSkill(fs6.readFileSync(path7.join(src, "SKILL.md"), "utf8"));
+      if (fs7.existsSync(src)) {
+        const parsed = parseSkill(fs7.readFileSync(path8.join(src, "SKILL.md"), "utf8"));
         if (!parsed) throw new Error(`${src}/SKILL.md has no name/description frontmatter`);
-        const dest = path7.join(spaceDir(personal ? "personal" : "shared"), parsed.name);
-        if (fs6.existsSync(dest)) throw new Error(`${rel(dest)} already exists`);
-        fs6.cpSync(src, dest, { recursive: true });
+        const dest = path8.join(spaceDir(personal ? "personal" : "shared"), parsed.name);
+        if (fs7.existsSync(dest)) throw new Error(`${rel(dest)} already exists`);
+        fs7.cpSync(src, dest, { recursive: true });
+        record(cfg2, personal ? "personal" : "shared", { action: "add", name: parsed.name, from: path8.resolve(src), to: dest, source: sourceOf(src, `path:${path8.resolve(src)}`), hash: skillHash(dest) });
         await reindex(cfg2);
         return console.log(`added ${personal ? "personal" : "shared"}/${parsed.name} -> ${rel(dest)}`);
       }
@@ -38668,10 +38745,10 @@ It came from a public registry: read it (and any scripts) before relying on it.`
       const personal = flag("--personal");
       const name = rest[0];
       if (!name || !/^[a-z0-9][a-z0-9-]*$/.test(name)) return console.log("usage: headjack new <kebab-case-name> [--personal]");
-      const dir = path7.join(spaceDir(personal ? "personal" : "shared"), name);
-      if (fs6.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
-      fs6.mkdirSync(dir, { recursive: true });
-      fs6.writeFileSync(path7.join(dir, "SKILL.md"), `---
+      const dir = path8.join(spaceDir(personal ? "personal" : "shared"), name);
+      if (fs7.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
+      fs7.mkdirSync(dir, { recursive: true });
+      fs7.writeFileSync(path8.join(dir, "SKILL.md"), `---
 name: ${name}
 description: <What this skill does, then "Use when ..." with the words a request would contain. This line is what search matches on.>
 ---
@@ -38680,7 +38757,8 @@ description: <What this skill does, then "Use when ..." with the words a request
 
 <Instructions the agent follows when this skill is loaded.>
 `);
-      return console.log(`created ${rel(path7.join(dir, "SKILL.md"))}: fill in the description (it drives search) and the instructions`);
+      record(cfg2, personal ? "personal" : "shared", { action: "new", name, to: dir, source: "scaffold", hash: skillHash(dir) });
+      return console.log(`created ${rel(path8.join(dir, "SKILL.md"))}: fill in the description (it drives search) and the instructions`);
     }
     case "bundle": {
       const personal = flag("--personal");
@@ -38691,10 +38769,10 @@ description: <What this skill does, then "Use when ..." with the words a request
       await reindex(cfg2);
       const missing = members2.filter((m) => load(cfg2, m).error);
       if (missing.length) throw new Error(`not in the library: ${missing.join(", ")} (headjack list)`);
-      const dir = path7.join(spaceDir(personal ? "personal" : "shared"), name);
-      if (fs6.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
-      fs6.mkdirSync(dir, { recursive: true });
-      fs6.writeFileSync(path7.join(dir, "SKILL.md"), `---
+      const dir = path8.join(spaceDir(personal ? "personal" : "shared"), name);
+      if (fs7.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
+      fs7.mkdirSync(dir, { recursive: true });
+      fs7.writeFileSync(path8.join(dir, "SKILL.md"), `---
 name: ${name}
 description: ${desc || `<What this bundle does, then "Use when ..." with the words a request would contain.>`}
 bundle: ${members2.join(", ")}
@@ -38704,7 +38782,8 @@ bundle: ${members2.join(", ")}
 
 Loads ${members2.length} skills in order: ${members2.join(" \u2192 ")}. <How they fit together: when to move from one to the next.>
 `);
-      return console.log(`created ${rel(path7.join(dir, "SKILL.md"))}: ${members2.join(" \u2192 ")}${desc ? "" : ". Fill in the description (it drives search)."}`);
+      record(cfg2, personal ? "personal" : "shared", { action: "bundle", name, to: dir, source: `bundle:${members2.join(",")}`, hash: skillHash(dir) });
+      return console.log(`created ${rel(path8.join(dir, "SKILL.md"))}: ${members2.join(" \u2192 ")}${desc ? "" : ". Fill in the description (it drives search)."}`);
     }
     case "move": {
       const to = opt("--to");
@@ -38713,17 +38792,62 @@ Loads ${members2.length} skills in order: ${members2.join(" \u2192 ")}. <How the
       await reindex(cfg2);
       const s = load(cfg2, id);
       if (s.error) throw new Error(s.error);
-      const dest = path7.join(spaceDir(to), path7.basename(s.dir));
+      const dest = path8.join(spaceDir(to), path8.basename(s.dir));
+      const fromSpace = s.source;
       moveDir(s.dir, dest);
+      record(cfg2, fromSpace, { action: "move-out", name: s.name, from: s.dir, to: dest, hash: skillHash(dest) });
+      record(cfg2, to, { action: "move-in", name: s.name, from: s.dir, to: dest, source: origin(cfg2, fromSpace, s.name) && `path:${origin(cfg2, fromSpace, s.name).dir}` || `space:${fromSpace}`, hash: skillHash(dest) });
       await reindex(cfg2);
       return console.log(`moved ${s.id} -> ${to}/${s.name} (${rel(dest)})`);
+    }
+    case "release": {
+      const dry = flag("--dry-run");
+      const all = flag("--all");
+      const toArg = opt("--to", "origin");
+      await reindex(cfg2);
+      const rows = all ? db(cfg2).prepare("select id from skills where source in ('shared', 'personal')").all().map((r) => r.id) : rest;
+      if (!rows.length) return console.log("usage: headjack release <id>... | --all  [--to origin|project|user|<dir>] [--dry-run]");
+      const out = [];
+      for (const ref of rows) {
+        const s = load(cfg2, ref);
+        if (s.error) {
+          out.push(`skip ${ref}: ${s.error}`);
+          continue;
+        }
+        if (!["shared", "personal"].includes(s.source)) {
+          out.push(`skip ${s.id}: indexed in place from a source folder (nothing to move; headjack source remove it instead)`);
+          continue;
+        }
+        const o = origin(cfg2, s.source, s.name);
+        const base = toArg === "origin" ? o ? path8.dirname(o.dir) : path8.join(s.source === "personal" ? os5.homedir() : cfg2.root, ".claude", "skills") : toArg === "project" ? path8.join(cfg2.root, ".claude", "skills") : toArg === "user" ? path8.join(os5.homedir(), ".claude", "skills") : path8.resolve(toArg);
+        const dest = path8.join(base, path8.basename(s.dir));
+        if (fs7.existsSync(dest)) {
+          out.push(`skip ${s.id}: ${rel(dest)} already exists`);
+          continue;
+        }
+        const edited = o?.hash && o.hash !== skillHash(s.dir) ? " (edited since it was adopted)" : "";
+        out.push(`${dry ? "would release" : "released"} ${s.id} -> ${rel(dest)}${edited}`);
+        if (dry) continue;
+        moveDir(s.dir, dest);
+        record(cfg2, s.source, { action: "release", name: s.name, from: s.dir, to: dest, hash: skillHash(dest) });
+      }
+      if (!dry) await reindex(cfg2);
+      console.log(out.join("\n"));
+      if (all && !dry) console.log("\nThe library is empty. To leave headjack entirely, also uninstall the plugin (e.g. `claude plugin uninstall headjack@qbranch`). The ledger stays, so nothing about what happened is lost.");
+      return;
+    }
+    case "history": {
+      const h = history(cfg2, { name: rest[0] });
+      if (flag("--json")) return console.log(JSON.stringify(h, null, 2));
+      if (!h.length) return console.log(rest[0] ? `no history for ${rest[0]}` : "no history yet");
+      return console.log(h.map((e) => `${e.at.slice(0, 16).replace("T", " ")}  ${e.action.padEnd(8)} ${e.space}/${e.name}${e.from ? `  from ${rel(e.from)}` : ""}${e.to && e.action === "release" ? `  to ${rel(e.to)}` : ""}${e.source && !e.source.startsWith("path:") ? `  [${e.source}]` : ""}`).join("\n"));
     }
     case "source": {
       const personal = flag("--personal");
       const [sub, dir] = rest;
-      if (sub === "list" || !sub) return console.log(cfg2.sourceDirs.map((s) => `${s.scope.padEnd(8)} ${s.label.padEnd(14)} ${rel(s.dir)}${fs6.existsSync(s.dir) ? "" : "  (missing)"}`).join("\n"));
+      if (sub === "list" || !sub) return console.log(cfg2.sourceDirs.map((s) => `${s.scope.padEnd(8)} ${s.label.padEnd(14)} ${rel(s.dir)}${fs7.existsSync(s.dir) ? "" : "  (missing)"}`).join("\n"));
       if (!["add", "remove"].includes(sub) || !dir) return console.log("usage: headjack source add|remove <dir> [--personal] | headjack source list");
-      if (sub === "add" && !fs6.existsSync(dir)) throw new Error(`${dir} does not exist`);
+      if (sub === "add" && !fs7.existsSync(dir)) throw new Error(`${dir} does not exist`);
       const r = editSources(cfg2, personal ? "personal" : "shared", dir, sub === "remove");
       await reindex(loadConfig(cfg2.root));
       return console.log(`${sub === "add" ? "indexing" : "stopped indexing"} ${dir} (${personal ? "personal" : "shared"} source, saved in ${rel(r.file)})`);
@@ -38803,7 +38927,7 @@ ${cur}`);
     case "stats": {
       let s;
       try {
-        s = JSON.parse(fs6.readFileSync(path7.join(cfg2.root, cfg2.stats || ".headjack-stats.json"), "utf8"));
+        s = JSON.parse(fs7.readFileSync(path8.join(cfg2.root, cfg2.stats || ".headjack-stats.json"), "utf8"));
       } catch {
         return console.log("no stats yet");
       }

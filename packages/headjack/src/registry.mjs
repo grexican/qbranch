@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { gapTerms, parseSkill, reindex, load } from './library.mjs';
+import { record, skillHash } from './ledger.mjs';
 
 export async function searchRegistry(query, k = 5) {
   const r = await fetch(`https://skills.sh/api/search?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(8000) });
@@ -22,7 +23,10 @@ export async function acquire(cfg, extId, { dest } = {}) {
   const skillId = rest.join('/');
   if (!owner || !repo || !skillId) throw new Error('id must look like owner/repo/skill');
   const gh = (u) => fetch(u, { headers: { 'User-Agent': 'headjack', ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) } });
-  const tr = await gh(`https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`);
+  // pin the exact commit, so the ledger records which version was installed (and an update can be diffed later)
+  const cr = await gh(`https://api.github.com/repos/${owner}/${repo}/commits/HEAD`);
+  const sha = cr.ok ? (await cr.json()).sha : 'HEAD';
+  const tr = await gh(`https://api.github.com/repos/${owner}/${repo}/git/trees/${sha}?recursive=1`);
   if (!tr.ok) throw new Error(`GitHub tree ${tr.status}`);
   const tree = (await tr.json()).tree;
   const mds = tree.filter(t => t.type === 'blob' && t.path.endsWith('SKILL.md'));
@@ -31,7 +35,7 @@ export async function acquire(cfg, extId, { dest } = {}) {
   const base = path.posix.dirname(hit.path);
   const out = path.join(dest || cfg.sharedDir, skillId.replace(/[\\/]/g, '_'));
   for (const f of tree.filter(t => t.type === 'blob' && t.path.startsWith(base + '/') && t.size < 200_000).slice(0, 40)) {
-    const raw = await gh(`https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${f.path}`);
+    const raw = await gh(`https://raw.githubusercontent.com/${owner}/${repo}/${sha}/${f.path}`);
     if (!raw.ok) continue;
     const p = path.join(out, f.path.slice(base.length + 1));
     fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -39,7 +43,10 @@ export async function acquire(cfg, extId, { dest } = {}) {
   }
   const parsed = parseSkill(fs.readFileSync(path.join(out, 'SKILL.md'), 'utf8'));
   if (!parsed) throw new Error('fetched SKILL.md has no name/description frontmatter');
-  fs.writeFileSync(path.join(out, '.headjack-source'), `https://github.com/${owner}/${repo}/tree/HEAD/${base}\n`);
+  const url = `https://github.com/${owner}/${repo}/tree/${sha}/${base}`;
+  fs.writeFileSync(path.join(out, '.headjack-source'), `${url}\n`);
+  const space = dest === cfg.personalDir ? 'personal' : 'shared';
+  record(cfg, space, { action: 'acquire', name: parsed.name, from: extId, to: out, source: `registry:${url}`, hash: skillHash(out) });
   await reindex(cfg);
-  return load(cfg, `${dest === cfg.personalDir ? 'personal' : 'shared'}/${parsed.name}`);
+  return load(cfg, `${space}/${parsed.name}`);
 }

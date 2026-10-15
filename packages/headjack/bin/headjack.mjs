@@ -8,6 +8,7 @@ import { db, reindex, search, isStrong, load, renderSkill, wasSuggested, parseSk
 import { searchRegistry, searchRegistryByGap, acquire } from '../src/registry.mjs';
 import { upsert, skillStat, summarize } from '../src/stats.mjs';
 import { suggest } from '../src/suggest.mjs';
+import { record, history, origin, sourceOf, skillHash } from '../src/ledger.mjs';
 import { runHook } from '@qbranch/core/hooks';
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -36,6 +37,9 @@ Build the library
   headjack source add|remove <dir> [--personal]   index a folder in place (never moved), e.g. a team skills repo
   headjack source list
   headjack list                          everything in the library, by space
+  headjack history [<name>] [--json]     every skill that entered or left the library, from where (the ledger)
+  headjack release <id>... | --all [--to origin|project|user|<dir>] [--dry-run]
+                                         move skills back out, by default to exactly where they came from
   headjack index                         rebuild the index
 
 Use it (agents do this through the root skills and the hook)
@@ -80,7 +84,11 @@ async function main() {
       for (const e of fs.readdirSync(from, { withFileTypes: true })) {
         if (!e.isDirectory() || ROOT_SKILLS.has(e.name) || !fs.existsSync(path.join(from, e.name, 'SKILL.md'))) continue;
         moved.push(e.name);
-        if (!dry) moveDir(path.join(from, e.name), path.join(spaceDir(to), e.name));
+        if (dry) continue;
+        const src = path.join(from, e.name), dest = path.join(spaceDir(to), e.name);
+        const hash = skillHash(src), source = sourceOf(src, `path:${src}`);
+        moveDir(src, dest);
+        record(cfg, to, { action: 'adopt', name: e.name, from: src, to: dest, source, hash });
       }
       if (!dry) await reindex(cfg);
       return console.log(`${dry ? 'would move' : 'moved'} ${moved.length} skills from ${rel(from)} to the ${to} library (${rel(spaceDir(to))})${moved.length ? ':\n  ' + moved.join('\n  ') : ''}`);
@@ -95,6 +103,7 @@ async function main() {
         const dest = path.join(spaceDir(personal ? 'personal' : 'shared'), parsed.name);
         if (fs.existsSync(dest)) throw new Error(`${rel(dest)} already exists`);
         fs.cpSync(src, dest, { recursive: true });
+        record(cfg, personal ? 'personal' : 'shared', { action: 'add', name: parsed.name, from: path.resolve(src), to: dest, source: sourceOf(src, `path:${path.resolve(src)}`), hash: skillHash(dest) });
         await reindex(cfg);
         return console.log(`added ${personal ? 'personal' : 'shared'}/${parsed.name} -> ${rel(dest)}`);
       }
@@ -109,6 +118,7 @@ async function main() {
       if (fs.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: <What this skill does, then "Use when ..." with the words a request would contain. This line is what search matches on.>\n---\n\n# ${name}\n\n<Instructions the agent follows when this skill is loaded.>\n`);
+      record(cfg, personal ? 'personal' : 'shared', { action: 'new', name, to: dir, source: 'scaffold', hash: skillHash(dir) });
       return console.log(`created ${rel(path.join(dir, 'SKILL.md'))}: fill in the description (it drives search) and the instructions`);
     }
 
@@ -124,6 +134,7 @@ async function main() {
       if (fs.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: ${desc || `<What this bundle does, then "Use when ..." with the words a request would contain.>`}\nbundle: ${members.join(', ')}\n---\n\n# ${name}\n\nLoads ${members.length} skills in order: ${members.join(' → ')}. <How they fit together: when to move from one to the next.>\n`);
+      record(cfg, personal ? 'personal' : 'shared', { action: 'bundle', name, to: dir, source: `bundle:${members.join(',')}`, hash: skillHash(dir) });
       return console.log(`created ${rel(path.join(dir, 'SKILL.md'))}: ${members.join(' → ')}${desc ? '' : '. Fill in the description (it drives search).'}`);
     }
 
@@ -134,9 +145,48 @@ async function main() {
       const s = load(cfg, id);
       if (s.error) throw new Error(s.error);
       const dest = path.join(spaceDir(to), path.basename(s.dir));
+      const fromSpace = s.source;
       moveDir(s.dir, dest);
+      record(cfg, fromSpace, { action: 'move-out', name: s.name, from: s.dir, to: dest, hash: skillHash(dest) });
+      record(cfg, to, { action: 'move-in', name: s.name, from: s.dir, to: dest, source: (origin(cfg, fromSpace, s.name) && `path:${origin(cfg, fromSpace, s.name).dir}`) || `space:${fromSpace}`, hash: skillHash(dest) });
       await reindex(cfg);
       return console.log(`moved ${s.id} -> ${to}/${s.name} (${rel(dest)})`);
+    }
+
+    case 'release': {
+      // The exit door: move skills out of the library back to where agents preload them. By default each one goes back
+      // to the exact folder it was adopted from (per the ledger); --to project|user|<dir> overrides.
+      const dry = flag('--dry-run'); const all = flag('--all'); const toArg = opt('--to', 'origin');
+      await reindex(cfg);
+      const rows = all ? db(cfg).prepare("select id from skills where source in ('shared', 'personal')").all().map(r => r.id) : rest;
+      if (!rows.length) return console.log('usage: headjack release <id>... | --all  [--to origin|project|user|<dir>] [--dry-run]');
+      const out = [];
+      for (const ref of rows) {
+        const s = load(cfg, ref);
+        if (s.error) { out.push(`skip ${ref}: ${s.error}`); continue; }
+        if (!['shared', 'personal'].includes(s.source)) { out.push(`skip ${s.id}: indexed in place from a source folder (nothing to move; headjack source remove it instead)`); continue; }
+        const o = origin(cfg, s.source, s.name);
+        const base = toArg === 'origin' ? (o ? path.dirname(o.dir) : path.join(s.source === 'personal' ? os.homedir() : cfg.root, '.claude', 'skills'))
+          : toArg === 'project' ? path.join(cfg.root, '.claude', 'skills') : toArg === 'user' ? path.join(os.homedir(), '.claude', 'skills') : path.resolve(toArg);
+        const dest = path.join(base, path.basename(s.dir));
+        if (fs.existsSync(dest)) { out.push(`skip ${s.id}: ${rel(dest)} already exists`); continue; }
+        const edited = o?.hash && o.hash !== skillHash(s.dir) ? ' (edited since it was adopted)' : '';
+        out.push(`${dry ? 'would release' : 'released'} ${s.id} -> ${rel(dest)}${edited}`);
+        if (dry) continue;
+        moveDir(s.dir, dest);
+        record(cfg, s.source, { action: 'release', name: s.name, from: s.dir, to: dest, hash: skillHash(dest) });
+      }
+      if (!dry) await reindex(cfg);
+      console.log(out.join('\n'));
+      if (all && !dry) console.log('\nThe library is empty. To leave headjack entirely, also uninstall the plugin (e.g. `claude plugin uninstall headjack@qbranch`). The ledger stays, so nothing about what happened is lost.');
+      return;
+    }
+
+    case 'history': {
+      const h = history(cfg, { name: rest[0] });
+      if (flag('--json')) return console.log(JSON.stringify(h, null, 2));
+      if (!h.length) return console.log(rest[0] ? `no history for ${rest[0]}` : 'no history yet');
+      return console.log(h.map(e => `${e.at.slice(0, 16).replace('T', ' ')}  ${e.action.padEnd(8)} ${e.space}/${e.name}${e.from ? `  from ${rel(e.from)}` : ''}${e.to && e.action === 'release' ? `  to ${rel(e.to)}` : ''}${e.source && !e.source.startsWith('path:') ? `  [${e.source}]` : ''}`).join('\n'));
     }
 
     case 'source': {
