@@ -1821,7 +1821,7 @@ async function gradeRun(task, run, { judge } = {}) {
   }
   return { pass, score: total ? got / total : 0, reasons };
 }
-async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRunUsd, minRunUsd = 0.25, agent = "claude", model, timeoutMs, judge, runner = runTask, onRun = () => {
+async function compareVariants({ tasks, variants, repeats = 1, concurrency = 1, budgetUsd, perRunUsd, minRunUsd = 0.25, agent = "claude", model, timeoutMs, judge, runner = runTask, onRun = () => {
 }, sandbox } = {}) {
   if (!(budgetUsd > 0)) throw new Error("compareVariants needs an explicit budgetUsd (spending is opt-in)");
   const names = Object.keys(variants);
@@ -1841,8 +1841,8 @@ async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRun
         skipped.push({ id: task.id, rep, why: "budget" });
         continue;
       }
-      for (const [i, name] of names.entries()) {
-        const cap = Math.min(per, (budgetUsd - spent) / (names.length - i));
+      const one = async (name, i) => {
+        const cap = concurrency > 1 ? per : Math.min(per, (budgetUsd - spent) / (names.length - i));
         let run, grade;
         try {
           run = await runner(task, { agent, model, setup: variants[name], budgetUsd: cap, timeoutMs, ...sandbox ? { sandbox } : {} });
@@ -1855,7 +1855,7 @@ async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRun
         if (run.killed || /max_budget|timeout/i.test(run.error || "")) {
           inconclusive.push({ task: task.id, variant: name, rep, why: run.killed ? "timeout" : run.error });
           onRun({ task, variant: name, rep, run, grade, spent, inconclusive: true });
-          continue;
+          return;
         }
         for (const s of [row.variants[name], totals[name]]) {
           s.runs++;
@@ -1867,7 +1867,11 @@ async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRun
         if (grade.reasons.length) row.reasons[name] = grade.reasons;
         runs.push({ task: task.id, variant: name, rep, pass: grade.pass, score: grade.score, costUsd: run.costUsd || 0, transcriptPath: run.transcriptPath || null });
         onRun({ task, variant: name, rep, run, grade, spent });
-      }
+      };
+      const queue = names.map((n, i) => [n, i]);
+      await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+        while (queue.length) await one(...queue.shift());
+      }));
     }
     perTask.push(row);
   }

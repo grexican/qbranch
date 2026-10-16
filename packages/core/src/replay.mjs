@@ -439,7 +439,7 @@ export const claudeJudge = ({ model = 'haiku', budgetUsd = 0.05 } = {}) => async
  * task's variants run back to back, so running out of budget skips whole tasks, never half a comparison. A regression
  * is a task whose pass rate under a variant is lower than under the baseline (SkillOpt's gate_no_regression).
  */
-export async function compareVariants({ tasks, variants, repeats = 1, budgetUsd, perRunUsd, minRunUsd = 0.25, agent = 'claude', model, timeoutMs, judge, runner = runTask, onRun = () => {}, sandbox } = {}) {
+export async function compareVariants({ tasks, variants, repeats = 1, concurrency = 1, budgetUsd, perRunUsd, minRunUsd = 0.25, agent = 'claude', model, timeoutMs, judge, runner = runTask, onRun = () => {}, sandbox } = {}) {
   if (!(budgetUsd > 0)) throw new Error('compareVariants needs an explicit budgetUsd (spending is opt-in)');
   const names = Object.keys(variants);
   const planned = Math.max(1, tasks.length * names.length * repeats);
@@ -458,8 +458,9 @@ export async function compareVariants({ tasks, variants, repeats = 1, budgetUsd,
     for (let rep = 0; rep < repeats; rep++) {
       // start a pair only when the rest of the budget can pay for all of it (at the planned cap, up to $0.10 a run)
       if (budgetUsd - spent < names.length * Math.min(per, 0.1)) { skipped.push({ id: task.id, rep, why: 'budget' }); continue; }
-      for (const [i, name] of names.entries()) {
-        const cap = Math.min(per, (budgetUsd - spent) / (names.length - i));
+      // the variants of one (task, repeat) pair run side by side, up to `concurrency` sandboxes at a time
+      const one = async (name, i) => {
+        const cap = concurrency > 1 ? per : Math.min(per, (budgetUsd - spent) / (names.length - i));
         let run, grade;
         try {
           run = await runner(task, { agent, model, setup: variants[name], budgetUsd: cap, timeoutMs, ...(sandbox ? { sandbox } : {}) });
@@ -470,7 +471,7 @@ export async function compareVariants({ tasks, variants, repeats = 1, budgetUsd,
         if (run.killed || /max_budget|timeout/i.test(run.error || '')) {
           inconclusive.push({ task: task.id, variant: name, rep, why: run.killed ? 'timeout' : run.error });
           onRun({ task, variant: name, rep, run, grade, spent, inconclusive: true });
-          continue;
+          return;
         }
         for (const s of [row.variants[name], totals[name]]) {
           s.runs++; s.passes += grade.pass ? 1 : 0; s.scoreSum += grade.score; s.costUsd += (run.costUsd || 0) + (grade.costUsd || 0);
@@ -479,7 +480,9 @@ export async function compareVariants({ tasks, variants, repeats = 1, budgetUsd,
         if (grade.reasons.length) row.reasons[name] = grade.reasons;
         runs.push({ task: task.id, variant: name, rep, pass: grade.pass, score: grade.score, costUsd: run.costUsd || 0, transcriptPath: run.transcriptPath || null });
         onRun({ task, variant: name, rep, run, grade, spent });
-      }
+      };
+      const queue = names.map((n, i) => [n, i]);
+      await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, async () => { while (queue.length) await one(...queue.shift()); }));
     }
     perTask.push(row);
   }

@@ -166,7 +166,7 @@ const CONDENSE = 'The text on stdin is a CLAUDE.md instruction file. Rewrite it 
  * A variant is recommended only when it saves startup tokens, has no regressions, and keeps >= bar (90%) of the
  * baseline's pass rate and mean score over at least minRuns task runs: the same bar as model graduation.
  */
-export async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats = 1, only = null }) {
+export async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats = 1, only = null, concurrency = 1, perRunUsd }) {
   if (!(budget > 0)) throw new Error('tune spends money: pass --budget <usd>');
   const variants = loadVariants(cfg).filter(v => !only || only.includes(v.id));
   if (!variants.length) throw new Error('no experiments yet: run `moneyball experiments` first');
@@ -174,7 +174,7 @@ export async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, r
   if (!tasks.length) throw new Error('no read-only recurring tasks found to replay');
   const setups = { baseline: async () => {} };
   for (const v of variants) setups[v.id] = async (dir) => applyVariant(dir, v);
-  const report = await replay.compareVariants({ tasks, variants: setups, repeats, budgetUsd: budget });
+  const report = await replay.compareVariants({ tasks, variants: setups, repeats, budgetUsd: budget, concurrency, perRunUsd });
   const base = report.perVariant.baseline || {};
   const rows = variants.map(v => {
     const r = report.perVariant[v.id];
