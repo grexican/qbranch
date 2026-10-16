@@ -21,5 +21,5 @@ if (tools[cmd]) tools[cmd]();
 else if (cmd === 'install') {
   import('./install.mjs').then(m => m.main(process.argv.slice(2), { source: path.dirname(process.execPath), runtime: 'binary', bin: process.execPath.split(path.sep).join('/') }))
     .catch((e) => { console.error(`install: ${e.message}`); process.exitCode = 1; });
-} else if (cmd === 'version') console.log(process.env.QBRANCH_VERSION || '0.1.0');
+} else if (cmd === 'version') console.log(typeof __QBRANCH_VERSION__ === 'string' ? __QBRANCH_VERSION__ : 'dev'); // stamped at build time
 else console.log(HELP);

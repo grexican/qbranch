@@ -70,7 +70,7 @@ export function preToolUse(cfg, h) {
     if (!fs.existsSync(mark)) { fs.writeFileSync(mark, '1'); deny = true; } // once per session: never deadlock on a false positive
   }
   upsert(cfg, (s, day) => { s.totals.guard_hits++; day.guard_hits++; if (deny) s.totals.denies++; });
-  const msg = `groundhog lesson ${hit.id}: ${hit.instead}`;
+  const msg = `groundhog lesson ${hit.id}: ${hit.instead.replace(/[.\s]+$/, '')}`;
   return deny ? { deny: `${msg}. If this command is right anyway, run it again unchanged.` } : { context: msg };
 }
 

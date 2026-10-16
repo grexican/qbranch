@@ -1341,7 +1341,7 @@ function preToolUse(cfg, h) {
     day.guard_hits++;
     if (deny) s.totals.denies++;
   });
-  const msg = `groundhog lesson ${hit2.id}: ${hit2.instead}`;
+  const msg = `groundhog lesson ${hit2.id}: ${hit2.instead.replace(/[.\s]+$/, "")}`;
   return deny ? { deny: `${msg}. If this command is right anyway, run it again unchanged.` } : { context: msg };
 }
 function recurrences(cfg, calls) {

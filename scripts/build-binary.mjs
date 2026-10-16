@@ -18,7 +18,9 @@ fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 
 const main = path.join(ROOT, 'build', 'qbranch.mjs');
+const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
 await esbuild.build({
+  define: { __QBRANCH_VERSION__: JSON.stringify(version) },
   entryPoints: [path.join(ROOT, 'scripts', 'qbranch.mjs')], bundle: true, platform: 'node', format: 'esm', target: 'node22',
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(process.execPath);" },
   outfile: main, external: ['@huggingface/transformers'], logLevel: 'error', legalComments: 'none',
