@@ -1988,11 +1988,20 @@ async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats 
   const tasks = await replay.harvestTasks({ root: cfg.root, days, limit, filter: (t) => t.readOnly });
   if (!tasks.length) throw new Error("no read-only recurring tasks found to replay");
   const setups = { baseline: async () => {
+  }, "baseline-again": async () => {
   } };
   for (const v of variants) setups[v.id] = async (dir) => applyVariant(dir, v);
   const judge = judgeModel && replay.claudeJudge ? replay.claudeJudge({ model: judgeModel, budgetUsd: 0.5 }) : void 0;
   const report = await replay.compareVariants({ tasks, variants: setups, repeats, budgetUsd: budget, concurrency, perRunUsd, timeoutMs, judge });
   const base = report.perVariant.baseline || {};
+  const aa = report.perVariant["baseline-again"] || {};
+  const noise = !aa.runs ? null : {
+    passDelta: Math.abs((base.passRate ?? 0) - (aa.passRate ?? 0)),
+    scoreDelta: Math.abs((base.meanScore ?? 0) - (aa.meanScore ?? 0)),
+    regressions: (report.regressions || []).filter((x) => x.variant === "baseline-again").length
+  };
+  const tolerance = (k) => (1 - cfg.bar) * (base[k] ?? 0);
+  const tooNoisy = !!noise && (noise.passDelta > tolerance("passRate") || noise.scoreDelta > tolerance("meanScore"));
   const rows = variants.map((v) => {
     const r = report.perVariant[v.id];
     if (!r) return { id: v.id, skipped: "not run (budget)" };
@@ -2001,7 +2010,9 @@ async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats 
     const regressions = (report.regressions || []).filter((x) => (x.variant ?? x.name) === v.id);
     const saved = (base.startupTokens ?? 0) - (r.startupTokens ?? 0);
     const keeps = (k) => (base[k] ?? 0) === 0 || (r[k] ?? 0) >= cfg.bar * base[k];
-    const why = runs < cfg.minRuns ? `only ${runs} task runs (< ${cfg.minRuns})` : saved <= 0 ? "saves no startup tokens" : regressions.length ? `${regressions.length} regression(s)` : !keeps("passRate") ? "pass rate below the bar" : !keeps("meanScore") ? "mean score below the bar" : null;
+    const chance = noise?.regressions ?? 0;
+    const beyond = regressions.length - chance;
+    const why = runs < cfg.minRuns ? `only ${runs} task runs (< ${cfg.minRuns})` : saved <= 0 ? "saves no startup tokens" : beyond > 0 ? `${regressions.length} regression(s)${chance ? `, ${chance} expected from noise` : ""}` : !keeps("passRate") ? "pass rate below the bar" : !keeps("meanScore") ? "mean score below the bar" : tooNoisy ? `inconclusive: two identical setups differed by ${Math.round(noise.passDelta * 100)} pts pass / ${noise.scoreDelta.toFixed(2)} score, more than the ${Math.round((1 - cfg.bar) * 100)}% bar can resolve (add --repeats)` : null;
     return {
       id: v.id,
       description: v.description,
@@ -2021,6 +2032,9 @@ async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats 
     repeats,
     budget,
     baseline: base,
+    aa,
+    noise,
+    tooNoisy,
     inconclusive: (report.inconclusive || []).length,
     spent: Object.values(report.perVariant).reduce((a, r) => a + (r.costUsd || 0), 0),
     variants: rows
@@ -2184,6 +2198,7 @@ ${"".padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${c.saving ? ` (est. ${money(c.
       });
       if (flag("--json")) return console.log(JSON.stringify(r, null, 2));
       console.log(`replayed ${r.tasks} tasks x ${r.repeats} under baseline + ${r.variants.length} variants, ${money(r.spent)} spent; baseline pass ${r.baseline.runs ? Math.round(r.baseline.passRate * 100) + "%" : "n/a (no scored runs)"}` + (r.inconclusive ? `; ${r.inconclusive} replays cut off by budget or time (not scored)` : ""));
+      if (r.noise) console.log(`A/A control (the unchanged setup, run again): pass ${Math.round((r.aa.passRate || 0) * 100)}%, score ${(r.aa.meanScore ?? 0).toFixed(2)}; noise ${Math.round(r.noise.passDelta * 100)} pts pass, ${r.noise.scoreDelta.toFixed(2)} score, ${r.noise.regressions} chance regression(s)${r.tooNoisy ? " -- TOO NOISY to judge a 10% change: add --repeats" : ""}`);
       for (const v of r.variants) {
         if (v.skipped) {
           console.log(`skip       ${v.id}: ${v.skipped}`);

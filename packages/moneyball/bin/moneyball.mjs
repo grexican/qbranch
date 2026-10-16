@@ -129,6 +129,7 @@ async function main() {
       if (flag('--json')) return console.log(JSON.stringify(r, null, 2));
       console.log(`replayed ${r.tasks} tasks x ${r.repeats} under baseline + ${r.variants.length} variants, ${money(r.spent)} spent; baseline pass ${r.baseline.runs ? Math.round(r.baseline.passRate * 100) + '%' : 'n/a (no scored runs)'}`
         + (r.inconclusive ? `; ${r.inconclusive} replays cut off by budget or time (not scored)` : ''));
+      if (r.noise) console.log(`A/A control (the unchanged setup, run again): pass ${Math.round((r.aa.passRate || 0) * 100)}%, score ${(r.aa.meanScore ?? 0).toFixed(2)}; noise ${Math.round(r.noise.passDelta * 100)} pts pass, ${r.noise.scoreDelta.toFixed(2)} score, ${r.noise.regressions} chance regression(s)${r.tooNoisy ? ' -- TOO NOISY to judge a 10% change: add --repeats' : ''}`);
       for (const v of r.variants) {
         if (v.skipped) { console.log(`skip       ${v.id}: ${v.skipped}`); continue; }
         console.log(`${(v.recommend ? 'recommend' : 'reject').padEnd(10)} ${v.id.padEnd(30)} pass ${Math.round(v.passRate * 100)}% score ${v.meanScore.toFixed(2)} ${money(v.costUsd)} saves ${num(v.startupTokensSaved)} tok -- ${v.why}`);

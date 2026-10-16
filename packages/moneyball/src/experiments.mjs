@@ -174,13 +174,24 @@ export async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, r
   if (!variants.length) throw new Error('no experiments yet: run `moneyball experiments` first');
   const tasks = await replay.harvestTasks({ root: cfg.root, days, limit, filter: (t) => t.readOnly });
   if (!tasks.length) throw new Error('no read-only recurring tasks found to replay');
-  const setups = { baseline: async () => {} };
+  // A/A control: the unchanged setup runs twice. Whatever separates two identical setups is noise, and no variant can
+  // be judged on a difference smaller than that.
+  const setups = { baseline: async () => {}, 'baseline-again': async () => {} };
   for (const v of variants) setups[v.id] = async (dir) => applyVariant(dir, v);
   // Without a judge, a task whose only hard check is "it finished" scores 1.0 however poor the answer: judge rubric tasks
   // against what the original run delivered, so a trimmed setup that loses quality shows up as a lower score.
   const judge = judgeModel && replay.claudeJudge ? replay.claudeJudge({ model: judgeModel, budgetUsd: 0.5 }) : undefined;
   const report = await replay.compareVariants({ tasks, variants: setups, repeats, budgetUsd: budget, concurrency, perRunUsd, timeoutMs, judge });
   const base = report.perVariant.baseline || {};
+  const aa = report.perVariant['baseline-again'] || {};
+  const noise = !aa.runs ? null : {
+    passDelta: Math.abs((base.passRate ?? 0) - (aa.passRate ?? 0)),
+    scoreDelta: Math.abs((base.meanScore ?? 0) - (aa.meanScore ?? 0)),
+    regressions: (report.regressions || []).filter(x => x.variant === 'baseline-again').length,
+  };
+  // the experiment can resolve a loss of (1 - bar) only if two identical setups agree more closely than that
+  const tolerance = (k) => (1 - cfg.bar) * (base[k] ?? 0);
+  const tooNoisy = !!noise && (noise.passDelta > tolerance('passRate') || noise.scoreDelta > tolerance('meanScore'));
   const rows = variants.map(v => {
     const r = report.perVariant[v.id];
     if (!r) return { id: v.id, skipped: 'not run (budget)' };
@@ -189,13 +200,18 @@ export async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, r
     const regressions = (report.regressions || []).filter(x => (x.variant ?? x.name) === v.id);
     const saved = (base.startupTokens ?? 0) - (r.startupTokens ?? 0);
     const keeps = (k) => (base[k] ?? 0) === 0 || (r[k] ?? 0) >= cfg.bar * base[k];
+    const chance = noise?.regressions ?? 0;
+    const beyond = regressions.length - chance; // regressions the A/A control also produced are noise
     const why = runs < cfg.minRuns ? `only ${runs} task runs (< ${cfg.minRuns})` : saved <= 0 ? 'saves no startup tokens'
-      : regressions.length ? `${regressions.length} regression(s)` : !keeps('passRate') ? 'pass rate below the bar' : !keeps('meanScore') ? 'mean score below the bar' : null;
+      : beyond > 0 ? `${regressions.length} regression(s)${chance ? `, ${chance} expected from noise` : ''}`
+      : !keeps('passRate') ? 'pass rate below the bar' : !keeps('meanScore') ? 'mean score below the bar'
+      : tooNoisy ? `inconclusive: two identical setups differed by ${Math.round(noise.passDelta * 100)} pts pass / ${noise.scoreDelta.toFixed(2)} score, more than the ${Math.round((1 - cfg.bar) * 100)}% bar can resolve (add --repeats)`
+      : null;
     return { id: v.id, description: v.description, passRate: r.passRate, meanScore: r.meanScore, costUsd: r.costUsd, startupTokensSaved: saved,
       regressions: regressions.length, recommend: !why, why: why || `keeps ${Math.round((r.passRate / (base.passRate || 1)) * 100)}% of baseline outcomes, saves ${saved} tokens per startup`,
       patch: path.join(expDir(cfg), v.id, 'patch.diff') };
   });
-  const result = { at: new Date().toISOString(), tasks: tasks.length, repeats, budget, baseline: base, inconclusive: (report.inconclusive || []).length,
+  const result = { at: new Date().toISOString(), tasks: tasks.length, repeats, budget, baseline: base, aa, noise, tooNoisy, inconclusive: (report.inconclusive || []).length,
     spent: Object.values(report.perVariant).reduce((a, r) => a + (r.costUsd || 0), 0), variants: rows };
   fs.writeFileSync(path.join(expDir(cfg), 'last-tune.json'), JSON.stringify(result, null, 2) + '\n');
   return result;

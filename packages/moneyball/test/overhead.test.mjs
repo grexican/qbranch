@@ -182,10 +182,21 @@ test('tune: recommends only variants that save tokens with no regression at >= 9
   assert.match(by['drop-deploy'].why, /regression/);
   assert.match(by['fresh-start'].why, /saves no/);
   assert.equal(applied['fresh-start'], null);
+  assert.equal(applied['baseline-again'], applied.baseline); // the A/A control is the unchanged setup, run again
   assert.doesNotMatch(applied['drop-build'], /## Build/);
   assert.equal(applied.baseline, CLAUDE_MD);
   assert.equal(fs.readFileSync(path.join(cfg.root, 'CLAUDE.md'), 'utf8'), CLAUDE_MD); // never auto-applied
   assert.ok(fs.existsSync(path.join(cfg.dataDir, 'experiments', 'last-tune.json')));
+  // two identical setups that disagree by more than the bar can resolve: nothing is recommended, the run is inconclusive
+  const noisyReplay = { ...replay, compareVariants: async (a) => {
+    const rep = await replay.compareVariants(a);
+    rep.perVariant['baseline-again'] = { runs: 11, passRate: 0.6, meanScore: 0.5, costUsd: 0.5, startupTokens: 30000 };
+    return rep;
+  } };
+  const noisy = await tune(cfg, { budget: 2, replay: noisyReplay });
+  assert.equal(noisy.tooNoisy, true);
+  assert.match(noisy.variants.find(v => v.id === 'drop-build').why, /inconclusive: two identical setups differed/);
+  assert.ok(!noisy.variants.some(v => v.recommend));
   const small = await tune({ ...cfg, minRuns: 50 }, { budget: 2, replay });
   assert.ok(small.variants.every(v => !v.recommend));
   await assert.rejects(tune(cfg, { replay }), /--budget/);
