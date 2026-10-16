@@ -23,5 +23,3 @@ export function loadConfig(root = projectRoot()) {
   return cfg;
 }
 
-export const TIERS = ['haiku', 'sonnet', 'opus', 'fable'];
-export const cheaper = (tier) => TIERS[Math.max(0, TIERS.indexOf(tier) - 1)];

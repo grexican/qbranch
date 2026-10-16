@@ -271,7 +271,6 @@ var PRICES = {
   "claude-haiku-4-5": [1, 5, 1.25, 0.1]
 };
 var modelId = (m) => (m || "").replace(/-\d{8}$/, "");
-var tierOf = (m) => /haiku/.test(m) ? "haiku" : /sonnet/.test(m) ? "sonnet" : /opus/.test(m) ? "opus" : /fable|mythos/.test(m) ? "fable" : "other";
 function costOf(model, u, prices = PRICES) {
   const p = prices[modelId(model)];
   if (!p || !u) return 0;
@@ -1146,8 +1145,73 @@ function loadConfig(root = projectRoot2()) {
   if (process.env.MONEYBALL_MODE) cfg.mode = process.env.MONEYBALL_MODE;
   return cfg;
 }
-var TIERS = ["haiku", "sonnet", "opus", "fable"];
-var cheaper = (tier) => TIERS[Math.max(0, TIERS.indexOf(tier) - 1)];
+
+// packages/moneyball/src/ladder.mjs
+var EFFORT = ["minimal", "low", "medium", "high", "xhigh", "max"];
+var ANTHROPIC = ["haiku", "sonnet", "opus", "fable"];
+function rung(model) {
+  let m = String(model || "").toLowerCase().replace(/-\d{8}$/, "").replace(/^cursor-/, "");
+  let effort = null, fast = false;
+  m = m.replace(/-fast$/, () => {
+    fast = true;
+    return "";
+  });
+  m = m.replace(/-(?:thinking-)?(minimal|low|medium|high|xhigh|max)$/, (_, e) => {
+    effort = e;
+    return "";
+  });
+  m = m.replace(/-thinking$/, () => {
+    effort ??= "high";
+    return "";
+  });
+  let vendor = "other", base = m;
+  const size = ANTHROPIC.find((s) => m.includes(s)) || (/mythos/.test(m) ? "fable" : null);
+  if (size && /^(claude|haiku|sonnet|opus|fable|mythos)/.test(m)) {
+    vendor = "anthropic";
+    base = size;
+  } else if (/^(gpt|o\d|codex)/.test(m)) vendor = "openai";
+  else if (/^gemini/.test(m)) vendor = "google";
+  else if (/^grok/.test(m)) vendor = "xai";
+  else if (/^composer/.test(m)) vendor = "cursor";
+  else if (/^(default|auto)$/.test(m)) vendor = "auto";
+  const key = base + (effort ? `@${effort}` : "") + (fast ? "+fast" : "");
+  return { key, vendor, base, effort, fast };
+}
+function parseKey(key) {
+  const m = String(key).match(/^(.+?)(?:@([a-z]+))?(\+fast)?$/) || [];
+  const base = m[1] || key;
+  return { key, base, effort: m[2] || null, fast: !!m[3], vendor: ANTHROPIC.includes(base) ? "anthropic" : rung(base).vendor };
+}
+function sizesBelow(base, vendor) {
+  if (vendor === "anthropic") return ANTHROPIC.slice(0, ANTHROPIC.indexOf(base)).reverse();
+  if (vendor === "openai") {
+    if (/-pro$/.test(base)) return [base.replace(/-pro$/, ""), base.replace(/-pro$/, "-mini")];
+    if (/-mini$/.test(base)) return [base.replace(/-mini$/, "-nano")];
+    if (/-nano$/.test(base)) return [];
+    return [`${base}-mini`, `${base}-nano`];
+  }
+  if (vendor === "google") {
+    if (/-pro\b/.test(base)) return [base.replace(/-pro\b/, "-flash"), base.replace(/-pro\b/, "-flash-lite")];
+    if (/-flash$/.test(base)) return [`${base}-lite`];
+    return [];
+  }
+  if (vendor === "xai") return /-mini$/.test(base) ? [] : [`${base}-mini`];
+  return [];
+}
+function cheaperOf(key) {
+  const r = parseKey(key);
+  if (r.vendor === "auto" || r.vendor === "other") return [];
+  const out = [];
+  const tail = r.fast ? "+fast" : "";
+  if (r.effort) {
+    const i = EFFORT.indexOf(r.effort);
+    if (i > EFFORT.indexOf("medium")) out.push(r.base + tail);
+    for (const e of EFFORT.slice(0, i).reverse()) if (e !== "minimal") out.push(`${r.base}@${e}${tail}`);
+  }
+  for (const s of sizesBelow(r.base, r.vendor)) out.push(s + tail);
+  return [...new Set(out)].filter((k) => k !== key);
+}
+var sameModel = (a, b) => parseKey(a).base === parseKey(b).base;
 
 // packages/moneyball/src/store.mjs
 import fs4 from "node:fs";
@@ -1269,7 +1333,7 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
       agent_type: s.meta.agentType || "agent",
       description: desc,
       model,
-      tier: tierOf(model),
+      tier: rung(model).key,
       cost: priced ? cost : null,
       calls,
       tool_calls: toolCalls,
@@ -1296,6 +1360,10 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
   const ins = d.prepare(`insert or replace into runs (id, session, platform, agent_type, description, class_id, model, tier, cost, calls,
     tool_calls, tool_errors, redo, fail_words, ok, mtime, startup_tokens, credit) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   d.exec("begin");
+  for (const x of d.prepare("select id, model, tier from runs").all()) {
+    const k = rung(x.model).key;
+    if (k !== x.tier) d.prepare("update runs set tier = ? where id = ?").run(k, x.id);
+  }
   for (const r of rows) {
     const ok = !r.redo && !r.fail_words && !(r.tool_calls >= 4 && r.tool_errors / r.tool_calls > 0.5) ? 1 : 0;
     ins.run(
@@ -1342,27 +1410,31 @@ function classStats(cfg) {
   return [...classes.values()];
 }
 function decide(cfg, c) {
-  const used = TIERS.filter((t) => c.tiers[t]);
+  const used = Object.keys(c.tiers).filter((t) => !["auto", "other"].includes(parseKey(t).vendor));
   const top = used.sort((a, b) => c.tiers[b].n - c.tiers[a].n)[0];
-  if (!top || top === "haiku" || top === "other") return { action: "keep", from: top, why: "already on the cheapest tier" };
+  if (!top) return { action: "keep", from: Object.keys(c.tiers)[0], why: "the model was chosen by the editor (auto), nothing to tune" };
+  const ladder = cheaperOf(top);
+  if (!ladder.length) return { action: "keep", from: top, why: "already on the cheapest rung" };
   const cur = c.tiers[top];
   if (cur.n >= cfg.minRuns && cur.rate < cfg.bar) {
-    const up = TIERS.slice(TIERS.indexOf(top) + 1).find((t) => c.tiers[t]?.n >= 5 && c.tiers[t].rate >= cfg.bar);
+    const up = used.find((t) => cheaperOf(t).includes(top) && c.tiers[t]?.n >= 5 && c.tiers[t].rate >= cfg.bar);
     return up ? { action: "keep", from: top, why: `${top} succeeds only ${pct(cur.rate)} but ${up} ${pct(c.tiers[up].rate)}: this class is under-powered, move it up` } : { action: "keep", from: top, why: `${top} itself succeeds only ${pct(cur.rate)}: fix the brief before shopping for a cheaper model` };
   }
-  const down = cheaper(top);
+  const down = ladder.find((t) => c.tiers[t]?.n >= cfg.minRuns) || ladder[0];
+  const step = sameModel(top, down) ? "lower effort, same model" : "smaller model";
   const cand = c.tiers[down];
   if (cand && cand.n >= cfg.minRuns && cand.rate >= cfg.bar && cand.rate >= cur.rate - cfg.margin) {
     const perRun = cur.cost / cur.n, perRunDown = cand.cost / cand.n;
     if (cur.priced === 0 || cand.priced === 0) {
-      return { action: "graduate", from: top, to: down, why: `${down} passed ${cand.ok}/${cand.n} (${pct(cand.rate)}) vs ${top} ${pct(cur.rate)}; cost not recorded on this platform`, saving: null };
+      return { action: "graduate", from: top, to: down, step, why: `${down} passed ${cand.ok}/${cand.n} (${pct(cand.rate)}) vs ${top} ${pct(cur.rate)} (${step}); cost not recorded on this platform`, saving: null };
     }
     if (cand.perTask < cur.perTask) {
       return {
         action: "graduate",
         from: top,
         to: down,
-        why: `${down} passed ${cand.ok}/${cand.n} (${pct(cand.rate)}) vs ${top} ${pct(cur.rate)}`,
+        step,
+        why: `${down} passed ${cand.ok}/${cand.n} (${pct(cand.rate)}) vs ${top} ${pct(cur.rate)} (${step})`,
         saving: (cur.perTask - cand.perTask) * cur.ok,
         perRun,
         perRunDown
@@ -1371,22 +1443,24 @@ function decide(cfg, c) {
     return { action: "keep", from: top, why: `${down} succeeds but retries make it dearer per completed task` };
   }
   if (cand && cand.n >= cfg.minRuns) return { action: "keep", from: top, why: `${down} measured ${pct(cand.rate)} over ${cand.n} runs (< ${pct(cfg.bar)})` };
-  if (c.prior === "judgment") return { action: "keep", from: top, why: "judgment work: leave it on the strong model" };
+  if (c.prior === "judgment" && !sameModel(top, down)) return { action: "keep", from: top, why: "judgment work: leave it on the strong model" };
   const have = cand?.n || 0;
-  if (c.prior === "mechanical" && cur.n >= cfg.minRuns) {
+  if ((c.prior === "mechanical" || sameModel(top, down)) && cur.n >= cfg.minRuns) {
+    const r = priceRatio(top, down);
     return {
       action: "explore",
       from: top,
       to: down,
-      why: `mechanical, ${cur.n} runs on ${top}, ${have}/${cfg.minRuns} trials on ${down}`,
-      saving: cur.cost * (1 - priceRatio(top, down))
+      step,
+      why: `${c.prior === "mechanical" ? "mechanical, " : ""}${cur.n} runs on ${top}, ${have}/${cfg.minRuns} trials on ${down} (${step})`,
+      saving: r == null || cur.priced === 0 ? null : cur.cost * (1 - r)
     };
   }
   if (cur.n >= cfg.minRuns) return { action: "try-effort", from: top, why: "unclear class: try lower effort on the same model before a smaller one" };
   return { action: "keep", from: top, why: `only ${cur.n} runs so far` };
 }
 var RATIO = { fable: { opus: 0.4 }, opus: { sonnet: 0.5 }, sonnet: { haiku: 0.05 } };
-var priceRatio = (from, to) => RATIO[from]?.[to] ?? 1;
+var priceRatio = (from, to) => sameModel(from, to) ? 0.6 : RATIO[parseKey(from).base]?.[parseKey(to).base] ?? null;
 var pct = (x) => `${Math.round(x * 100)}%`;
 function plan(cfg) {
   return classStats(cfg).map((c) => ({ ...c, ...decide(cfg, c) })).sort((a, b) => (b.saving || 0) - (a.saving || 0) || b.cost - a.cost);
@@ -1395,7 +1469,11 @@ function routes(cfg) {
   const d = db(cfg);
   const keys = new Map(d.prepare("select id, key from classes").all().map((r) => [r.id, r.key]));
   const out = {};
-  for (const p of plan(cfg)) if (p.action === "graduate" || p.action === "explore") out[keys.get(p.id)] = { classId: p.id, from: p.from, to: p.to, action: p.action };
+  for (const p of plan(cfg)) {
+    if (p.action !== "graduate" && p.action !== "explore") continue;
+    const to = parseKey(p.to);
+    if (to.vendor === "anthropic" && !to.effort && !to.fast) out[keys.get(p.id)] = { classId: p.id, from: p.from, to: p.to, action: p.action };
+  }
   return out;
 }
 

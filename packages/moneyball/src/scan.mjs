@@ -2,7 +2,8 @@
 // A run counts as FAILED when (a) the same task class was dispatched again in the same parent session within 30 minutes
 // (a redo), (b) the report it returned to its parent reads as a failure, or (c) most of its tool calls errored.
 // Cost per completed task is what matters: a cheap run that needs a redo is not cheaper.
-import { sessions, costOf, tierOf, modelId, PRICES } from '@qbranch/core';
+import { sessions, costOf, modelId, PRICES } from '@qbranch/core';
+import { rung } from './ladder.mjs';
 import { db, classify } from './store.mjs';
 
 const promptTokens = (u) => !u ? 0 : (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
@@ -72,7 +73,7 @@ export async function scan(cfg, { days = cfg.days, allProjects = false, onProgre
     const model = Object.entries(models).sort((a, b) => b[1] - a[1])[0][0];
     const desc = s.meta.description || '';
     const report = parentReports.get(s.meta.toolUseId) || '';
-    rows.push({ id, session: s.parent || s.id, platform: s.platform, agent_type: s.meta.agentType || 'agent', description: desc, model, tier: tierOf(model),
+    rows.push({ id, session: s.parent || s.id, platform: s.platform, agent_type: s.meta.agentType || 'agent', description: desc, model, tier: rung(model).key,
       cost: priced ? cost : null, calls, tool_calls: toolCalls, tool_errors: toolErrors, fail_words: FAIL.test(report.slice(-1500)) ? 1 : 0, mtime: s.mtime,
       startup_tokens: startup || 0, credit: delegationCredit({ startup, peak, report, parent: parentAfter.get(s.meta.toolUseId) }) });
     onProgress?.(rows.length);
@@ -89,6 +90,8 @@ export async function scan(cfg, { days = cfg.days, allProjects = false, onProgre
   const ins = d.prepare(`insert or replace into runs (id, session, platform, agent_type, description, class_id, model, tier, cost, calls,
     tool_calls, tool_errors, redo, fail_words, ok, mtime, startup_tokens, credit) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   d.exec('begin');
+  // rows indexed before the cross-vendor ladder carry the old Claude-only tier: re-key them from their model
+  for (const x of d.prepare('select id, model, tier from runs').all()) { const k = rung(x.model).key; if (k !== x.tier) d.prepare('update runs set tier = ? where id = ?').run(k, x.id); }
   for (const r of rows) {
     const ok = !r.redo && !r.fail_words && !(r.tool_calls >= 4 && r.tool_errors / r.tool_calls > 0.5) ? 1 : 0;
     ins.run(r.id, r.session, r.platform, r.agent_type, r.description, r.class_id, r.model, r.tier, r.cost, r.calls, r.tool_calls, r.tool_errors, r.redo || 0, r.fail_words, ok, r.mtime,

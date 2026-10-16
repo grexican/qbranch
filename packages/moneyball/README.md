@@ -69,7 +69,7 @@ Native packages are in [`adapters/`](adapters/): a Cursor plugin, a Codex plugin
 |---|---|
 | Claude Code | everything |
 | GitHub Copilot (CLI, VS Code) | reads VS Code Copilot Chat and Copilot CLI sessions (storage verified; message details unverified); routing applies where the subagent tool takes a model argument |
-| Cursor | reads your Cursor history (verified on real data); Cursor records no tokens, so runs are judged on outcomes and dollar savings show as unknown; the cheaper-tier ladder covers Claude models only so far |
+| Cursor | reads your Cursor history (verified on real data); Cursor records no tokens, so runs are judged on outcomes and savings show as unknown; advice only (a hook cannot set a Cursor subagent's model) |
 | OpenAI Codex | reads Codex rollouts with token usage (format checked against the Codex source, not yet seen on a real install); routing needs a subagent tool with a model argument |
 | Gemini CLI | reads Gemini CLI chats with token usage (format checked against the Gemini CLI source, not yet seen on a real install); no subagent model routing |
 | Windsurf / Devin | no pre-call guard, no session-start context; CLI reports only; no Windsurf transcript reader yet |
@@ -85,6 +85,17 @@ moneyball overhead [--probe --budget 0.25]    # the startup tax, apart from the 
 moneyball experiments [--condense --budget U] # derive trimmed startup-context variants (never touches live files)
 moneyball tune --budget 5                     # replay recurring tasks under each variant; recommend only safe trims
 ```
+
+## Every vendor's ladder
+
+Model names parse into a rung: vendor, model and reasoning effort. Claude, GPT, Gemini, Grok and Cursor's Composer are all covered, including editor-style names like . The cheaper rungs come in a fixed order:
+
+1. **lower effort on the same model** ( → ,  → ): the smallest change, and the prompt cache survives;
+2. **the next size down from the same vendor and version** ( → ,  → ,  → ).
+
+An older version is never treated as a cheaper rung. An editor's automatic pick () is measured but not tuned. Only Claude rungs can be enforced by the hook; for other vendors, moneyball's recommendations are advice.
+
+From one developer's Cursor history:  at default effort finished **99.4%** of 163 subagent runs, against **97.8%** of 137 at . On that evidence, high effort wasn't buying anything.
 
 ## The startup tax
 
