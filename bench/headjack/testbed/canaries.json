@@ -1,0 +1,792 @@
+{
+  "palette-token-names": {
+    "shard": 1,
+    "pair": "design-tokens",
+    "domain": "design",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "mineral-token",
+        "re": "--hue-(basalt|quartz|jasper|malachite|cobalt|ochre|slate)-\\d{3}\\b"
+      },
+      {
+        "id": "contrast-comment",
+        "re": "contrast:\\s*\\d+(\\.\\d+)?:1"
+      },
+      {
+        "id": "roles-block",
+        "re": "/\\*\\s*roles\\s*\\*/"
+      }
+    ]
+  },
+  "type-scale-ladder": {
+    "shard": 1,
+    "pair": "design-tokens",
+    "domain": "design",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "rung-token",
+        "re": "--type-rung-\\d"
+      },
+      {
+        "id": "ladder-comment",
+        "re": "ratio 1\\.2\\s*·\\s*base 17px"
+      },
+      {
+        "id": "lead-token",
+        "re": "--lead-rung-\\d"
+      }
+    ]
+  },
+  "commit-message-trailers": {
+    "shard": 1,
+    "pair": null,
+    "domain": "writing",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "risk-trailer",
+        "re": "^Risk: (low|medium|high)\\s*$",
+        "flags": "m"
+      },
+      {
+        "id": "rollback-trailer",
+        "re": "^Rollback: \\S.+$",
+        "flags": "m"
+      }
+    ]
+  },
+  "sql-house-style": {
+    "shard": 1,
+    "pair": null,
+    "domain": "code-style",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "cte-prefix",
+        "re": "\\bwith\\s+cte_\\w+\\s+as\\b",
+        "flags": "i"
+      },
+      {
+        "id": "leading-comma",
+        "re": "^\\s*,\\s*[a-z_]",
+        "flags": "m"
+      },
+      {
+        "id": "grain-comment",
+        "re": "--\\s*grain:",
+        "flags": "i"
+      }
+    ]
+  },
+  "runbook-steps": {
+    "shard": 1,
+    "pair": null,
+    "domain": "ops",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "step-marker",
+        "re": "STEP \\d+ ▸"
+      },
+      {
+        "id": "expect-line",
+        "re": "^\\s*(-\\s*)?Expect:",
+        "flags": "m"
+      },
+      {
+        "id": "if-not-line",
+        "re": "^\\s*(-\\s*)?If not:",
+        "flags": "m"
+      }
+    ]
+  },
+  "react-hook-contracts": {
+    "shard": 2,
+    "pair": "react",
+    "domain": "code-style",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "contract-header",
+        "re": "//\\s*hook-contract:\\s*v1"
+      },
+      {
+        "id": "busy-status",
+        "re": "['\"]busy['\"]"
+      },
+      {
+        "id": "problem-field",
+        "re": "\\bproblem\\s*[:,}]"
+      }
+    ]
+  },
+  "react-component-anatomy": {
+    "shard": 2,
+    "pair": "react",
+    "domain": "code-style",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "render-marker",
+        "re": "//\\s*§render"
+      },
+      {
+        "id": "props-marker",
+        "re": "//\\s*§props"
+      },
+      {
+        "id": "knobs-type",
+        "re": "\\b[A-Z]\\w*Knobs\\b"
+      }
+    ]
+  },
+  "meeting-notes-ledger": {
+    "shard": 2,
+    "pair": null,
+    "domain": "writing",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "decision-id",
+        "re": "\\bD-1\\b"
+      },
+      {
+        "id": "action-line",
+        "re": "→\\s*@\\w+\\s+by\\s+\\d{4}-\\d{2}-\\d{2}"
+      },
+      {
+        "id": "question-id",
+        "re": "\\bQ-1\\b"
+      }
+    ]
+  },
+  "yaml-config-layout": {
+    "shard": 2,
+    "pair": null,
+    "domain": "data-formats",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "owner-key",
+        "re": "^x-owner:",
+        "flags": "m"
+      },
+      {
+        "id": "section-sep",
+        "re": "^#\\s*---\\s*[\\w -]+\\s*---\\s*$",
+        "flags": "m"
+      },
+      {
+        "id": "reviewed-key",
+        "re": "^x-reviewed:",
+        "flags": "m"
+      }
+    ]
+  },
+  "a11y-review-tags": {
+    "shard": 2,
+    "pair": null,
+    "domain": "design",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "severity-tag",
+        "re": "\\bA11Y-[HML]\\b"
+      },
+      {
+        "id": "keyboard-path",
+        "re": "Keyboard path:"
+      },
+      {
+        "id": "tally-line",
+        "re": "Tally:\\s*\\d+\\s*H"
+      }
+    ]
+  },
+  "release-notes-voice": {
+    "shard": 3,
+    "pair": "release",
+    "domain": "writing",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "fresh-heading",
+        "re": "^#*\\s*\\**Fresh\\**\\s*$",
+        "flags": "m"
+      },
+      {
+        "id": "farewell-heading",
+        "re": "^#*\\s*\\**Farewell\\**\\s*$",
+        "flags": "m"
+      },
+      {
+        "id": "you-can-now",
+        "re": "You can now"
+      }
+    ]
+  },
+  "changelog-ledger": {
+    "shard": 3,
+    "pair": "release",
+    "domain": "docs",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "version-header",
+        "re": "^##\\s*\\[\\d+\\.\\d+\\.\\d+\\]\\s*·\\s*\\d{4}-\\d{2}-\\d{2}\\s*·\\s*\\w+",
+        "flags": "m"
+      },
+      {
+        "id": "tilde-marker",
+        "re": "^~ \\S",
+        "flags": "m"
+      },
+      {
+        "id": "area-suffix",
+        "re": "^[+~!-] .+\\([a-z -]+\\)\\s*$",
+        "flags": "m"
+      }
+    ]
+  },
+  "python-docstring-contract": {
+    "shard": 3,
+    "pair": null,
+    "domain": "code-style",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "takes",
+        "re": "^\\s*Takes:",
+        "flags": "m"
+      },
+      {
+        "id": "gives",
+        "re": "^\\s*Gives:",
+        "flags": "m"
+      },
+      {
+        "id": "breaks-when",
+        "re": "^\\s*Breaks when:",
+        "flags": "m"
+      }
+    ]
+  },
+  "compose-service-labels": {
+    "shard": 3,
+    "pair": null,
+    "domain": "ops",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "tier-label",
+        "re": "com\\.house\\.tier"
+      },
+      {
+        "id": "odd-interval",
+        "re": "interval:\\s*17s"
+      },
+      {
+        "id": "digest-comment",
+        "re": "#\\s*digest pinned"
+      }
+    ]
+  },
+  "user-story-cards": {
+    "shard": 3,
+    "pair": null,
+    "domain": "planning",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "story-id",
+        "re": "\\bST-\\d{3}\\b"
+      },
+      {
+        "id": "needs-field",
+        "re": "^\\s*\\**NEEDS:?\\**:?",
+        "flags": "m"
+      },
+      {
+        "id": "done-when",
+        "re": "DONE-WHEN:"
+      }
+    ]
+  },
+  "test-naming-givenwhen": {
+    "shard": 4,
+    "pair": "tests",
+    "domain": "testing",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "gwt-name",
+        "re": "given_\\w+__when_\\w+__then_\\w+"
+      },
+      {
+        "id": "oracle-comment",
+        "re": "(//|#)\\s*oracle:"
+      }
+    ]
+  },
+  "fixture-builders": {
+    "shard": 4,
+    "pair": "tests",
+    "domain": "testing",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "builder-chain",
+        "re": "\\ban?[A-Z]\\w*\\(\\)\\s*\\.\\s*with[A-Z]\\w*\\("
+      },
+      {
+        "id": "builders-end",
+        "re": "(//|#)\\s*builders end"
+      }
+    ]
+  },
+  "api-error-envelope": {
+    "shard": 4,
+    "pair": null,
+    "domain": "data-formats",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "fault-key",
+        "re": "[\"']?fault[\"']?\\s*:"
+      },
+      {
+        "id": "trace-ref",
+        "re": "trace_ref[\"']?\\s*:\\s*[\"'`]?tr_"
+      },
+      {
+        "id": "hint-key",
+        "re": "[\"']hint[\"']\\s*:"
+      }
+    ]
+  },
+  "weekly-status": {
+    "shard": 4,
+    "pair": null,
+    "domain": "writing",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "weather",
+        "re": "Weather:\\s*(sunny|cloudy|stormy)",
+        "flags": "i"
+      },
+      {
+        "id": "slipped-section",
+        "re": "^#*\\s*\\**Slipped\\**:?\\s*$",
+        "flags": "m"
+      }
+    ]
+  },
+  "survey-question-format": {
+    "shard": 4,
+    "pair": null,
+    "domain": "research",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "scale-tag",
+        "re": "\\(Q\\d+\\s*·\\s*scale 1[–-]7\\)"
+      },
+      {
+        "id": "anchors",
+        "re": "\\b1 = .+7 = "
+      },
+      {
+        "id": "open-tag",
+        "re": "\\(Q\\d+\\s*·\\s*open\\)"
+      }
+    ]
+  },
+  "csv-export-dialect": {
+    "shard": 5,
+    "pair": "export",
+    "domain": "data-formats",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "dialect-line",
+        "re": "#dialect:\\s*semi/utf8/lf"
+      },
+      {
+        "id": "semicolon-header",
+        "re": "^\"?[A-Z][A-Z0-9_]*\"?;\"?[A-Z][A-Z0-9_]*",
+        "flags": "m"
+      }
+    ]
+  },
+  "timestamp-format": {
+    "shard": 5,
+    "pair": "export",
+    "domain": "data-formats",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "at-sign-stamp",
+        "re": "\\d{4}-\\d{2}-\\d{2}@\\d{2}:\\d{2}(:\\d{2})?Z"
+      },
+      {
+        "id": "at-utc-field",
+        "re": "_at_utc\\b",
+        "flags": "i"
+      }
+    ]
+  },
+  "bash-script-preamble": {
+    "shard": 5,
+    "pair": null,
+    "domain": "ops",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "script-tag",
+        "re": "readonly SCRIPT_TAG="
+      },
+      {
+        "id": "die-trap",
+        "re": "trap\\s+['\"]die\\b"
+      },
+      {
+        "id": "die-func",
+        "re": "\\bdie\\(\\)\\s*\\{"
+      }
+    ]
+  },
+  "kpi-tile-spec": {
+    "shard": 5,
+    "pair": null,
+    "domain": "design",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "tile-label",
+        "re": "TILE · "
+      },
+      {
+        "id": "prior-28d",
+        "re": "vs prior 28d"
+      },
+      {
+        "id": "footnote",
+        "re": "^\\s*\\**Footnote:?\\**:?",
+        "flags": "m"
+      }
+    ]
+  },
+  "adr-revisit": {
+    "shard": 5,
+    "pair": null,
+    "domain": "docs",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "adr-id",
+        "re": "\\bADR-\\d{4}\\b"
+      },
+      {
+        "id": "revisit-by",
+        "re": "Revisit by:\\s*\\d{4}-\\d{2}-\\d{2}"
+      },
+      {
+        "id": "options-section",
+        "re": "^#*\\s*\\**Options\\**:?\\s*$",
+        "flags": "m"
+      }
+    ]
+  },
+  "incident-timeline": {
+    "shard": 6,
+    "pair": "incident",
+    "domain": "ops",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "relative-time",
+        "re": "T[+-]\\d{2}:\\d{2}"
+      },
+      {
+        "id": "detected-by",
+        "re": "Detected by:"
+      }
+    ]
+  },
+  "postmortem-frame": {
+    "shard": 6,
+    "pair": "incident",
+    "domain": "ops",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "believed",
+        "re": "What we believed"
+      },
+      {
+        "id": "was-true",
+        "re": "What was true"
+      },
+      {
+        "id": "blameless-check",
+        "re": "Blameless check"
+      }
+    ]
+  },
+  "structured-log-lines": {
+    "shard": 6,
+    "pair": null,
+    "domain": "ops",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "evt-key",
+        "re": "\\bevt=[a-z_]+\\.[a-z_]+"
+      },
+      {
+        "id": "lvl-key",
+        "re": "\\blvl=(debug|info|warn|fail)\\b"
+      },
+      {
+        "id": "svc-key",
+        "re": "\\bsvc="
+      }
+    ]
+  },
+  "ts-oops-errors": {
+    "shard": 6,
+    "pair": null,
+    "domain": "code-style",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "oops-call",
+        "re": "\\boops\\(\\s*['\"`]"
+      },
+      {
+        "id": "oops-type",
+        "re": "\\bOops<"
+      },
+      {
+        "id": "fine-type",
+        "re": "\\bFine<"
+      }
+    ]
+  },
+  "endpoint-catalog": {
+    "shard": 6,
+    "pair": null,
+    "domain": "docs",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "idempotent-column",
+        "re": "Idempotent\\?"
+      },
+      {
+        "id": "route-line",
+        "re": "(GET|POST|PUT|PATCH|DELETE) /\\S+ — "
+      }
+    ]
+  },
+  "estimate-ranges": {
+    "shard": 7,
+    "pair": "planning",
+    "domain": "planning",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "three-point",
+        "re": "\\d+(\\.\\d+)?d\\s*/\\s*\\d+(\\.\\d+)?d\\s*/\\s*\\d+(\\.\\d+)?d"
+      },
+      {
+        "id": "p50",
+        "re": "\\(p50 \\d+(\\.\\d+)?d\\)"
+      },
+      {
+        "id": "confidence-label",
+        "re": "confidence:\\s*(lo|mid|hi)\\b"
+      }
+    ]
+  },
+  "milestone-plan": {
+    "shard": 7,
+    "pair": "planning",
+    "domain": "planning",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "ms-id",
+        "re": "\\bMS-[A-E]\\b"
+      },
+      {
+        "id": "exit-test",
+        "re": "Exit test:"
+      },
+      {
+        "id": "cut-line",
+        "re": "Cut line:"
+      }
+    ]
+  },
+  "pr-description-proof": {
+    "shard": 7,
+    "pair": null,
+    "domain": "docs",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "proof-heading",
+        "re": "^#{1,4}\\s*Proof\\s*$",
+        "flags": "m"
+      },
+      {
+        "id": "blast-radius",
+        "re": "Blast radius"
+      }
+    ]
+  },
+  "json-schema-stamps": {
+    "shard": 7,
+    "pair": null,
+    "domain": "data-formats",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "x-stability",
+        "re": "\"x-stability\"\\s*:\\s*\"(experimental|stable)\""
+      },
+      {
+        "id": "owner-comment",
+        "re": "\"\\$comment\"\\s*:\\s*\"owner:"
+      },
+      {
+        "id": "urn-id",
+        "re": "urn:house:[a-z-]+:\\d+"
+      }
+    ]
+  },
+  "error-message-copy": {
+    "shard": 7,
+    "pair": null,
+    "domain": "writing",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "error-code",
+        "re": "\\[E-\\d{4}\\]"
+      },
+      {
+        "id": "what-to-do",
+        "re": "What to do:"
+      }
+    ]
+  },
+  "readme-skeleton": {
+    "shard": 8,
+    "pair": "docs",
+    "domain": "docs",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "one-breath",
+        "re": "In one breath"
+      },
+      {
+        "id": "sixty-seconds",
+        "re": "Try it in 60 seconds"
+      },
+      {
+        "id": "when-not",
+        "re": "When not to use this"
+      }
+    ]
+  },
+  "cli-help-text": {
+    "shard": 8,
+    "pair": "docs",
+    "domain": "docs",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "exit-footer",
+        "re": "Exit codes:\\s*0 ok"
+      },
+      {
+        "id": "verbs-heading",
+        "re": "^\\s*VERBS\\s*$",
+        "flags": "m"
+      },
+      {
+        "id": "flags-heading",
+        "re": "^\\s*FLAGS\\s*$",
+        "flags": "m"
+      }
+    ]
+  },
+  "oncall-handoff": {
+    "shard": 8,
+    "pair": null,
+    "domain": "ops",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "carry-over",
+        "re": "^\\s*\\**Carry-over:?\\**:?",
+        "flags": "m"
+      },
+      {
+        "id": "watch-list",
+        "re": "^\\s*\\**Watch list:?\\**:?",
+        "flags": "m"
+      },
+      {
+        "id": "quiet-hours",
+        "re": "Quiet-hours rule"
+      }
+    ]
+  },
+  "code-review-severity": {
+    "shard": 8,
+    "pair": null,
+    "domain": "code-review",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "severity-tag",
+        "re": "\\[S[123]\\]"
+      },
+      {
+        "id": "confidence-footer",
+        "re": "Confidence:\\s*\\d/5"
+      },
+      {
+        "id": "verdict",
+        "re": "Verdict:\\s*(ship|rework)"
+      }
+    ]
+  },
+  "risk-register": {
+    "shard": 8,
+    "pair": null,
+    "domain": "planning",
+    "minHits": 2,
+    "rules": [
+      {
+        "id": "risk-id",
+        "re": "\\bR-\\d+\\b"
+      },
+      {
+        "id": "tripwire",
+        "re": "Tripwire:"
+      },
+      {
+        "id": "lxi-score",
+        "re": "L[1-5]\\s*[×x*]\\s*I[1-5]"
+      }
+    ]
+  }
+}

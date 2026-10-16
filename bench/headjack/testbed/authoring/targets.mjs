@@ -279,7 +279,7 @@ Tally: 1 H · 0 M · 0 L
   // ---------------- shard 3 ----------------
   {
     name: 'release-notes-voice', shard: 3, pair: 'release', domain: 'writing',
-    description: 'How user-facing release notes are written: grouping, voice and the opening line. Use when announcing a new version to users, writing release notes or a "what\'s new" post.',
+    description: 'How user-facing release notes are written: grouping, voice and the opening line. Use when announcing a new version to users, writing release notes or a whats-new post.',
     body: `# Release notes voice
 
 1. Open with one sentence that starts \`This release\` and says the single biggest change.
@@ -868,7 +868,7 @@ We couldn't upload your photo. The file is larger than 10 MB. What to do: choose
   // ---------------- shard 8 ----------------
   {
     name: 'readme-skeleton', shard: 8, pair: 'docs', domain: 'docs',
-    description: 'The section skeleton for README files in our projects: section names, their order and the quickstart rule. Use when writing or restructuring a README or the front page of a project\'s documentation.',
+    description: 'The section skeleton for README files in our projects: section names, their order and the quickstart rule. Use when writing or restructuring a README or the front page of the documentation of a project.',
     body: `# README skeleton
 
 Sections, in this order, with exactly these headings:
@@ -929,6 +929,14 @@ The note has these lines and sections, in this order:
 3. \`Watch list:\` things that are fine now but might not be, with the signal to watch.
 4. \`Pages: <n>\` the number of pages during the shift.
 5. \`Quiet-hours rule:\` what is allowed to wait until morning.
+
+\`\`\`
+Shift: Mon 09:00 → Tue 09:00 (Sam)
+Carry-over: disk on the reports node at 86%, cleanup job scheduled for 10:00
+Watch list: login latency, fine now; page if p95 passes 800 ms
+Pages: 2
+Quiet-hours rule: certificate warnings under 14 days can wait until morning
+\`\`\`
 `,
     canaries: [
       { id: 'carry-over', re: '^\\s*\\**Carry-over:?\\**:?', flags: 'm' },

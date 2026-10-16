@@ -1,0 +1,98 @@
+{
+  "color-contrast-audit": {
+    "shard": 1,
+    "near": "palette-token-names"
+  },
+  "git-history-cleanup": {
+    "shard": 1,
+    "near": "commit-message-trailers"
+  },
+  "sql-query-tuning": {
+    "shard": 1,
+    "near": "sql-house-style"
+  },
+  "react-performance-pass": {
+    "shard": 2,
+    "near": "react-component-anatomy"
+  },
+  "meeting-agenda-builder": {
+    "shard": 2,
+    "near": "meeting-notes-ledger"
+  },
+  "toml-config-guide": {
+    "shard": 2,
+    "near": "yaml-config-layout"
+  },
+  "semver-bump-advisor": {
+    "shard": 3,
+    "near": "changelog-ledger"
+  },
+  "python-type-hints": {
+    "shard": 3,
+    "near": "python-docstring-contract"
+  },
+  "dockerfile-slimming": {
+    "shard": 3,
+    "near": "compose-service-labels"
+  },
+  "jest-snapshot-hygiene": {
+    "shard": 4,
+    "near": "test-naming-givenwhen"
+  },
+  "http-status-picker": {
+    "shard": 4,
+    "near": "api-error-envelope"
+  },
+  "nps-survey-setup": {
+    "shard": 4,
+    "near": "survey-question-format"
+  },
+  "excel-report-formatting": {
+    "shard": 5,
+    "near": "csv-export-dialect"
+  },
+  "timezone-conversion-helper": {
+    "shard": 5,
+    "near": "timestamp-format"
+  },
+  "powershell-script-style": {
+    "shard": 5,
+    "near": "bash-script-preamble"
+  },
+  "alert-rule-tuning": {
+    "shard": 6,
+    "near": "incident-timeline"
+  },
+  "json-logging-setup": {
+    "shard": 6,
+    "near": "structured-log-lines"
+  },
+  "openapi-spec-writer": {
+    "shard": 6,
+    "near": "endpoint-catalog"
+  },
+  "sprint-planning-helper": {
+    "shard": 7,
+    "near": "milestone-plan"
+  },
+  "story-point-poker": {
+    "shard": 7,
+    "near": "estimate-ranges"
+  },
+  "form-validation-ux": {
+    "shard": 7,
+    "near": "error-message-copy"
+  },
+  "docs-site-structure": {
+    "shard": 8,
+    "near": "readme-skeleton"
+  },
+  "argparse-cli-builder": {
+    "shard": 8,
+    "near": "cli-help-text"
+  },
+  "pr-review-checklist": {
+    "shard": 8,
+    "near": "code-review-severity"
+  }
+}
