@@ -1394,6 +1394,11 @@ function unsafeAction({ tool = "", input = {} } = {}, { root = "", allow = [] } 
     if (a === "TMP") return true;
     return !!a && roots.some((r) => a === r || a.startsWith(r.replace(/\/$/, "") + "/"));
   };
+  const own = canon(root);
+  const insideSandbox = (p, base = root) => {
+    const a = absolute(p, base);
+    return !!a && a !== "TMP" && !!own && (a === own || a.startsWith(own.replace(/\/$/, "") + "/"));
+  };
   const file2 = input.file_path ?? input.path ?? input.notebook_path ?? input.filePath;
   if (/^(Write|Edit|MultiEdit|NotebookEdit)$/.test(tool) && file2 && !inside(file2)) return `writes outside the sandbox (${file2})`;
   if (/apply_patch/i.test(tool)) {
@@ -1438,6 +1443,9 @@ function unsafeAction({ tool = "", input = {} } = {}, { root = "", allow = [] } 
     for (const m of seg.matchAll(/(?:^|[^0-9&<=>-])>>?\s*("[^"]*"|'[^']*'|[^\s;&|>]+)/g)) if (!inside(m[1], cwd)) return `redirects output outside the sandbox (${m[1]})`;
     if (WRITERS.test(prog)) {
       for (const a of t.slice(1)) if (!a.startsWith("-") && !inside(a, cwd)) return `${prog} outside the sandbox (${a})`;
+    }
+    if (/^(rm|rmdir|del|erase|rd|mv|move|remove-item|ri|move-item|mi|rename-item)$/.test(prog)) {
+      for (const a of t.slice(1)) if (!a.startsWith("-") && !insideSandbox(a, cwd)) return `${prog} removes files outside the sandbox (${a})`;
     }
   }
   return "";

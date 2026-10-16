@@ -25,6 +25,13 @@ test('the safety filter flags side effects outside the sandbox and lets local wo
   assert.match(why({ tool: 'mcp__tracker__update_ticket', input: {} }), /MCP/);
   assert.equal(why({ tool: 'mcp__tracker__list_tickets', input: {} }), '');
   assert.equal(unsafeAction(sh(`echo x > ${path.join(os.tmpdir(), 'scratch.txt')}`), { root, allow: [os.tmpdir()] }), '');
+  // a sandbox inside /tmp (Linux): scratch writes to /tmp are fine, deleting other people's /tmp files is not
+  const linux = { root: '/tmp/qbranch-replay-x/proj', allow: ['/tmp'] };
+  assert.equal(unsafeAction(sh('echo x > /tmp/scratch.txt'), linux), '');
+  assert.equal(unsafeAction(sh('rm -rf build'), linux), '');
+  assert.match(unsafeAction(sh('cd .. && rm -rf other'), linux), /removes files outside the sandbox/);
+  assert.match(unsafeAction(sh('rm /tmp/someone-elses.lock'), linux), /removes files outside the sandbox/);
+  assert.match(unsafeAction(sh('mv /tmp/a.txt ./a.txt'), linux), /removes files outside the sandbox/);
 });
 
 test('the guard script denies through the PreToolUse hook protocol', () => {
