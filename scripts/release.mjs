@@ -30,7 +30,8 @@ const [M, m, p] = current.split('.').map(Number);
 const next = bump === 'major' ? `${M + 1}.0.0` : bump === 'minor' ? `${M}.${m + 1}.0` : bump === 'patch' || bump === 'hotfix' ? `${M}.${m}.${p + 1}`
   : /^\d+\.\d+\.\d+$/.test(bump) ? bump : fail(`"${bump}" is not patch | minor | major | x.y.z`);
 const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
-if (!newer(next, current)) fail(`${next} is not newer than ${current}`);
+const firstRelease = !git('tag', '-l', 'v*');
+if (!newer(next, current) && !(firstRelease && next === current)) fail(`${next} is not newer than ${current}`); // the first release may ship the current version
 const tag = `v${next}`;
 
 // ---------- preflight ----------
