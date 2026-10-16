@@ -3,8 +3,8 @@
 import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);
 
 // packages/groundhog/bin/groundhog.mjs
-import fs9 from "node:fs";
-import path11 from "node:path";
+import fs10 from "node:fs";
+import path12 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // packages/core/src/project.mjs
@@ -342,8 +342,8 @@ function* codexEvents(file2) {
       case "custom_tool_call":
       case "local_shell_call": {
         const a = p.type === "local_shell_call" ? { command: p.action?.command } : parseArgs(p.arguments ?? p.input);
-        const sh = codexShell(p.type === "local_shell_call" ? "shell" : p.name || "", a);
-        e = sh ? { t: "tool", ...sh, id: p.call_id || p.id } : { t: "tool", name: toolName(p.name || p.type), input: typeof a === "object" ? a : { value: a }, id: p.call_id || p.id };
+        const sh2 = codexShell(p.type === "local_shell_call" ? "shell" : p.name || "", a);
+        e = sh2 ? { t: "tool", ...sh2, id: p.call_id || p.id } : { t: "tool", name: toolName(p.name || p.type), input: typeof a === "object" ? a : { value: a }, id: p.call_id || p.id };
         break;
       }
       case "function_call_output":
@@ -1355,8 +1355,8 @@ function recurrences(cfg, calls) {
 }
 
 // packages/groundhog/src/verify.mjs
-import fs7 from "node:fs";
-import path9 from "node:path";
+import fs8 from "node:fs";
+import path10 from "node:path";
 
 // packages/core/src/replay.mjs
 import fs6 from "node:fs";
@@ -1738,12 +1738,12 @@ var swapRoot = (text, from, to) => {
   for (const [a, b] of [[dbl(from), dbl(to)], [from, to], [fwd(from), fwd(to)]]) if (a.length > 3) out = out.split(a).join(b);
   return out;
 };
-async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeoutMs = 3e5, sandbox = "auto", keep = false, allowUnsafe = false, artifactsDir = path8.join(os4.tmpdir(), "qbranch-replay-runs") } = {}) {
+async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeoutMs = 3e5, sandbox = "auto", after, keep = false, allowUnsafe = false, artifactsDir = path8.join(os4.tmpdir(), "qbranch-replay-runs") } = {}) {
   if (!(budgetUsd > 0)) throw new Error("runTask needs an explicit budgetUsd (spending is opt-in)");
   if (!task.readOnly && !allowUnsafe) throw new Error(`task ${task.id} is not read-only (${(task.unsafe || []).join("; ")}): refusing to replay it`);
   const adapter = AGENTS[agent];
   if (!adapter) throw new Error(`unknown agent '${agent}' (registered: ${Object.keys(AGENTS).join(", ")})`);
-  const sb = makeSandbox(task.cwd, { mode: sandbox });
+  const sb = typeof sandbox === "function" ? await sandbox(task) : makeSandbox(task.cwd, { mode: sandbox });
   const t0 = Date.now();
   try {
     const variant = setup && await setup(sb.dir, { task, sandbox: sb }) || {};
@@ -1755,7 +1755,7 @@ async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeou
       if (f && within(path8.resolve(sb.dir, f), sb.dir)) changed.add(path8.relative(sb.dir, path8.resolve(sb.dir, f)).split(path8.sep).join("/"));
     }
     const usage = r.events?.find((e) => e.t === "usage")?.usage;
-    return {
+    const run = {
       ok: r.exitCode === 0 && !r.killed && !r.isError,
       costUsd: r.costUsd || 0,
       usage: r.usage,
@@ -1770,6 +1770,7 @@ async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeou
       error: r.error || "",
       startupTokens: usage ? (usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0) : null
     };
+    return after ? { ...run, ...await after(sb, run) } : run;
   } finally {
     if (!keep) sb.cleanup();
   }
@@ -1806,7 +1807,12 @@ var CHECKS = {
     const bad = runCommands(run.events).filter((x) => x.err && (!c.tool || x.tool === c.tool) && re.test(x.cmd));
     return [bad.length === 0, `ran and failed: ${bad[0]?.cmd.slice(0, 120)}`];
   },
-  mentions: (t, run, c) => [String(run.finalText).toLowerCase().includes(String(c.text).toLowerCase()), `final answer does not mention ${c.text}`]
+  mentions: (t, run, c) => [String(run.finalText).toLowerCase().includes(String(c.text).toLowerCase()), `final answer does not mention ${c.text}`],
+  // a command the harness ran in the sandbox after the agent finished (scenarios: hidden tests, lint, typecheck)
+  suite: (t, run, c) => {
+    const s = run.suites?.[c.name];
+    return [s?.pass === true, s ? `${c.name} failed: ${String(s.tail || "").slice(-200)}` : `${c.name} was not run`];
+  }
 };
 async function gradeRun(task, run, { judge } = {}) {
   const checks = task.checks?.length ? task.checks : [{ kind: "completed", hard: true }];
@@ -1901,6 +1907,249 @@ async function compareVariants({ tasks, variants, repeats = 1, concurrency = 1, 
   return { perVariant: Object.fromEntries(names.map((n) => [n, summary(totals[n])])), perTask, regressions, skipped, inconclusive, runs, spentUsd: +spent.toFixed(4), complete: skipped.length === 0 && inconclusive.length === 0 };
 }
 
+// packages/core/src/scenarios.mjs
+import fs7 from "node:fs";
+import os5 from "node:os";
+import path9 from "node:path";
+import { spawn as spawn2, spawnSync as spawnSync2 } from "node:child_process";
+var git2 = (args, opts = {}) => spawnSync2("git", args, { encoding: "utf8", windowsHide: true, maxBuffer: 256 * 1024 * 1024, ...opts });
+var json = (t) => {
+  try {
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
+};
+var posix = (p) => p.split(path9.sep).join("/");
+function glob(g) {
+  g = String(g).replace(/^\.\//, "");
+  if (!/[*?]/.test(g)) {
+    const p = g.replace(/\/$/, "");
+    return { test: (x) => x === p || x.startsWith(p + "/") };
+  }
+  const re = g.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*\//g, "\0").replace(/\*\*/g, "").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]").replace(/\u0000/g, "(.*/)?").replace(/\u0001/g, ".*");
+  return new RegExp(`^${re}$`);
+}
+function scenarioConfig(root) {
+  const c = json(fs7.existsSync(path9.join(root, "qbranch.scenarios.json")) ? fs7.readFileSync(path9.join(root, "qbranch.scenarios.json"), "utf8") : "null") || {};
+  return { maxFiles: 20, neighbours: 10, testTimeoutSec: 600, ...c, include: (c.include || []).map(glob), exclude: (c.exclude || []).map(glob) };
+}
+var packageManager = (has) => has("pnpm-lock.yaml") ? "pnpm" : has("yarn.lock") ? "yarn" : has("bun.lockb") || has("bun.lock") ? "bun" : "npm";
+var quote = (f) => /[\s"&|<>^()]/.test(f) ? `"${f}"` : f;
+function sh(cmd2, { cwd, env, timeoutMs }) {
+  return new Promise((resolve) => {
+    const t0 = Date.now();
+    const child = spawn2(cmd2, { cwd, env, shell: true, windowsHide: true, detached: process.platform !== "win32" });
+    let out = "", killed = false;
+    const add = (d) => {
+      out += d;
+      if (out.length > 4e5) out = out.slice(-2e5);
+    };
+    const timer = setTimeout(() => {
+      killed = true;
+      killTree(child);
+    }, timeoutMs);
+    child.stdout.on("data", add);
+    child.stderr.on("data", add);
+    const done = (code) => {
+      clearTimeout(timer);
+      resolve({ pass: code === 0 && !killed, exitCode: code, killed, ms: Date.now() - t0, tail: out.replace(/\x1b\[[0-9;]*m/g, "").slice(-2e3) });
+    };
+    child.on("error", (e) => {
+      add(e.message);
+      done(-1);
+    });
+    child.on("close", (c) => done(c ?? -1));
+    child.stdin.on("error", () => {
+    });
+    child.stdin.end();
+  });
+}
+function cmdEnv(sb, cwd) {
+  const env = { ...process.env, ...sb.env, CI: "1", NO_COLOR: "1", FORCE_COLOR: "0" };
+  delete env.NODE_TEST_CONTEXT;
+  const key = Object.keys(env).find((k) => /^path$/i.test(k)) || "PATH";
+  const bins = [];
+  for (let d = cwd; ; d = path9.dirname(d)) {
+    bins.push(path9.join(d, "node_modules", ".bin"));
+    if (path9.resolve(d) === path9.resolve(sb.root) || path9.dirname(d) === d) break;
+  }
+  env[key] = [...bins, env[key]].join(path9.delimiter);
+  return env;
+}
+async function runGroups(sb, groups, cfg) {
+  const results = [];
+  for (const g of groups) {
+    const files = g.files.map(quote).join(" ");
+    const cmd2 = g.cmd.includes("{files}") ? g.cmd.replace("{files}", files) : `${g.cmd} ${files}`;
+    const cwd = path9.join(sb.root, g.cwd);
+    results.push({ cmd: cmd2, cwd: g.cwd, ...await sh(cmd2, { cwd, env: cmdEnv(sb, cwd), timeoutMs: cfg.testTimeoutSec * 1e3 }) });
+  }
+  return { pass: results.length > 0 && results.every((r) => r.pass), ms: results.reduce((a, r) => a + r.ms, 0), tail: results.filter((r) => !r.pass).map((r) => `$ ${r.cmd}
+${r.tail}`).join("\n").slice(-2e3), groups: results.map(({ tail, ...r }) => r) };
+}
+var runOne = async (sb, cmd2, cfg) => ({ cmd: cmd2, ...await sh(cmd2, { cwd: sb.root, env: cmdEnv(sb, sb.root), timeoutMs: cfg.testTimeoutSec * 1e3 }) });
+function snapshotSandbox(root, ref) {
+  const base = fs7.realpathSync.native(fs7.mkdtempSync(path9.join(os5.tmpdir(), "qbranch-replay-")));
+  const hooks = path9.join(base, "git-hooks"), work = path9.join(base, "work");
+  fs7.mkdirSync(hooks);
+  fs7.mkdirSync(work);
+  fs7.writeFileSync(path9.join(hooks, "pre-push"), '#!/bin/sh\necho "qbranch replay sandbox: push refused" >&2\nexit 1\n', { mode: 493 });
+  const fail = (what, r2) => {
+    fs7.rmSync(base, { recursive: true, force: true });
+    throw new Error(`${what} failed: ${(r2.stderr || "").trim().slice(0, 300)}`);
+  };
+  const idx = { env: { ...process.env, GIT_INDEX_FILE: path9.join(base, "index") } };
+  let r = git2(["-C", root, "read-tree", ref], idx);
+  if (r.status !== 0) fail(`git read-tree ${ref}`, r);
+  r = git2(["-C", root, `--work-tree=${work}`, "checkout-index", "-a", "-f"], idx);
+  if (r.status !== 0) fail("git checkout-index", r);
+  fs7.rmSync(path9.join(base, "index"), { force: true });
+  const env = { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "core.hooksPath", GIT_CONFIG_VALUE_0: hooks };
+  const genv = { env: { ...process.env, ...env } };
+  const id = ["-c", "user.name=qbranch", "-c", "user.email=qbranch@localhost", "-c", "commit.gpgsign=false", "-c", "core.safecrlf=false"];
+  for (const a of [["init", "-q", work], ["-C", work, ...id, "add", "-A"], ["-C", work, ...id, "commit", "-q", "--no-verify", "--allow-empty", "-m", "snapshot"]]) {
+    r = git2(a, genv);
+    if (r.status !== 0) fail(`git ${a.filter((x) => !x.includes("=") && x !== "-c" && x !== "-C" && x !== work).join(" ")}`, r);
+  }
+  const links = [];
+  const status = () => git2(["-C", work, "status", "--porcelain", "-uall"], genv).stdout || "";
+  const cleanup = () => {
+    for (const l of links.splice(0)) try {
+      fs7.unlinkSync(l);
+    } catch {
+    }
+    try {
+      fs7.rmSync(base, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    } catch {
+    }
+  };
+  return { base, root: work, dir: work, git: true, env, status, cleanup, links };
+}
+function applyFiles(work, root, sha, entries) {
+  for (const e of entries) {
+    const dst = path9.join(work, e.path);
+    if (e.status === "D") {
+      fs7.rmSync(dst, { force: true });
+      continue;
+    }
+    const r = spawnSync2("git", ["-C", root, "cat-file", "blob", `${sha}:${e.path}`], { windowsHide: true, maxBuffer: 256 * 1024 * 1024 });
+    if (r.status !== 0) throw new Error(`cannot read ${e.path} at ${sha.slice(0, 8)}`);
+    fs7.mkdirSync(path9.dirname(dst), { recursive: true });
+    fs7.writeFileSync(dst, r.stdout);
+  }
+}
+var SKIP_NM = /* @__PURE__ */ new Set([".vite", ".vitest", ".cache", ".tmp", ".turbo"]);
+function linkDeps(live, work, links = []) {
+  const pkgs = (git2(["-C", live, "ls-files", "--", "package.json", "*/package.json"]).stdout || "").split("\n").filter(Boolean).filter((p) => !/node_modules\//.test(p));
+  const liveReal = fs7.realpathSync.native(live);
+  const target = (real) => {
+    const rel = path9.relative(liveReal, real);
+    return !rel.startsWith("..") && !path9.isAbsolute(rel) && !rel.split(path9.sep).includes("node_modules") ? path9.join(work, rel) : real;
+  };
+  const linkDir = (src, dst) => {
+    fs7.mkdirSync(dst, { recursive: true });
+    for (const e of fs7.readdirSync(src, { withFileTypes: true })) {
+      if (SKIP_NM.has(e.name)) continue;
+      const s = path9.join(src, e.name), d = path9.join(dst, e.name);
+      if (fs7.existsSync(d)) continue;
+      let real;
+      try {
+        real = fs7.realpathSync.native(s);
+      } catch {
+        continue;
+      }
+      const st = fs7.statSync(real);
+      if (!st.isDirectory()) {
+        fs7.copyFileSync(real, d);
+        continue;
+      }
+      if (e.name.startsWith("@") && e.isDirectory()) {
+        linkDir(s, d);
+        continue;
+      }
+      const t = target(real);
+      if (!fs7.existsSync(t)) continue;
+      fs7.symlinkSync(t, d, "junction");
+      links.push(d);
+    }
+  };
+  for (const p of pkgs) {
+    const rel = path9.posix.dirname(p), src = path9.join(live, rel, "node_modules"), dst = path9.join(work, rel, "node_modules");
+    if (fs7.existsSync(src) && fs7.existsSync(path9.dirname(dst)) && !fs7.existsSync(dst)) linkDir(src, dst);
+  }
+  return links;
+}
+async function installDeps(sb, cfg) {
+  const has = (f) => fs7.existsSync(path9.join(sb.root, f));
+  const pm = packageManager(has);
+  const cmd2 = {
+    npm: has("package-lock.json") ? "npm ci --ignore-scripts --no-audit --no-fund" : "npm install --ignore-scripts --no-audit --no-fund",
+    pnpm: "pnpm install --frozen-lockfile --ignore-scripts",
+    yarn: "yarn install --ignore-scripts",
+    bun: "bun install --ignore-scripts"
+  }[pm];
+  const r = await sh(cmd2, { cwd: sb.root, env: cmdEnv(sb, sb.root), timeoutMs: Math.max(cfg.testTimeoutSec, 900) * 1e3 });
+  if (!r.pass) throw new Error(`${cmd2} failed: ${r.tail.slice(-300)}`);
+  return r;
+}
+function depsGuard({ tool = "", input = {} } = {}) {
+  input = input || {};
+  const f = String(input.file_path ?? input.path ?? input.notebook_path ?? "");
+  if (/^(Write|Edit|MultiEdit|NotebookEdit)$/.test(tool) && /(^|[\\/])node_modules([\\/]|$)/.test(f)) return "edits installed dependencies (they are shared with the live checkout)";
+  if (!/^(Bash|PowerShell|Shell)$/.test(tool)) return "";
+  const cmd2 = String(input.command || "");
+  if (/\b(npm|pnpm|yarn|bun)\s+(i|install|ci|add|remove|rm|uninstall|un|update|up|upgrade|link|unlink|prune|dedupe|rebuild)\b/.test(cmd2) || /^\s*yarn\s*$/m.test(cmd2)) return "changes installed dependencies (they are shared with the live checkout); work with what is installed";
+  if (/\b(rm|rmdir|del|rd|mv|move|Remove-Item|Move-Item|ri|mi)\b[^\n;&|]*node_modules/i.test(cmd2)) return "removes installed dependencies (they are shared with the live checkout)";
+  return "";
+}
+var depsGuardSource = () => `// qbranch scenario guard (generated per run): installed dependencies are shared with the live checkout.
+const depsGuard = ${depsGuard.toString()};
+let raw = '';
+process.stdin.on('data', (d) => { raw += d; });
+process.stdin.on('end', () => {
+  let h = {}; try { h = JSON.parse(raw); } catch {}
+  const why = depsGuard({ tool: h.tool_name, input: h.tool_input });
+  if (why) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'scenario sandbox: ' + why + '.' } }));
+});
+`;
+var prepareDeps = async (s, sb, cfg, install) => install ? installDeps(sb, cfg) : linkDeps(s.repo, sb.root, sb.links);
+async function runScenario(s, { agent = "claude", model, setup, budgetUsd, timeoutMs = 12e5, keep = false, artifactsDir, force = false } = {}) {
+  if (s.status !== "valid" && !force) throw new Error(`scenario ${s.id} is ${s.status || "not validated"}: validate it first`);
+  const cfg = scenarioConfig(s.repo);
+  return runTask(s, {
+    agent,
+    model,
+    budgetUsd,
+    timeoutMs,
+    keep,
+    ...artifactsDir ? { artifactsDir } : {},
+    sandbox: () => snapshotSandbox(s.repo, s.parent),
+    setup: async (dir, ctx) => {
+      await prepareDeps(s, ctx.sandbox, cfg, s.install);
+      const v = setup && await setup(dir, ctx) || {};
+      if (s.install) return v;
+      const guard = path9.join(ctx.sandbox.base, "deps-guard.mjs");
+      fs7.writeFileSync(guard, depsGuardSource());
+      const hooks = v.settings?.hooks || {};
+      return { ...v, settings: { ...v.settings, hooks: { ...hooks, PreToolUse: [...hooks.PreToolUse || [], { matcher: "*", hooks: [{ type: "command", command: `node "${posix(guard)}"` }] }] } } };
+    },
+    after: async (sb) => {
+      applyFiles(sb.root, s.repo, s.sha, s.files.hidden);
+      const suites = { "fail-to-pass": await runGroups(sb, s.plan.tests, cfg) };
+      if (s.plan.neighbours?.length) suites["pass-to-pass"] = await runGroups(sb, s.plan.neighbours, cfg);
+      if (s.plan.lint) suites.lint = await runOne(sb, s.plan.lint, cfg);
+      if (s.plan.typecheck) suites.typecheck = await runOne(sb, s.plan.typecheck, cfg);
+      return { suites };
+    }
+  });
+}
+var scenariosDir = (root) => path9.join(root, ".qbranch", "scenarios");
+function loadScenarios(root, { dir = scenariosDir(root), status } = {}) {
+  if (!fs7.existsSync(dir)) return [];
+  return fs7.readdirSync(dir).filter((f) => /^scn_.*\.json$/.test(f)).map((f) => json(fs7.readFileSync(path9.join(dir, f), "utf8"))).filter(Boolean).filter((s) => !status || [].concat(status).includes(s.status)).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+}
+
 // packages/groundhog/src/verify.mjs
 var test = (re, s) => {
   try {
@@ -1918,7 +2167,7 @@ function lessonTasks(cfg, lesson, { days = cfg.days, tasks = 2, heldOut = 2, har
   return { target, held: others.sort(cheapest).slice(0, heldOut), candidates: all.length };
 }
 var ledgerVariant = (cfg, lessons, hookCommand) => async (dir) => {
-  fs7.writeFileSync(path9.join(dir, cfg.lessons), JSON.stringify({ lessons }, null, 2) + "\n");
+  fs8.writeFileSync(path10.join(dir, cfg.lessons), JSON.stringify({ lessons }, null, 2) + "\n");
   if (!hookCommand) return {};
   return { settings: { hooks: {
     SessionStart: [{ hooks: [{ type: "command", command: `${hookCommand} hook session` }] }],
@@ -1927,12 +2176,13 @@ var ledgerVariant = (cfg, lessons, hookCommand) => async (dir) => {
 };
 var rate = (v) => v ? { runs: v.runs, passRate: v.passRate == null ? null : +v.passRate.toFixed(3), meanScore: v.meanScore == null ? null : +v.meanScore.toFixed(3) } : null;
 var paired = (r) => r ? r.perTask.filter((t) => t.variants.without.runs && t.variants.with.runs).length : 0;
-async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks = 2, heldOut = 2, repeats = 1, agent = "claude", hookCommand, timeoutMs = 3e5, compare = compareVariants, harvest, log = () => {
+async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks = 2, heldOut = 2, repeats = 1, agent = "claude", hookCommand, timeoutMs = 3e5, compare = compareVariants, harvest, scenarios = null, log = () => {
 } } = {}) {
   if (!(budgetUsd > 0)) throw new Error("verification spends money: pass --budget <usd>");
   const ledger = loadLessons(cfg).filter((l) => l.when !== lesson.when);
   const cand = { id: lesson.id || `L${ledger.length + 1}`, action: lesson.action || (cfg.guard === "remind" ? "remind" : "deny-once"), ...lesson };
-  const { target, held, candidates } = lessonTasks(cfg, cand, { days, tasks, heldOut, harvest });
+  const { target, held: recurring, candidates } = lessonTasks(cfg, cand, { days, tasks, heldOut, harvest });
+  const held = scenarios ? scenarios.slice(0, heldOut) : recurring;
   const at = (/* @__PURE__ */ new Date()).toISOString();
   const base = { at, model: model || null, agent, repeats };
   if (!target.length) return { verdict: "no-evidence", verified: { ...base, tasks: 0, before: null, after: null, regressions: [], costUsd: 0, verdict: "no-evidence", note: `none of ${candidates} replayable tasks hit this failure` } };
@@ -1942,8 +2192,8 @@ async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks = 2, he
   const a = await compare({ ...opts, tasks: target, budgetUsd: held.length ? budgetUsd * 0.6 : budgetUsd });
   let b = null;
   if (held.length && budgetUsd - a.spentUsd > 0.02) {
-    log(`no-regression gate: ${held.length} held-out recurring task(s)`);
-    b = await compare({ ...opts, tasks: held, budgetUsd: budgetUsd - a.spentUsd });
+    log(`no-regression gate: ${held.length} held-out ${scenarios ? "history scenario" : "recurring task"}(s)`);
+    b = await compare({ ...opts, tasks: held, budgetUsd: budgetUsd - a.spentUsd, ...scenarios ? { runner: runScenario, timeoutMs: Math.max(timeoutMs, 12e5) } : {} });
   }
   const before = rate(a.perVariant.without), after = rate(a.perVariant.with);
   const regressions = [...a.regressions, ...b?.regressions || []].map((r) => r.task);
@@ -1964,15 +2214,15 @@ async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks = 2, he
 var acceptable = (verdict) => verdict === "helps" || verdict === "neutral";
 
 // packages/groundhog/src/draft.mjs
-import fs8 from "node:fs";
-import path10 from "node:path";
+import fs9 from "node:fs";
+import path11 from "node:path";
 var slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "runbook";
 function draftRunbook(cfg, item, name) {
   const steps = item.steps || [item.shape];
   const examples = item.examples || [item.example];
   const n = slug(name || steps.map((s) => s.split(" ").slice(0, 2).join(" ")).join(" then "));
-  const dir = path10.join(cfg.dataDir, "drafts", n);
-  fs8.mkdirSync(dir, { recursive: true });
+  const dir = path11.join(cfg.dataDir, "drafts", n);
+  fs9.mkdirSync(dir, { recursive: true });
   const body = [
     `# ${n}`,
     "",
@@ -1990,7 +2240,7 @@ function draftRunbook(cfg, item, name) {
     ""
   ].join("\n");
   const meta = { name: n, description: `Runbook: ${steps.join(" -> ").slice(0, 300)}. Use when doing this procedure by hand. (groundhog draft: review before use)` };
-  fs8.writeFileSync(path10.join(dir, "SKILL.md"), renderFrontmatter(meta, body));
+  fs9.writeFileSync(path11.join(dir, "SKILL.md"), renderFrontmatter(meta, body));
   upsert(cfg, (s) => {
     s.totals.drafts++;
   });
@@ -2013,13 +2263,14 @@ var HELP = `groundhog: stop re-living the same session.
                                                held-out sample; add it only if it helps (or never hurts) and breaks nothing
   groundhog verify [L<n>] --budget USD         re-check accepted lessons; a lesson that breaks another task is flagged
       verify options: [--model M] [--tasks N] [--held-out N] [--repeats N] [--days N] [--timeout SEC]
+                      [--scenarios [--cache DIR]]  held-out set = validated history scenarios (moneyball scenarios)
   groundhog add --when <regex> --instead <text> [--remind]   add a lesson by hand
   groundhog lessons                            list the ledger
   groundhog draft S<n>|R<n> [--name x]         write a runbook skill draft to .groundhog/drafts/
   groundhog stats [--json]                     usage + whether accepted lessons stopped recurring
   groundhog hook session|pre [--platform P]    SessionStart (inject lessons) / PreToolUse (guard shell commands)`;
 function index(cfg) {
-  const ix = readJson(path11.join(cfg.dataDir, "index.json"), null);
+  const ix = readJson(path12.join(cfg.dataDir, "index.json"), null);
   if (!ix) throw new Error("no scan yet: run `groundhog scan`");
   return ix;
 }
@@ -2037,7 +2288,8 @@ async function verifyOpts(cfg) {
     repeats: Number(opt("--repeats", 1)),
     timeoutMs: Number(opt("--timeout", 300)) * 1e3,
     log: (m) => console.log(m),
-    hookCommand: [exe, ...pre].map((a) => `"${a.split(path11.sep).join("/")}"`).join(" ")
+    hookCommand: [exe, ...pre].map((a) => `"${a.split(path12.sep).join("/")}"`).join(" "),
+    scenarios: flag("--scenarios") ? loadScenarios(cfg.root, { dir: opt("--cache") ? path12.resolve(opt("--cache")) : process.env.QBRANCH_SCENARIOS_DIR || scenariosDir(cfg.root), status: "valid" }) : null
   };
 }
 var showVerified = (v) => !v ? "" : v.before ? `${v.verdict}: pass ${v.before.passRate} -> ${v.after.passRate}, score ${v.before.meanScore} -> ${v.after.meanScore} on ${v.tasks} task(s)${v.regressions.length ? `, regressions: ${v.regressions.join(", ")}` : ""}, $${v.costUsd}` + (v.repeats === 1 && v.verdict !== "neutral" ? " (one sample per task and variant: confirm with --repeats 3)" : "") : `${v.verdict}${v.note ? ` (${v.note})` : ""}`;
@@ -2122,7 +2374,7 @@ Review it, then adopt it into a skill library (e.g. headjack add <dir>).`);
     case "stats": {
       let s;
       try {
-        s = JSON.parse(fs9.readFileSync(path11.join(cfg.root, cfg.stats || ".groundhog-stats.json"), "utf8"));
+        s = JSON.parse(fs10.readFileSync(path12.join(cfg.root, cfg.stats || ".groundhog-stats.json"), "utf8"));
       } catch {
         return console.log("no stats yet");
       }

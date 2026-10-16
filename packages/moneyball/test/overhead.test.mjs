@@ -199,6 +199,12 @@ test('tune: recommends only variants that save tokens with no regression at >= 9
   assert.ok(!noisy.variants.some(v => v.recommend));
   const small = await tune({ ...cfg, minRuns: 50 }, { budget: 2, replay });
   assert.ok(small.variants.every(v => !v.recommend));
+  // --scenarios: given tasks and their runner replace the harvest
+  const runner = async () => ({});
+  let seen;
+  await tune(cfg, { budget: 2, tasks: Array.from({ length: 11 }, (_, i) => ({ id: `s${i}` })), runner, replay: { ...replay, harvestTasks: () => { throw new Error('harvested'); }, compareVariants: async (a) => { seen = a; return replay.compareVariants(a); } } });
+  assert.equal(seen.runner, runner);
+  await assert.rejects(tune(cfg, { budget: 2, tasks: [], runner, replay }), /no validated scenarios/);
   await assert.rejects(tune(cfg, { replay }), /--budget/);
 });
 

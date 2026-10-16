@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { harvestTasks, compareVariants } from '@qbranch/core/replay';
+import { runScenario } from '@qbranch/core/scenarios';
 import { loadLessons } from './lessons.mjs';
 
 const test = (re, s) => { try { return new RegExp(re, 'i').test(s); } catch { return false; } };
@@ -40,11 +41,13 @@ const paired = (r) => (r ? r.perTask.filter(t => t.variants.without.runs && t.va
  * Replay a lesson's tasks without and with it, then a held-out sample with the full ledger.
  * verdict: helps | neutral (accept) · hurts | regressed (reject) · no-evidence | inconclusive (nothing to decide on)
  */
-export async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks = 2, heldOut = 2, repeats = 1, agent = 'claude', hookCommand, timeoutMs = 300_000, compare = compareVariants, harvest, log = () => {} } = {}) {
+export async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks = 2, heldOut = 2, repeats = 1, agent = 'claude', hookCommand, timeoutMs = 300_000, compare = compareVariants, harvest, scenarios = null, log = () => {} } = {}) {
   if (!(budgetUsd > 0)) throw new Error('verification spends money: pass --budget <usd>');
   const ledger = loadLessons(cfg).filter(l => l.when !== lesson.when);
   const cand = { id: lesson.id || `L${ledger.length + 1}`, action: lesson.action || (cfg.guard === 'remind' ? 'remind' : 'deny-once'), ...lesson };
-  const { target, held, candidates } = lessonTasks(cfg, cand, { days, tasks, heldOut, harvest });
+  const { target, held: recurring, candidates } = lessonTasks(cfg, cand, { days, tasks, heldOut, harvest });
+  // validated history scenarios as the held-out set: does the lesson break building, not just recurring read-only work?
+  const held = scenarios ? scenarios.slice(0, heldOut) : recurring;
   const at = new Date().toISOString();
   const base = { at, model: model || null, agent, repeats };
   if (!target.length) return { verdict: 'no-evidence', verified: { ...base, tasks: 0, before: null, after: null, regressions: [], costUsd: 0, verdict: 'no-evidence', note: `none of ${candidates} replayable tasks hit this failure` } };
@@ -54,7 +57,10 @@ export async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks 
   log(`replaying ${target.length} task(s) where the failure happened, without and with ${cand.id}`);
   const a = await compare({ ...opts, tasks: target, budgetUsd: held.length ? budgetUsd * 0.6 : budgetUsd });
   let b = null;
-  if (held.length && budgetUsd - a.spentUsd > 0.02) { log(`no-regression gate: ${held.length} held-out recurring task(s)`); b = await compare({ ...opts, tasks: held, budgetUsd: budgetUsd - a.spentUsd }); }
+  if (held.length && budgetUsd - a.spentUsd > 0.02) {
+    log(`no-regression gate: ${held.length} held-out ${scenarios ? 'history scenario' : 'recurring task'}(s)`);
+    b = await compare({ ...opts, tasks: held, budgetUsd: budgetUsd - a.spentUsd, ...(scenarios ? { runner: runScenario, timeoutMs: Math.max(timeoutMs, 1_200_000) } : {}) });
+  }
 
   const before = rate(a.perVariant.without), after = rate(a.perVariant.with);
   const regressions = [...a.regressions, ...(b?.regressions || [])].map(r => r.task);
