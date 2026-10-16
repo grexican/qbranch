@@ -3056,7 +3056,28 @@ function mineScenarios({ root, limit = 100, since, pr = true } = {}) {
 function tsAliases(read3) {
   const raw = read3("tsconfig.json");
   if (!raw) return [];
-  const t = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[\s,{[])\/\/[^\n]*/g, "$1").replace(/,(\s*[}\]])/g, "$1");
+  let t = "";
+  for (let i = 0, str = false; i < raw.length; i++) {
+    const c = raw[i];
+    if (str) {
+      t += c;
+      if (c === "\\") t += raw[++i] ?? "";
+      else if (c === '"') str = false;
+      continue;
+    }
+    if (c === '"') {
+      str = true;
+      t += c;
+    } else if (c === "/" && raw[i + 1] === "/") {
+      while (i < raw.length && raw[i] !== "\n") i++;
+      t += "\n";
+    } else if (c === "/" && raw[i + 1] === "*") {
+      i = raw.indexOf("*/", i + 2);
+      if (i < 0) break;
+      i++;
+    } else t += c;
+  }
+  t = t.replace(/,(\s*[}\]])/g, "$1");
   const paths = json(t)?.compilerOptions?.paths || {};
   const base = String(json(t)?.compilerOptions?.baseUrl || ".");
   return Object.entries(paths).filter(([k, v]) => k.endsWith("/*") && String(v?.[0] || "").endsWith("/*")).map(([k, v]) => {

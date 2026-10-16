@@ -63,7 +63,7 @@ test('runner detection, globs, prompt and the deps guard', () => {
   const src = { 'src/t.test.ts': "import { a, b as c, type T } from './lib.js';\nimport { x } from './fresh.js';\nimport { y } from 'pkg';", 'src/lib.ts': 'export const a = 1;\nexport type T = 1;' };
   assert.deepEqual(missingInterface((p) => src[p] ?? null, ['src/t.test.ts'], (p) => p === 'src/fresh.ts'), [{ name: 'b', module: 'src/lib.ts' }, { name: 'x', module: 'src/fresh.ts' }]);
   // tsconfig path aliases (comments and trailing commas allowed), and imports split over lines
-  const al = { 'tsconfig.json': '{ // c\n "compilerOptions": { "paths": { "@/*": ["./src/*"], }, }, "$schema": "https://x" }', 'src/t.test.ts': "import {\n a,\n b } from '@/lib/x';", 'src/lib/x.ts': 'export const a = 1' };
+  const al = { 'tsconfig.json': '{ // c\n /* block */ "compilerOptions": { "paths": { "@/*": ["./src/*"], }, }, "include": ["**/*.ts"], "$schema": "https://x" }', 'src/t.test.ts': "import {\n a,\n b } from '@/lib/x';", 'src/lib/x.ts': 'export const a = 1' };
   assert.deepEqual(missingInterface((p) => al[p] ?? null, ['src/t.test.ts'], () => false), [{ name: 'b', module: 'src/lib/x.ts' }]);
   assert.match(scenarioPrompt('Do it', null, [{ name: 'b', module: 'src/lib.ts' }]), /do not exist yet:\n- `b` from `src\/lib.ts`/);
   assert.match(depsGuard({ tool: 'Bash', input: { command: 'npm install left-pad' } }), /dependencies/);
