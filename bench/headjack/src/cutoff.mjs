@@ -43,7 +43,7 @@ async function listingAt(model, lib, key, dir) {
   const tpl = await armTemplate('native', { libDir: dir, key });
   const sb = makeSandbox(tpl.dir, { mode: 'copy' });
   try {
-    const r = await adapter.run({ prompt: 'Reply with OK.', dir: sb.dir, model, authFromHome, env: { ANTHROPIC_BASE_URL: tap.url }, extraArgs: ['--tools', ''], timeoutMs: 300_000, budgetUsd: 1 });
+    const r = await adapter.run({ prompt: 'Reply with OK.', dir: sb.dir, model, authFromHome, env: { ANTHROPIC_BASE_URL: tap.url }, extraArgs: ['--tools', 'Skill'], timeoutMs: 300_000, budgetUsd: 1 });
     const body = tap.bodies.filter(b => (b.messages || []).length).pop();
     return { ok: r.ok, error: r.error, ...analyzeListing(parseListing(body ? requestText(body) : ''), lib.map(s => s.name), lib.filter(s => s.kind === 'target').map(s => s.name)) };
   } finally { sb.cleanup(); await tap.close(); }

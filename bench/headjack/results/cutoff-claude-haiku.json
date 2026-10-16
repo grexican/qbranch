@@ -1,0 +1,271 @@
+{
+ "agent": {
+  "agent": "claude",
+  "cli": "claude",
+  "version": "2.1.285 (Claude Code)"
+ },
+ "model": "haiku",
+ "seed": "hjbench-v1",
+ "shard": 1,
+ "date": "2026-10-16T11:28:19.599Z",
+ "method": "listing recorded at the API boundary by a local pass-through proxy (src/tap.mjs); Claude Code lists user skills alphabetically",
+ "descriptions": [
+  {
+   "size": 5,
+   "ok": true,
+   "listed": 5,
+   "described": 5,
+   "firstDrop": null,
+   "lastDescribed": true,
+   "pastCutoffTargets": []
+  },
+  {
+   "size": 8,
+   "ok": true,
+   "listed": 6,
+   "described": 6,
+   "firstDrop": null,
+   "lastDescribed": true,
+   "pastCutoffTargets": []
+  },
+  {
+   "size": 10,
+   "ok": true,
+   "listed": 10,
+   "described": 7,
+   "firstDrop": 7,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 15,
+   "ok": true,
+   "listed": 15,
+   "described": 3,
+   "firstDrop": 3,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 20,
+   "ok": true,
+   "listed": 20,
+   "described": 3,
+   "firstDrop": 2,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 25,
+   "ok": true,
+   "listed": 25,
+   "described": 2,
+   "firstDrop": 2,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 35,
+   "ok": true,
+   "listed": 35,
+   "described": 2,
+   "firstDrop": 1,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 50,
+   "ok": true,
+   "listed": 50,
+   "described": 3,
+   "firstDrop": 1,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 75,
+   "ok": true,
+   "listed": 75,
+   "described": 1,
+   "firstDrop": 1,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 100,
+   "ok": true,
+   "listed": 100,
+   "described": 0,
+   "firstDrop": 0,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 150,
+   "ok": true,
+   "listed": 150,
+   "described": 0,
+   "firstDrop": 0,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 200,
+   "ok": true,
+   "listed": 200,
+   "described": 0,
+   "firstDrop": 0,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 300,
+   "ok": true,
+   "listed": 300,
+   "described": 0,
+   "firstDrop": 0,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  },
+  {
+   "size": 500,
+   "ok": true,
+   "listed": 500,
+   "described": 0,
+   "firstDrop": 0,
+   "lastDescribed": false,
+   "pastCutoffTargets": [
+    "commit-message-trailers",
+    "palette-token-names",
+    "runbook-steps",
+    "sql-house-style",
+    "type-scale-ladder"
+   ]
+  }
+ ],
+ "reach": {
+  "size": 500,
+  "target": "type-scale-ladder",
+  "position": 474,
+  "runs": [
+   {
+    "arm": "native",
+    "ok": true,
+    "error": "",
+    "used": true,
+    "loaded": true,
+    "costUsd": 0.041579000000000005
+   },
+   {
+    "arm": "headjack",
+    "ok": true,
+    "error": "",
+    "used": true,
+    "loaded": true,
+    "costUsd": 0.039541599999999996
+   },
+   {
+    "arm": "native",
+    "ok": true,
+    "error": "",
+    "used": true,
+    "loaded": true,
+    "costUsd": 0.0410251
+   },
+   {
+    "arm": "headjack",
+    "ok": true,
+    "error": "",
+    "used": false,
+    "loaded": true,
+    "costUsd": 0.0665694
+   },
+   {
+    "arm": "native",
+    "ok": true,
+    "error": "",
+    "used": true,
+    "loaded": true,
+    "costUsd": 0.056413200000000004
+   },
+   {
+    "arm": "headjack",
+    "ok": true,
+    "error": "",
+    "used": true,
+    "loaded": true,
+    "costUsd": 0.054082
+   }
+  ],
+  "native": "3/3",
+  "headjack": "2/3"
+ },
+ "namesAt": [],
+ "descriptionCutoff": {
+  "smallestSizeWhereLastSkillLosesDescription": 10,
+  "descriptionsKeptBeforeFirstDrop": 0
+ }
+}

@@ -9,12 +9,12 @@
   ]
  },
  "counts": {
-  "test:lexical": 84,
-  "dev:lexical": 23,
-  "test:semantic": 30,
-  "dev:semantic": 7,
-  "test:named": 33,
-  "dev:named": 7,
+  "dev:lexical": 25,
+  "test:lexical": 67,
+  "test:semantic": 68,
+  "dev:semantic": 26,
+  "test:named": 34,
+  "dev:named": 8,
   "test:negative": 61,
   "dev:negative": 19
  },
@@ -45,7 +45,8 @@
    ],
    "overlapAnyTarget": 5,
    "multi": true,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:design-tokens:1",
@@ -70,7 +71,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": true,
-   "split": "dev"
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:design-tokens:2",
@@ -96,6 +98,28 @@
    "split": "dev"
   },
   {
+   "id": "multi:design-tokens:3",
+   "text": "I'm making a stylesheet for our community garden's printable seasonal newsletter and sign-up page, and the folder is empty. Page background is warm off-white #faf7f0, body text is deep soil brown #2b2118, buttons are leaf green #3f7d3a, links are sky blue #2f5fd0, and callout boxes are pale straw #efe3b8, and I'd like all of those saved as reusable values. Body text should be 17px with each step up about 20% bigger, with matching spacing between lines of text, and the newsletter's main title, section titles and sub-sections should use those text steps. Can you set that up?",
+   "answers": [
+    "palette-token-names",
+    "type-scale-ladder"
+   ],
+   "near": [
+    "palette-token-names",
+    "type-scale-ladder"
+   ],
+   "shard": 1,
+   "kind": "multi",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "line"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": true,
+   "split": "test"
+  },
+  {
    "id": "multi:docs:0",
    "text": "I just finished a small Go tool called logtrim that shrinks old app log files, and I'm sharing the repo with my team soon. Can you write the front-page README.md and also the full text that `logtrim --help` prints? It has two verbs: `prune` deletes files older than N days (`-d, --days N`, default 30, and `-n, --dry-run` to only show what would be removed), and `archive` gzips files into a folder given by `--dest`. The readers are sysadmins trying to keep servers from running out of disk, so please say it's a poor fit for logs shipped to something like Loki or Elasticsearch, since retention should be handled there. Use `logtrim prune -d 14 -n /var/log/myapp` as the example, and also document that the exit status is different for bad arguments than for real failures like an unreadable folder.",
    "answers": [
@@ -119,7 +143,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": true,
-   "split": "dev"
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:docs:1",
@@ -168,6 +193,33 @@
    "split": "test"
   },
   {
+   "id": "multi:docs:3",
+   "text": "I'm the treasurer for our community garden co-op and I wrote a small Python script called plotfee that volunteers run in a terminal to track seasonal plot payments. It has two commands: `log` records a payment (takes a member's name and an amount) and `balance` prints who still owes money; there's a `--quiet` switch to hide success messages and a `--season` switch to pick the year, and it exits with 1 for bad arguments and 2 if ledger.csv (a plain CSV file) can't be read. Can you write the built-in help text for it, and also a README for our shared folder that non-technical members can follow: what the tool is for, how to get a first result quickly, when a spreadsheet would be a better choice, and where to ask questions (the co-op group chat, or me at priya@example.org)?",
+   "answers": [
+    "cli-help-text",
+    "readme-skeleton"
+   ],
+   "near": [
+    "cli-help-text",
+    "readme-skeleton"
+   ],
+   "shard": 8,
+   "kind": "multi",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "command",
+    "exit",
+    "tool",
+    "name",
+    "readm"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": true,
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
    "id": "multi:export:0",
    "text": "Hi, I'm a bookkeeper at a small online shop and I need a Python program that writes a file my accountant can open in Excel. Please hardcode these three orders and make one row per order with the order number, customer, total in euros, when it was placed, and the day it shipped: order 1001, Ana Ruiz, 42.50 euros, placed 2026-10-14 at 09:12:45 Madrid time, shipped 2026-10-15; order 1002, Jonas Weber, 1,310.00 euros, placed 2026-10-14 at 18:30:00 Madrid time, not shipped yet; order 1003, Lucía Fernández, 7.99 euros, placed 2026-10-15 at 23:55:10 Madrid time, shipped 2026-10-16. I'm in an empty folder and want to run it right away.",
    "answers": [
@@ -187,7 +239,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": true,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:export:1",
@@ -210,7 +263,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": true,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:export:2",
@@ -231,6 +285,30 @@
    "overlapAnyTarget": 1,
    "multi": true,
    "split": "test"
+  },
+  {
+   "id": "multi:export:3",
+   "text": "I'm the volunteer treasurer of a small food pantry in Madrid and I need a Python program that writes an Excel file (.xlsx) I can send to our board. Each row is one gift with these columns: gift number, donor name, amount in euros, the exact time we received it, and the thank-you basket pickup date (sometimes empty). I write the received time in Madrid summer clock, like 14 Oct at 18:40, and the amounts should show as euros with the thousands separator, like 1,250.00. Sample rows: 501, Ana Ruiz, 42.50, 14 Oct 18:40, pickup 20 Oct; 502, Joan Pérez, 1,250.00, 15 Oct 09:05, pickup 22 Oct; 503, an anonymous giver, 15.00, 16 Oct 11:30, no pickup.",
+   "answers": [
+    "csv-export-dialect",
+    "timestamp-format"
+   ],
+   "near": [
+    "csv-export-dialect",
+    "timestamp-format"
+   ],
+   "shard": 5,
+   "kind": "multi",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "time",
+    "date"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": true,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:incident:0",
@@ -256,7 +334,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": true,
-   "split": "dev"
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:incident:1",
@@ -280,11 +359,32 @@
    ],
    "overlapAnyTarget": 2,
    "multi": true,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:incident:2",
    "text": "Can you write up a report for my leadership team about last Tuesday, when our order website couldn't take payments for about 55 minutes? I want it to cover the order of events: a customer emailed support at 14:05 UTC, our contractor Dev noticed a bad settings update that went out at 13:50 UTC and undid it at 14:52 UTC, and the shop worked again at 15:00 UTC. I also want it to explain what we got wrong in our thinking, since we assumed the contractor's updates were always tested first and that support would hear about any problem within minutes, and what we'll do differently, like setting up a practice copy of the site to test changes first (Dev owns that, due 30 Nov) and an alert when payments start failing (Priya in IT owns that, due 15 Nov). I'm not technical, so please keep the wording plain and save it as a file in this folder.",
+   "answers": [
+    "incident-timeline",
+    "postmortem-frame"
+   ],
+   "near": [
+    "incident-timeline",
+    "postmortem-frame"
+   ],
+   "shard": 6,
+   "kind": "multi",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": true,
+   "split": "dev"
+  },
+  {
+   "id": "multi:incident:3",
+   "text": "Our food bank's online volunteer sign-up form stopped working on Saturday morning right before the big holiday food drive, and I need a write-up for the board and the other volunteers about what went wrong and what we should do differently. Here are my notes (all times UTC): 08:05 I changed the shift-capacity setting on the hosting dashboard; 08:25 the form host's free-tier limit of 100 submissions was hit; 08:50 Marcus, our volunteer coordinator, noticed when three people texted him that the form showed an error; 08:52 Marcus texted me; 09:10 I found the quota message; 09:22 I upgraded the plan; 09:30 a test sign-up went through. Please put together the sequence of events and clear recommendations, in a tone that's plain and not blaming anyone.",
    "answers": [
     "incident-timeline",
     "postmortem-frame"
@@ -324,7 +424,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": true,
-   "split": "dev"
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:planning:1",
@@ -374,6 +475,30 @@
    "split": "test"
   },
   {
+   "id": "multi:planning:3",
+   "text": "I run a community food pantry and want to replace our paper sign-up sheets with a small web app before the winter holiday rush. I'm the only developer and can only work a few evenings a week. It needs a shift sign-up page for about 60 volunteers, a text-message reminder for each shift using a free-tier SMS provider I've never used, a simple inventory count of canned goods and produce that the Saturday crew updates from their phones, and a CSV export of volunteer hours for the board's grant report. The folder is empty right now, so can you work out how the project should be organized and how long each part will take, so I can tell the board what to expect?",
+   "answers": [
+    "estimate-ranges",
+    "milestone-plan"
+   ],
+   "near": [
+    "estimate-ranges",
+    "milestone-plan"
+   ],
+   "shard": 7,
+   "kind": "multi",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "take",
+    "week"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": true,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
    "id": "multi:react:0",
    "text": "I need a new TypeScript React feature for our dispatcher dashboard, and the folder is empty so please create both files from scratch in src/. First, a stand-alone hook in its own file that fetches open shipments for a given depotId from GET /api/depots/{depotId}/shipments (each item has id, destination, etaMinutes and carrier) and gives back the data plus loading and error state. Second, a ShipmentBoard component in its own file that uses that hook, shows a spinner while loading, an error banner if the request fails, and a table of shipments with a 'Mark delayed' button on each row that POSTs to /api/shipments/{id}/delay.",
    "answers": [
@@ -399,7 +524,8 @@
    ],
    "overlapAnyTarget": 6,
    "multi": true,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:react:1",
@@ -422,7 +548,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": true,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:react:2",
@@ -448,7 +575,33 @@
    ],
    "overlapAnyTarget": 5,
    "multi": true,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "multi:react:3",
+   "text": "I run the website for our community garden co-op and need a new React widget called WateringRota that shows upcoming plot-watering volunteer slots. It should take a gardenId string and a max number of slots to show (default 6), and use a small hook that fetches the slots from /api/gardens/{gardenId}/slots, where each slot has an id, a date string, a plot label like 'B7', and a volunteerName that might be empty. Show a loading message while waiting, a friendly message if the request fails, and a 'Sign me up' button on each unclaimed slot that just logs the slot id for now. The folder is empty, so please create both files from scratch.",
+   "answers": [
+    "react-component-anatomy",
+    "react-hook-contracts"
+   ],
+   "near": [
+    "react-component-anatomy",
+    "react-hook-contracts"
+   ],
+   "shard": 2,
+   "kind": "multi",
+   "tier": "lexical",
+   "overlap": 4,
+   "overlapTerms": [
+    "react",
+    "hook",
+    "fetch",
+    "load"
+   ],
+   "overlapAnyTarget": 4,
+   "multi": true,
+   "split": "dev"
   },
   {
    "id": "multi:release:0",
@@ -471,7 +624,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": true,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:release:1",
@@ -517,6 +671,32 @@
    "split": "test"
   },
   {
+   "id": "multi:release:3",
+   "text": "We just shipped version 1.4.0 of our seed-library web app on 2026-10-14 (the last release was 1.3.2), and the folder is empty, so I need you to write a changelog file for the project and the text of the email we send to our members. New: members can reserve up to five packets at once, there's a printable pickup slip, and a new tomato-variety filter. Fixed: the search box ignored accented letters like in 'jalapeño', and reservations vanished after midnight. Removed: the old paper-form import tool. The changes are in the reservations, search and admin parts of the app.",
+   "answers": [
+    "changelog-ledger",
+    "release-notes-voice"
+   ],
+   "near": [
+    "changelog-ledger",
+    "release-notes-voice"
+   ],
+   "shard": 3,
+   "kind": "multi",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "version",
+    "changelog",
+    "chang",
+    "releas"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": true,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
    "id": "multi:tests:0",
    "text": "I need a shipping.js module exporting calculateShipping(order) plus a Jest test file for it, in this empty folder. Orders look like { country, items: [{ title, price, quantity, weightKg }] }. Rules: subtotal of 50.00 or more ships free; otherwise it's 4.99 for domestic (country 'US') and 12.50 for international; each item over 2 kg adds a 3.00 surcharge; an empty order costs 0. Please test free shipping at exactly 50.00, a domestic order at 49.99 with one 2.5 kg item, an international order with two light items, and the empty order.",
    "answers": [
@@ -536,7 +716,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": true,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "multi:tests:1",
@@ -583,6 +764,30 @@
    "overlapAnyTarget": 2,
    "multi": true,
    "split": "test"
+  },
+  {
+   "id": "multi:tests:3",
+   "text": "I'm the volunteer treasurer for a community food pantry and I need a small JavaScript function called boxesFor(household) that works out how many boxes a household gets. A household has a size (number of people), a count of children under five, and a flag for whether it picked up last week. The rules are 1 box per 2 people rounded up, plus 1 extra box if there are any children under five, capped at 6 boxes, and 0 if they already picked up last week. Please set up this empty folder with Jest and write tests for: a family of 5 with a toddler (expect 4), a single person (expect 1), a family of 14 (expect the cap of 6), and a repeat pickup (expect 0). Then write the function so they pass.",
+   "answers": [
+    "fixture-builders",
+    "test-naming-givenwhen"
+   ],
+   "near": [
+    "fixture-builders",
+    "test-naming-givenwhen"
+   ],
+   "shard": 4,
+   "kind": "multi",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "function",
+    "test"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": true,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "named:a11y-review-tags:0",
@@ -1527,6 +1732,68 @@
    "split": "test"
   },
   {
+   "id": "natural:a11y-review-tags:3",
+   "text": "I volunteer at a community food pantry and made a simple sign-up page in plain HTML for weekend pickup slots, and it launches this Saturday. Could you check whether someone who can't use a mouse (keyboard only) could actually reserve a slot, and tell me what I need to fix? Here's what's on it: the name field only has placeholder text and no label, the date picker is made of clickable divs, the 'Reserve' button is a div with an onclick, and the confirmation popup can only be closed by clicking a small X image. I'm putting the HTML into this empty folder now, so please look at the file once it's there and go through it.",
+   "answers": [
+    "a11y-review-tags"
+   ],
+   "near": [
+    "a11y-review-tags"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "keyboard"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:a11y-review-tags:4",
+   "text": "I'm launching a clinic appointment booking page tomorrow morning and I'm short on time. Can you quickly check this over for anything that would stop people with disabilities from booking, and tell me what to fix first?\n\nHere's the markup:\n\n<h1>Book an appointment</h1>\n\n<!-- date picker -->\n<div class=\"datepicker\">\n  <span class=\"day\" onclick=\"pickDate(this)\">14</span>\n  <span class=\"day\" onclick=\"pickDate(this)\">15</span>\n  <span class=\"day\" onclick=\"pickDate(this)\">16</span>\n</div>\n\n<!-- dropdown, opens on hover only -->\n<div class=\"dropdown\" onmouseover=\"openMenu()\" onmouseout=\"closeMenu()\">\n  <div class=\"dropdown-label\">Choose a service</div>\n  <div class=\"dropdown-list\">\n    <div class=\"option\" onclick=\"pickService('checkup')\">Checkup</div>\n    <div class=\"option\" onclick=\"pickService('vaccination')\">Vaccination</div>\n  </div>\n</div>\n\n<input type=\"email\" id=\"email\" placeholder=\"Your email\">\n<!-- invalid state is just a red border via .invalid { border: 1px solid red; } -->\n\n<div class=\"btn\" onclick=\"openConfirm()\">Book now</div>\n\n<!-- modal: only closes by clicking the backdrop, no close button -->\n<div class=\"modal-backdrop\" onclick=\"closeModal()\">\n  <div class=\"modal\">Confirm your booking?</div>\n</div>",
+   "answers": [
+    "a11y-review-tags"
+   ],
+   "near": [
+    "a11y-review-tags"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:a11y-review-tags:5",
+   "text": "I run the milking parlor at a dairy co-op and made a small one-page HTML tool where farmhands log each cow's morning yield. Can you check it for problems people using screen readers or no mouse would hit, and fix them? Here's the markup: a heading 'Morning Milking Log'; a text input for the cow ear-tag number with only placeholder text 'Tag #' and no label; a number input for litres with just the placeholder 'L'; a div styled like a button with an onclick that says 'Save entry'; a red/green dot (just colored spans) next to each row to show the mastitis flag yes/no; and a 'Clear all' link that opens a modal div that doesn't trap focus and can't be closed with Escape. The main job is typing a tag number and litres, then saving the entry, so that has to work well with just a keyboard.",
+   "answers": [
+    "a11y-review-tags"
+   ],
+   "near": [
+    "a11y-review-tags"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "screen",
+    "tag",
+    "keyboard"
+   ],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
    "id": "natural:adr-revisit:0",
    "text": "Can you write up a short document in this repo explaining why we picked Kafka (run by Confluent Cloud) for our shipment tracking updates, and save it as a file here? We used to ask a REST endpoint for updates every 30 seconds, but we started getting blocked for asking too much once we hit about 40k active shipments. We also looked at AWS SQS but it can't let us replay old messages, which we want so we can rebuild our tracking view from scratch. Kafka costs about $900 a month more than the polling did, so please be upfront about that too. This is the first write-up like this in the repo, so there's nothing to copy from.",
    "answers": [
@@ -1565,6 +1832,63 @@
   {
    "id": "natural:adr-revisit:2",
    "text": "Can you write up a short document in this folder explaining why we decided to keep our customer orders in an online database (Postgres) instead of our shared Google Sheet? The sheet was getting slow at around 6,000 orders a month and twice it wiped out rows when two of our staff were editing at the same time. The database costs about $45 a month to host. We also seriously looked at Airtable at about $400 a month, which is easy for staff to use but would get pricey as our team grows. Please also note that if we ever go past 50,000 orders a month, or hosting goes over $300 a month, we should take another look at the whole thing. This is for the next contractor so they understand why we did it, and I'm not a programmer, so keep it easy to read.",
+   "answers": [
+    "adr-revisit"
+   ],
+   "near": [
+    "adr-revisit"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:adr-revisit:3",
+   "text": "Can you write a short decision doc in this folder (something like DECISION.md) explaining why our community garden co-op is moving plot assignments and the waitlist to a small self-hosted app on a $6/month VPS with SQLite? We have about 140 member households, and the board agreed to this last weekend. The other options were keeping the shared Google Sheet (free, but three people accidentally overwrote each other's rows this season) and PlotPal, a hosted tool at $29/month, which is over our $200/year tech budget per the treasurer. I'm the unpaid volunteer webmaster, and I want whoever takes over next spring to understand why we chose this, and to say that if the waitlist grows past roughly 400 households or I step down with no successor, the board should look at the decision again.",
+   "answers": [
+    "adr-revisit"
+   ],
+   "near": [
+    "adr-revisit"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "decision"
+   ],
+   "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:adr-revisit:4",
+   "text": "I've got a team meeting in ten minutes and need a write-up saved as a file in this folder that I can paste into our wiki. It's for labelflow, which prints shipment labels in the background, about 40k a day and growing. Last week we picked Redis Streams to handle that line of waiting jobs, instead of RabbitMQ or Kafka. Reasons: we already run Redis in production so nothing new to look after, RabbitMQ would be one more service to run, and Kafka felt too heavy for a team of three. The downside is it's less safe about not losing jobs, and it has no built-in retrying of failed jobs or a place to park ones that keep failing, so we'd have to build that ourselves. Can you write it up for me? I'm not sure how to word it.",
+   "answers": [
+    "adr-revisit"
+   ],
+   "near": [
+    "adr-revisit"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:adr-revisit:5",
+   "text": "Can you write up a short document in this folder explaining why we picked the setup we did for the milk tank temperature monitoring, so my nephew (he's studying agronomy, not a computer guy) can understand it when he takes over maintaining it? We run 340 milking cows, and we dropped the cloud company we were paying $1,900 a year for and now use a small Raspberry Pi that checks our four tank probes every 30 seconds and saves the readings in a simple file on the Pi itself. The reasons: the subscription was expensive, our barn internet goes out about twice a month for several hours, and the milk hauler's inspection needs a continuous cooling log showing the tank stays at or below 4°C. We also looked at keeping the old company and adding a cellular backup modem for about $35 a month, and at running a full database on a little mini PC, but that seemed like way too much. Please also note that this plan would need a fresh look if we grow past about 600 cows or if the hauler starts requiring real-time alerts sent to us remotely.",
    "answers": [
     "adr-revisit"
    ],
@@ -1637,6 +1961,64 @@
    "split": "test"
   },
   {
+   "id": "natural:api-error-envelope:3",
+   "text": "I volunteer at a community food pantry and I'm putting together a small Flask app so partner churches and schools can book weekly pickup times for donated produce boxes. Can you write the code for booking a slot (POST /slots/book) and looking up a partner (GET /partners/<id>)? Each slot holds 12 boxes, and the Saturday 10:00 slot already has 12 booked, so I want a clear, helpful message if someone tries to book a full slot, if they ask for a pickup date that's already passed, or if they look up a partner id that doesn't exist. Please also add a short README section that explains what a volunteer using the app would see for each of those three problems.",
+   "answers": [
+    "api-error-envelope"
+   ],
+   "near": [
+    "api-error-envelope"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:api-error-envelope:4",
+   "text": "I've got a demo in an hour and need a quick Flask app for an internal invoices service in this empty folder. Three endpoints: GET /invoices/<id>, POST /invoices (needs customer_id and amount_cents), and DELETE /invoices/<id>. Right now failures just crash or return plain text, so please handle invoice not found, missing or bad fields on the POST, a rate limit of 60 requests per minute per client, and unexpected server crashes. I don't have a spec for what the error responses should look like, so just make them consistent and sensible, and also write a short README section I can paste into our team wiki that explains what clients will see when a call fails.",
+   "answers": [
+    "api-error-envelope"
+   ],
+   "near": [
+    "api-error-envelope"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "return",
+    "error",
+    "respons"
+   ],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:api-error-envelope:5",
+   "text": "I run the backend for a small dairy co-op, a Node/Express service that our milking-parlour sensors report to. I need a failure path added to POST /milk-batches, which takes cow_id, litres, and temp_c: reject the batch if the tank is already at its 8000-litre capacity, if temp_c is above 4.0 (it would spoil), or if cow_id isn't in the herd register (like an unknown tag 'UK-0042'). The folder is empty, so just write the endpoint with those three rejections, and also a short markdown section for the farm-hand dashboard team explaining what each rejection looks like when it comes back.",
+   "answers": [
+    "api-error-envelope"
+   ],
+   "near": [
+    "api-error-envelope"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
    "id": "natural:bash-script-preamble:0",
    "text": "Can you write a bash script called rotate-logs.sh from scratch in this empty folder? It needs a required --dir path, an optional --days (default 14), and an optional --dry-run flag. It should gzip every *.log file in that dir that's older than 3 days, and delete any *.log.gz older than the --days value. At the end print a short summary like how many files were compressed and how many were removed, and in dry-run mode just show what it would do without changing anything.",
    "answers": [
@@ -1679,7 +2061,8 @@
    ],
    "overlapAnyTarget": 4,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:bash-script-preamble:2",
@@ -1700,6 +2083,72 @@
    "overlapAnyTarget": 3,
    "multi": false,
    "split": "test"
+  },
+  {
+   "id": "natural:bash-script-preamble:3",
+   "text": "Can you write me a bash script called weekly-backup.sh? It should copy the folder /srv/pantry/records into /mnt/usb/pantry-backups, inside a new subfolder named with today's date like 2026-10-16. It needs a --keep N option that deletes all but the newest N backup folders (default 8), and a --dry-run flag that only prints what it would do without changing anything. I'm a volunteer for our food pantry and the script will run from cron on Sunday nights on a small Linux box, so please make the messages clear and simple for someone who barely knows the terminal to read and understand what happened.",
+   "answers": [
+    "bash-script-preamble"
+   ],
+   "near": [
+    "bash-script-preamble"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "bash",
+    "script"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:bash-script-preamble:4",
+   "text": "I need a bash script called rotate-logs.sh by end of day so I can put it in cron tonight. It should take --dir (the log directory), --keep (how many .gz archives to retain, default 14), and a --dry-run flag, like `rotate-logs.sh --dir /var/log/myapp --keep 10 --dry-run`. It should gzip any .log files in that directory older than 7 days, then delete the oldest .gz archives beyond the keep count, and in dry-run mode just print what it would do without changing anything. The folder is empty, so please create the script from scratch.",
+   "answers": [
+    "bash-script-preamble"
+   ],
+   "near": [
+    "bash-script-preamble"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "bash",
+    "script",
+    "mode"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:bash-script-preamble:5",
+   "text": "Can you write me a Linux shell script called rotate-cooler-logs.sh for the cold room temperature logger files? The files are CSVs in one folder with names like cooler3_2026-10-14.csv. It should take a --dir flag for the folder, a --days flag for how long to keep archives (default 30), and a --dry-run switch that only shows what it would do. It should gzip CSVs older than 7 days, delete the .gz archives older than the --days limit, and at the end print how many files it compressed and how many it removed. I'm not sure how best to read the flags, so pick whatever works well, and please make it refuse to run with a clear error if the folder doesn't exist.",
+   "answers": [
+    "bash-script-preamble"
+   ],
+   "near": [
+    "bash-script-preamble"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 4,
+   "overlapTerms": [
+    "shell",
+    "script",
+    "error",
+    "exist"
+   ],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "dev"
   },
   {
    "id": "natural:changelog-ledger:0",
@@ -1740,7 +2189,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:changelog-ledger:2",
@@ -1759,6 +2209,69 @@
     "add"
    ],
    "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:changelog-ledger:3",
+   "text": "Can you create a CHANGELOG.md for our volunteer shift signup tool? There isn't one yet, so start it fresh with two releases. Version 1.4.0 came out October 15, 2026: coordinators can export a full month of shifts to a spreadsheet in one click, shift reminder emails now go out 48 hours ahead instead of 24, the old paper-sheet print view was removed, and we fixed a bug where a signup link could be opened by someone not on the volunteer list. Version 1.3.0 came out September 2, 2026: added a waitlist for full shifts, and fixed it so phone numbers show only to coordinators.",
+   "answers": [
+    "changelog-ledger"
+   ],
+   "near": [
+    "changelog-ledger"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "changelog",
+    "version",
+    "add"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:changelog-ledger:4",
+   "text": "I'm pushing a release of Pennywise (my budgeting app) in a few minutes and there's no CHANGELOG yet, so please create one starting with release 1.4.0 dated today. Here's what's in it from memory: recurring transactions are now supported in the Budgets screen, the 'Export to PDF' button in Reports was renamed 'Download report', the old Dropbox sync was removed from Settings, and a fix in Auth so session tokens are no longer written to the debug log. Just write it up, you figure out how it should look.",
+   "answers": [
+    "changelog-ledger"
+   ],
+   "near": [
+    "changelog-ledger"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "changelog"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:changelog-ledger:5",
+   "text": "I run the software for a small dairy cooperative and our milking-parlor app has no release notes yet, so please start a release notes file (like RELEASE_NOTES.md) in this folder. First entry is release 1.4.0, shipped 2026-09-30: cows can now be scanned by their ear-tag RFID at the parlor gate (parlor), the milk-yield report now shows liters instead of gallons (reports), the old paper-sheet printout was removed (reports), and a bug that let any logged-in farmhand open the vet medication records without a vet role was fixed (access). Second entry is 1.3.2 from 2026-08-12: fixed a crash when two herds shared the same name (herds), and the tank-temperature alert now fires after 5 minutes instead of 10 (alerts).",
+   "answers": [
+    "changelog-ledger"
+   ],
+   "near": [
+    "changelog-ledger"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
    "multi": false,
    "split": "test"
   },
@@ -1800,11 +2313,66 @@
    ],
    "overlapAnyTarget": 1,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:cli-help-text:2",
    "text": "I run ops at a small seed-testing lab, and a contractor built me a terminal program called seedlog. It has three actions: 'receive' logs a new sample batch, 'germ' records a germination percentage for a batch, and 'summary' prints the week's results as a table. It also takes '--file' to pick the data file and '--verbose' (or '-v') for extra detail, but when my staff type --help it shows nothing useful. Can you write a Python script that produces a clear help screen for it? The folder is empty, so just make the script from scratch.",
+   "answers": [
+    "cli-help-text"
+   ],
+   "near": [
+    "cli-help-text"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:cli-help-text:3",
+   "text": "I'm the volunteer treasurer for our community garden club and I need a small Python script called plotfees that tracks which members have paid their yearly plot fee. Can you set it up in this empty folder using argparse, with two subcommands: `add` (records a payment for a member and a plot number) and `summary` (prints who still owes money and the total collected)? It also needs a `--year` option to pick the season and a `--quiet` option to hide success messages, and please write the help text screen so the other volunteers can see how to run it.",
+   "answers": [
+    "cli-help-text"
+   ],
+   "near": [
+    "cli-help-text"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:cli-help-text:4",
+   "text": "I need a small Python script called pantry for tracking kitchen inventory, and I have a demo in 20 minutes so quick is fine. Three subcommands: stock (add an item with a quantity), expire (show items going bad within N days), and export (dump everything to CSV). Also two options: -d/--dir to pick the data folder and -v/--verbose for extra detail. Please make sure it has a proper --help screen that looks right, I haven't thought about the wording so just write something sensible.",
+   "answers": [
+    "cli-help-text"
+   ],
+   "near": [
+    "cli-help-text"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:cli-help-text:5",
+   "text": "I'm writing a small Python script called `tidelog` that our technicians use to log water-sample jars from research vessels. It has three subcommands: `log` (records a jar with its station ID and depth in meters), `export` (writes the day's samples to a CSV for the chemistry group), and `audit` (checks for jars missing a depth reading). It also takes `--vessel NAME` to filter by ship and `--dry-run` to preview without writing anything. Can you write the help text so techs running `tidelog --help` see something clear? The project folder is empty, so just create the script with the help text in it.",
    "answers": [
     "cli-help-text"
    ],
@@ -1875,6 +2443,63 @@
    "split": "test"
   },
   {
+   "id": "natural:code-review-severity:3",
+   "text": "Hi, I'm the treasurer for our community garden and I wrote this script, plot_fees.py, for the board to use at Saturday's meeting. A fellow volunteer asked me to have it looked over first. It reads a CSV with the columns member, plot_id, paid_amount and fee_due, adds up paid_amount for each member, and flags anyone whose total is less than fee_due. Can you go through it and tell me what's wrong and what I should change?\n\n```python\nimport csv\nfrom collections import defaultdict\n\nf = open(\"fees.csv\")\nreader = csv.DictReader(f)\n\nx = defaultdict(float)\ndue = {}\n\nfor row in reader:\n    name = row[\"member\"]\n    x[name] += float(row[\"paid_amount\"])\n    due[name] = float(row[\"fee_due\"])\n\nprint(\"Members who still owe fees:\")\nfor name in x:\n    if x[name] < due[name]:\n        owed = due[name] - x[name]\n        print(name, \"owes\", owed)\n\nprint(\"Done\")\n```\n\nThings I already noticed: I never close the file, I'm comparing money as floats, it crashes if a row has an empty paid_amount, and x is a bad name for the per-member totals.",
+   "answers": [
+    "code-review-severity"
+   ],
+   "near": [
+    "code-review-severity"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:code-review-severity:4",
+   "text": "Hey, can you look this over and tell me what you think? I just need to know if it's okay to merge, I haven't had time to read it closely and I have standup in ten minutes. It's from billing.py, a teammate's Python change.\n\n```python\ndef apply_discount(price, pct):\n    return price - price * pct / 100\n```\n\nAnd this is the caller at line 58:\n\n```python\ntry:\n    for i in range(len(items)):\n        total += apply_discount(items[i]['price'], items[i]['discount'])\n    print(total)\nexcept:\n    pass\n```\n\nThe bare `except:` wraps the whole loop and the print.",
+   "answers": [
+    "code-review-severity"
+   ],
+   "near": [
+    "code-review-severity"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:code-review-severity:5",
+   "text": "A teammate wrote this function for tank_alarm.py and I need to give feedback before it gets merged, can you go over it and tell me what you think? It checks the seawater temp of our depuration tanks and texts the night crew. The safe range for the oysters is 4 to 10 °C, the sensors sometimes return None when a probe drops out, and the same tank often shows up many times in one batch so the crew has been getting dozens of duplicate texts at 3 a.m.\n\n```python\nimport requests\n\ndef check_tanks(readings, sms_url):\n    # readings: list of dicts like {\"tank\": \"D3\", \"temp_c\": 11.2, \"ts\": 1760600000}\n    tmp = []\n    for r in readings:\n        if r[\"temp_c\"] > 10:\n            tmp.append(r[\"tank\"])\n    if len(tmp) > 0:\n        for t in tmp:\n            requests.post(sms_url, data={\"msg\": \"Tank \" + t + \" too warm\"})\n    return tmp\n```",
+   "answers": [
+    "code-review-severity"
+   ],
+   "near": [
+    "code-review-severity"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "request"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
    "id": "natural:commit-message-trailers:0",
    "text": "I just changed how our payments service retries sending failed webhooks (it's in webhooks/delivery.py). It used to wait a flat 2 seconds between tries, which hammered a partner's server all at once after their outage, so now the wait grows each time with a bit of randomness, starting at 1 second, never more than 60 seconds, and giving up after 6 tries. I also added tests/test_delivery_backoff.py with four tests. Nothing in the database changed, but failed webhooks will now get resent at different speeds in production, and the ticket is PAY-2291. Can you write the text to go with this change when I save it to the repo? I'm in a hurry and want to paste it right in.",
    "answers": [
@@ -1929,6 +2554,60 @@
    "split": "test"
   },
   {
+   "id": "natural:commit-message-trailers:3",
+   "text": "I help run a food pantry as treasurer and I keep a little Python script that adds up our weekly donation files. This week I made two changes: if a donation has nothing filled in for the amount, the script now skips it instead of stopping with an error, and I renamed the file it produces from totals.txt to weekly_totals.txt because the board's spreadsheet loads that file by name. Can you write the note I should attach when I save this work to our project history? Our tech helper is picky about how those notes look, so please make it clear about both changes, especially the file name one.",
+   "answers": [
+    "commit-message-trailers"
+   ],
+   "near": [
+    "commit-message-trailers"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:commit-message-trailers:4",
+   "text": "I'm about to leave for a flight in 10 minutes and need to save my work, can you just write up the note for this change so I can paste it in and go? It's ticket AUTH-482: I changed the password reset flow in the auth service so reset tokens expire after 15 minutes instead of 24 hours. I edited the TOKEN_TTL constant in auth/reset.py and added two tests for the expiry. Nothing needed a data migration.",
+   "answers": [
+    "commit-message-trailers"
+   ],
+   "near": [
+    "commit-message-trailers"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:commit-message-trailers:5",
+   "text": "I just changed the irrigation scheduler so the Bay 3 drip valves close 90 seconds earlier, going from a 420 second hold to 330. The far end of the rows in that bay was waterlogging. It's a one-value change to HOLD_SECONDS in the Bay 3 section of irrigation/schedule.py and only touches that bay's valve timers, though if the value is wrong it could starve the tomatoes during a heat spell. Can you write the history entry for this change before I push it? The ticket is GH-212.",
+   "answers": [
+    "commit-message-trailers"
+   ],
+   "near": [
+    "commit-message-trailers"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "dev"
+  },
+  {
    "id": "natural:compose-service-labels:0",
    "text": "I'm building a small internal link shortener and need a docker-compose.yml written from scratch in this empty folder. It needs three services: nginx:1.27.1 as a reverse proxy publishing port 8080 and forwarding to the API, a Node API built from the local ./api directory listening on port 3000 with a /health endpoint, and postgres:16.4 with a named volume called pgdata and POSTGRES_PASSWORD read from an env var. Make the API wait on the database, and also add a short README note on how to bring it all up.",
    "answers": [
@@ -1949,7 +2628,8 @@
    ],
    "overlapAnyTarget": 4,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:compose-service-labels:1",
@@ -1972,7 +2652,8 @@
    ],
    "overlapAnyTarget": 4,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:compose-service-labels:2",
@@ -1994,6 +2675,63 @@
     "app"
    ],
    "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:compose-service-labels:3",
+   "text": "I volunteer for a community garden nonprofit and we want to run our plot-reservation website on a spare mini PC at the clubhouse, but I've never set anything like this up before. Can you write the whole setup file for me in this empty folder? I need three pieces: an nginx:1.27 front door that listens on port 80 and passes traffic to the website, a Node 20 website program that listens on port 3000 and is built from the ./site folder (it needs a /health page so we can check it's alive), and a postgres:16.4 database that keeps its data in a saved volume called pgdata, with the password coming from an environment variable named GARDEN_DB_PASS.",
+   "answers": [
+    "compose-service-labels"
+   ],
+   "near": [
+    "compose-service-labels"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:compose-service-labels:4",
+   "text": "I'm demoing a little URL shortener tonight and need a docker compose file that brings up everything together. I want nginx as a reverse proxy on port 80, my Node API on port 3000 (build it from the ./api folder), and Postgres 16.4 with the data stored in a named volume. The folder is empty right now, so just write the compose file and anything else it needs to run, keep it simple but sensible.",
+   "answers": [
+    "compose-service-labels"
+   ],
+   "near": [
+    "compose-service-labels"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "docker",
+    "compos"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:compose-service-labels:5",
+   "text": "I do the IT for our family dairy farm (340 milking cows) and I want everything for our barn monitoring running on one mini PC in the milking parlor. Can you set it up in this empty folder so I can start it all with one command? I need: a Mosquitto broker (eclipse-mosquitto:2.0.18) taking readings from the bulk-tank temperature sensors on port 1883; a small Python worker built from ./ingest that listens to the broker and saves milk-yield and tank-temp rows; a Postgres 16.4 database keeping that data in a named volume called milkdata; and an nginx 1.27.1 on port 8080 that shows a Grafana dashboard (grafana/grafana:11.2.0) for the farm manager.",
+   "answers": [
+    "compose-service-labels"
+   ],
+   "near": [
+    "compose-service-labels"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
    "multi": false,
    "split": "test"
   },
@@ -2057,6 +2795,63 @@
    "split": "test"
   },
   {
+   "id": "natural:csv-export-dialect:3",
+   "text": "I'm the volunteer treasurer for our community garden co-op and need a small Python program that writes our plot rentals to a file I can send to our bookkeeper, who opens it in her accounting software. Please build these three rentals into the program and run it so I get the file: plot 12, member Marta Szabo, paid 45.50 euros on 2026-03-14; plot 7, member Joe O'Neil, paid 1,200.00 euros for a three-year lease on 2026-04-02; and plot 3, member Lena Fischer, nothing paid yet so the payment date and amount are blank.",
+   "answers": [
+    "csv-export-dialect"
+   ],
+   "near": [
+    "csv-export-dialect"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:csv-export-dialect:4",
+   "text": "I need a quick Python program that takes my list of orders and saves them in a file my accountant can open in Excel. I have to send it within the hour. Each order has an order number, customer name, order total in euros and shipping cost in euros: 1001, Ana Ruiz, 42.5, 4.9; 1002, Jonas Becker, 1300.99, 0; 1003, Li Wei, 18, 3.5. Li Wei's address is missing, so just leave that blank. I don't care about the exact layout, I just want it to work.",
+   "answers": [
+    "csv-export-dialect"
+   ],
+   "near": [
+    "csv-export-dialect"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:csv-export-dialect:5",
+   "text": "Can you write me a small Python script that saves my honey harvest records to a file called harvests.csv in this folder? My accountant will open it in Excel. There are three records: hive H-014 gave 18.4 kg of acacia honey on 2026-08-03, sold to Café Lumière for 212.80 euros; hive H-022 gave 25 kg of linden honey on 2026-08-05, sold to Brasserie Nord for 340 euros; and hive H-031 gave 9.75 kg of heather honey on 2026-08-09, no buyer yet and no price.",
+   "answers": [
+    "csv-export-dialect"
+   ],
+   "near": [
+    "csv-export-dialect"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "script",
+    "csv"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
    "id": "natural:endpoint-catalog:0",
    "text": "Can you create docs/inventory-api.md for our new inventory service? A partner starts integrating next week and I have nothing written yet. Base path is /v2 and there are five operations: GET /v2/books (search by title or author, optional query params `q` and `page`), GET /v2/books/{isbn} (fetch one book), POST /v2/books (add a book with fields isbn, title, author, price_cents, stock; returns 201 with the created book), PUT /v2/books/{isbn}/stock (set stock to an absolute integer `count`), and DELETE /v2/books/{isbn} (remove a book). The POST, PUT and DELETE need a bearer token with the `inventory:write` scope, the two GETs just need any valid token, and the errors are 400 for bad input, 401, 404 for unknown isbn, and 409 when adding a duplicate isbn.",
    "answers": [
@@ -2111,6 +2906,60 @@
    "overlapAnyTarget": 3,
    "multi": false,
    "split": "test"
+  },
+  {
+   "id": "natural:endpoint-catalog:3",
+   "text": "I volunteer at a community food pantry and built a little website service that our shift volunteers use on their phones. I need a README-style document for the next volunteer who takes it over, so please write it for these five things it does: (1) GET /v1/shifts shows upcoming shifts and needs a volunteer token. (2) POST /v1/shifts/{id}/signup takes a volunteer_id and a note, needs a token, gives back a confirmation code, and fails with a 409 if the shift is full. (3) DELETE /v1/shifts/{id}/signup cancels a signup, needs a token, and doing it again is harmless. (4) GET /v1/inventory shows stock counts for each item and needs no login. (5) PUT /v1/inventory/{item_id} sets the count using a quantity field, only works with a coordinator token, and returns 404 if the item isn't known. The folder is empty, so just create the file there.",
+   "answers": [
+    "endpoint-catalog"
+   ],
+   "near": [
+    "endpoint-catalog"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:endpoint-catalog:4",
+   "text": "I'm about to board a flight and need a markdown doc for our bookstore service that I can hand to a frontend contractor within the hour. Just cover the five things it does: signing up is POST /v1/users with email and password, gives back an id, and you get a 409 if the email is already taken; logging in is POST /v1/sessions and gives back a bearer token; getting books is GET /v1/books, open to anyone, with optional genre and page in the URL; placing an order is POST /v1/orders with book_id and quantity, needs the token, and it's safe to retry if you send an Idempotency-Key header; and cancelling is DELETE /v1/orders/{id}, needs the token, and gives a 404 if the order isn't found. Don't worry about how it looks, I just need it done fast and clear enough for them to start building.",
+   "answers": [
+    "endpoint-catalog"
+   ],
+   "near": [
+    "endpoint-catalog"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:endpoint-catalog:5",
+   "text": "Can you write full documentation for our grain scale web service as a markdown file in this folder? The agronomists and the scale-house contractors will use it, so keep it plain. Here's what it does: GET /v1/loads returns today's truck loads for a site (needs a site_id query param, returns load_id, truck_plate, gross_kg, tare_kg, moisture_pct). POST /v1/loads records a new weigh-in (body: site_id, truck_plate, gross_kg, commodity), and sending the same weigh-in twice creates a duplicate. PUT /v1/loads/{load_id}/tare sets the tare weight in kg and is safe to repeat. DELETE /v1/loads/{load_id} voids a load. Everything needs a bearer token except GET /v1/health, which is open and returns status and uptime_s. Errors we've seen so far are bad input, missing or expired token, unknown load, and a load that is already settled.",
+   "answers": [
+    "endpoint-catalog"
+   ],
+   "near": [
+    "endpoint-catalog"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev"
   },
   {
    "id": "natural:error-message-copy:0",
@@ -2175,6 +3024,74 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:error-message-copy:3",
+   "text": "I run the sign-up site for our community youth soccer league and I'm making a small Flask registration form for the fall season. Can you create a messages.py with a dictionary of the user-facing error texts, keyed by situation, so I can drop it into my form handlers? I need four: the child's birth date is outside U10 (they must be born after 1 Aug 2016), the parent's email is already registered, the medical waiver PDF is over 5 MB, and the $45 payment was declined by the card processor.",
+   "answers": [
+    "error-message-copy"
+   ],
+   "near": [
+    "error-message-copy"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 4,
+   "overlapTerms": [
+    "messag",
+    "user",
+    "fac",
+    "error"
+   ],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:error-message-copy:4",
+   "text": "I'm launching a small invoicing app tomorrow morning and need the error message text for four situations, all in one file called strings.js that I can drop in. The cases are: the email field is blank or missing an @ sign, the password is under 8 characters, the uploaded PDF is over 5 MB, and the payment provider times out when someone tries to send an invoice. Please just write it, I'm in a rush.",
+   "answers": [
+    "error-message-copy"
+   ],
+   "near": [
+    "error-message-copy"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "error",
+    "messag"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:error-message-copy:5",
+   "text": "I run the software for a family-owned dairy farm and I'm building the screen our milking-parlor staff use on a tablet to log each cow's milk yield. Can you create a messages.json file with the on-screen texts for five situations, one key each: (1) the tablet lost Wi-Fi so a cow's reading, like 14.2 liters, couldn't sync, (2) a cow's ear tag number like 'NL-4471' isn't found in the herd list, (3) a yield entered above the 60-liter daily maximum, (4) the milk tank temperature sensor reads above 4°C so the batch can't be marked ready for pickup, and (5) the milking time field was left blank? Keep the wording short and plain for people working in the parlor, and make it ready for me to load into the app.",
+   "answers": [
+    "error-message-copy"
+   ],
+   "near": [
+    "error-message-copy"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "messag",
+    "word"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
    "split": "test"
   },
   {
@@ -2197,7 +3114,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "dev"
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:estimate-ranges:1",
@@ -2217,7 +3135,8 @@
    ],
    "overlapAnyTarget": 4,
    "multi": false,
-   "split": "dev"
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:estimate-ranges:2",
@@ -2242,6 +3161,69 @@
    "split": "dev"
   },
   {
+   "id": "natural:estimate-ranges:3",
+   "text": "I'm the volunteer web person for a community food pantry, and the board wants an online sign-up page to replace our paper clipboard. Clients would pick one of 40 Saturday pickup slots, volunteers need a printable roster page, and a text reminder should go out the day before using the free tier of an SMS service I've never used. I only work on this a few evenings a week, so can you estimate how many working days each of those three pieces (slot sign-up form, volunteer roster page, SMS reminders) would take? I need the numbers for the board meeting next Thursday.",
+   "answers": [
+    "estimate-ranges"
+   ],
+   "near": [
+    "estimate-ranges"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "estimat",
+    "take"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:estimate-ranges:4",
+   "text": "standup in 5 min and I need a number to say out loud. my manager wants to know how long it'll take to add CSV export to the reports page (3 reports: sales, inventory, refunds) and also move our nightly job from a cron script on one old VM to a managed scheduler, which I've never used. my rough notes: 'export button, stream large files maybe 500k rows, email link when done, migrate job, keep old VM running a week'. can you quickly give me a time estimate for all of it, maybe with a short breakdown, and a number I can safely say?",
+   "answers": [
+    "estimate-ranges"
+   ],
+   "near": [
+    "estimate-ranges"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "take",
+    "time",
+    "estimat"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:estimate-ranges:5",
+   "text": "I run the lighting and rigging crew at an opera house and I want to replace our paper cue sheets with a small Python script. It should read a CSV with columns cue_id, act, scene, fixture_group, intensity_pct, fade_sec, notes (about 340 lighting cues), print a summary per act, and flag any cue where the fade is under 2 seconds on the moving-head fixtures. The CSV comes out of our old console software so it's messy: some rows have a blank scene, and fade values sometimes have an 's' on the end like '1.5s'. It also has to run on the crew's shared Windows laptop and I've never packaged a script before. How long do you think it would take me to get this built? My production manager needs a number for the planning meeting, and the project folder is empty so we're starting from scratch.",
+   "answers": [
+    "estimate-ranges"
+   ],
+   "near": [
+    "estimate-ranges"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "take"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
    "id": "natural:fixture-builders:0",
    "text": "Can you create discountCalculator.spec.js with Jest tests for an `applyDiscount(cart, coupon)` function, plus a stubbed-out discountCalculator.js so the tests can run? The cart has three items: a $20 mug, a $35 t-shirt, and a $5 sticker with quantity 4. I need tests for a 15% coupon that expires 2026-12-31, an expired coupon that must be rejected, and an empty cart that returns a total of 0. The folder is empty, so set up whatever Jest needs too.",
    "answers": [
@@ -2260,7 +3242,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:fixture-builders:1",
@@ -2301,6 +3284,69 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:fixture-builders:3",
+   "text": "I volunteer at a community food bank and I'm writing a small JavaScript helper, `isEligible(household)`, that decides if a household gets a weekly pantry box. A household looks like { size: 4, monthlyIncome: 1800, postcode: '30312', members: [{ age: 35, isStudent: false }, ...] }. The rule is: households of 3 or more with income under 2000 qualify, but anyone outside the service postcodes '30312' and '30313' does not. Can you write the Jest tests in a new file for it, covering a qualifying household, one with too-high income, and one outside the postcodes? I'll write the function myself afterwards.",
+   "answers": [
+    "fixture-builders"
+   ],
+   "near": [
+    "fixture-builders"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "test",
+    "function"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:fixture-builders:4",
+   "text": "I need Jest tests written fast, release is in an hour. I have a plain JS function `applyDiscount(cart, code)` in `pricing.js` where cart is `{ items: [{ sku, price, qty }, ...] }` and the coupon looks like `{ code: 'SAVE10', percent: 10, minSubtotal: 50 }`, and it returns the cart with a `total`. Please write tests in `pricing.test.js` for: an empty cart, a cart below the minimum subtotal so no discount applies, a two-item cart totaling $80 where 10% off gives $72, and an expired coupon (has an `expiresAt` date in the past). I'm not sure about the exact shapes, so just make reasonable assumptions and get them written.",
+   "answers": [
+    "fixture-builders"
+   ],
+   "near": [
+    "fixture-builders"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "test",
+    "function"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:fixture-builders:5",
+   "text": "I'm adding a milking-parlor module to our dairy farm software in JavaScript with Jest, and I need a spec file for calcMilkPayout(herd, pricePerLiter). Each cow record has an id like 'C-114', a breed ('Holstein' or 'Jersey'), a daily yield in liters, and a flag for whether it's in antibiotic withdrawal, and milk from cows in withdrawal must be left out of the payout. Please write three tests: a herd of two healthy Holsteins at 28 and 31 liters with price 0.45, a herd where one Jersey producing 19 liters is in withdrawal, and an empty herd that should pay 0.",
+   "answers": [
+    "fixture-builders"
+   ],
+   "near": [
+    "fixture-builders"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "test"
+   ],
+   "overlapAnyTarget": 1,
+   "multi": false,
    "split": "test"
   },
   {
@@ -2322,7 +3368,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:incident-timeline:1",
@@ -2343,7 +3390,8 @@
    ],
    "overlapAnyTarget": 4,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:incident-timeline:2",
@@ -2360,6 +3408,71 @@
    "overlap": 0,
    "overlapTerms": [],
    "overlapAnyTarget": 5,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:incident-timeline:3",
+   "text": "Our volunteer sign-up site broke on Saturday 2026-10-10 right before a big food drive, and I need an incident timeline document for the board, saved as a file in this folder. Here are my notes: about 25 minutes before 8:05 AM UTC I changed the site's database password on the hosting panel but forgot to update the app's config; at 8:05 AM UTC Maria, a volunteer coordinator, texted me that the sign-up page was a blank screen; 10 minutes after her text I checked the logs and saw 'access denied' errors for the database user; 5 minutes after that I pasted the new password into the config file and restarted the app; 12 minutes after the restart Maria confirmed the page loaded again. Please work out the clock times and total outage length, and write it so non-technical board members can follow it.",
+   "answers": [
+    "incident-timeline"
+   ],
+   "near": [
+    "incident-timeline"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "named",
+   "overlap": 3,
+   "overlapTerms": [
+    "incident",
+    "timelin",
+    "outag"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:incident-timeline:4",
+   "text": "postmortem in 20 min, need a clean write-up of last night's login outage saved as a file, format doesn't matter. my notes (all UTC): config change to the auth cache pushed 22:05, customer emailed support saying they couldn't sign in 22:31, Priya from support pinged me 22:34, I saw 500s on the auth pods 22:38, restarted the pods 22:52 and it didn't help, reverted the config change 23:10, error rates back to normal by 23:16.",
+   "answers": [
+    "incident-timeline"
+   ],
+   "near": [
+    "incident-timeline"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "outag",
+    "say"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:incident-timeline:5",
+   "text": "I'm the night-shift manager at a dairy farm (340 milking cows) and I need an incident timeline document for the co-op's quality team about last Tuesday's bulk milk tank cooling failure. Please write it into a file in this folder. All times are local, UTC+2. Here's what happened: 02:40 the compressor tripped its breaker. 03:05 the tank temperature alarm went off on my phone, I woke up and read 7.8°C on the display. 03:20 I reset the breaker and it tripped again straight away. 03:50 I called the refrigeration technician, Marta. 04:35 Marta arrived on site and replaced a failed start capacitor. 06:10 the tank was back under 4°C. The 04:00 milk pickup was delayed by the driver until 05:00, and the co-op rejected nothing.",
+   "answers": [
+    "incident-timeline"
+   ],
+   "near": [
+    "incident-timeline"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "named",
+   "overlap": 3,
+   "overlapTerms": [
+    "incident",
+    "timelin",
+    "happen"
+   ],
+   "overlapAnyTarget": 3,
    "multi": false,
    "split": "test"
   },
@@ -2418,6 +3531,60 @@
    "split": "test"
   },
   {
+   "id": "natural:json-schema-stamps:3",
+   "text": "I coordinate sign-ups for a community food pantry, and our little volunteer app needs a formal description of what a shift sign-up entry can contain so we can check submissions before saving them. Each entry has the volunteer's full name (required text), an email (required), a shift date, a group size (whole number from 1 to 10), an optional note about dietary or accessibility needs, and a yes/no for whether they can lift heavy boxes. Name and email are settled, but group size and the lifting question are still experimental, so please set it up so it's easy for us to change those two later. Can you create the file for that in this folder?",
+   "answers": [
+    "json-schema-stamps"
+   ],
+   "near": [
+    "json-schema-stamps"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:json-schema-stamps:4",
+   "text": "I need a validation spec for the body of a new 'shipment created' webhook event, and I need it fast because I'm demoing in an hour. Fields: shipment_id (string, required), carrier (one of 'ups', 'fedex', 'dhl'), weight_kg (number, required), tracking_url (optional), and a nested destination object with country, postal_code and city. This is the first version and the destination shape might change, so keep it simple. Just give me a file I can drop into the repo.",
+   "answers": [
+    "json-schema-stamps"
+   ],
+   "near": [
+    "json-schema-stamps"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:json-schema-stamps:5",
+   "text": "Hi, I run the cold-chain desk at a reefer shipping company. Our container sensors upload a temperature record every 15 minutes, and I need a file that spells out what a valid record looks like so the port teams can reject bad uploads. Each record has: a container number (11 characters, like MSKU1234567), a vessel name, a UTC timestamp, a setpoint in Celsius, a measured return-air temperature in Celsius (must be between -30 and 30), a door-open yes/no flag, and an optional list of alarm codes (text strings). Please create that validation file in this empty folder, plus one sample record that passes it.",
+   "answers": [
+    "json-schema-stamps"
+   ],
+   "near": [
+    "json-schema-stamps"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
    "id": "natural:kpi-tile-spec:0",
    "text": "I'm putting together the top row of a new support-health screen for my weekly leadership sync, and I need a text file in this folder that I can hand to our engineers to build four summary tiles. The tiles are: Open tickets, 342, up 6.1% from the previous stretch; Median first response time, 47 minutes, down 12.5%; CSAT score, 4.6 out of 5, up 0.8%; and Tickets reopened within 7 days, 58, down 3.3%. For each tile please add a one-line explanation of how the number is counted, like CSAT only counting surveys returned after a ticket is closed.",
    "answers": [
@@ -2435,7 +3602,8 @@
    ],
    "overlapAnyTarget": 4,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:kpi-tile-spec:1",
@@ -2472,6 +3640,62 @@
    "overlapAnyTarget": 1,
    "multi": false,
    "split": "dev"
+  },
+  {
+   "id": "natural:kpi-tile-spec:3",
+   "text": "I'm putting together a one-page summary for our food bank board meeting and need three headline boxes written up in a file I can give to the volunteer who builds the page. The numbers: Households served is 1,342 this week, up from 1,288 over the previous four weeks; Volunteer hours is 2,115, down from 2,290; Pounds of food rescued is 18,760, up from 17,940. For each box, please write what it should say and a short plain explanation for board members who aren't numbers people, like what the change means and whether they should be worried.",
+   "answers": [
+    "kpi-tile-spec"
+   ],
+   "near": [
+    "kpi-tile-spec"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:kpi-tile-spec:4",
+   "text": "I have a board meeting in an hour and need the top of my weekly business view to show four boxes at a glance. Can you write up what each box should show and save it as a file in this folder so a contractor can build it later? The four numbers are: active subscribers 3,914 (up from 3,760 last month), monthly recurring revenue $87,350 (slightly down from before), churn rate 5.1% (it got better), and average order value $42.80 (up a bit).",
+   "answers": [
+    "kpi-tile-spec"
+   ],
+   "near": [
+    "kpi-tile-spec"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:kpi-tile-spec:5",
+   "text": "I run operations at a 40-hectare greenhouse tomato farm and need a markdown file I can hand to the developer building our packing-shed wall monitor screen. Please write up four tiles with the numbers filled in: Kilograms harvested (last 7 days total: 18,340, up from 17,600), Grade A share of harvest (71.5%, down from 74.1%), Water use per kilogram (3.2 L, down from 3.5 L), and Spoilage rate at dispatch (1.8%, up from 1.4%). It's one screen, so keep it short and easy to read from across the shed.",
+   "answers": [
+    "kpi-tile-spec"
+   ],
+   "near": [
+    "kpi-tile-spec"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "tile"
+   ],
+   "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "test"
   },
   {
    "id": "natural:meeting-notes-ledger:0",
@@ -2539,6 +3763,76 @@
    "split": "dev"
   },
   {
+   "id": "natural:meeting-notes-ledger:3",
+   "text": "I'm the volunteer coordinator for our community garden co-op and I need a proper write-up of our planning huddle on 2026-10-14 (40 minutes, with Priya, Tom, Wen and Dolores) to send to the group. We decided to buy 12 cedar raised-bed kits from Hartley Supply for $840 total, and to hold the fall seed swap on Saturday, November 8th. Still unknown: whether the city will waive the $60 water-hookup fee, and whether we can use the church lot for parking. Action items: Tom will email the city parks office by October 21, Wen offered to design the flyer (no deadline given), and Priya said someone should probably check the tool shed lock (no owner yet). Please save it as a file in this folder.",
+   "answers": [
+    "meeting-notes-ledger"
+   ],
+   "near": [
+    "meeting-notes-ledger"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "action",
+    "item"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:meeting-notes-ledger:4",
+   "text": "I have a meeting in 5 min, can you turn my scribbles into clean meeting notes and save them in a file here so I can send to the team right away? Meeting was today (2026-10-16), log provider vendor sync with Tomás, Keiko, Dev and me (Priya). We agreed to go with Loggly over Datadog because of price. Keiko will probably set up the staging account sometime next week. Dev will send the security questionnaire to the vendor by October 23. Open questions: nobody knows yet if the 30-day retention is enough for compliance, and it's unclear who talks to finance about the budget.",
+   "answers": [
+    "meeting-notes-ledger"
+   ],
+   "near": [
+    "meeting-notes-ledger"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 5,
+   "overlapTerms": [
+    "meet",
+    "clean",
+    "note",
+    "open",
+    "question"
+   ],
+   "overlapAnyTarget": 5,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:meeting-notes-ledger:5",
+   "text": "I just got off a 20-minute call with Tomás (my harvest crew lead) and Priya (our cold-storage supplier) and need proper written-up notes for the team from today's call, 2026-10-16. Here are my jottings: we're starting Honeycrisp picking on 2026-10-19 instead of the 22nd because a frost is forecast; we'll rent a second bin trailer for the week; nobody knows yet if the cider press can handle the extra volume before the 31st; Tomás said he'd get picker headcount sorted 'sometime this week'; Priya will send the revised cold-room rental quote by 2026-10-21; I'll call the county inspector about the press permit by 2026-10-18. Can you write these up as a notes file in this folder, with decisions, open questions, and who's doing what by when?",
+   "answers": [
+    "meeting-notes-ledger"
+   ],
+   "near": [
+    "meeting-notes-ledger"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 5,
+   "overlapTerms": [
+    "call",
+    "note",
+    "decision",
+    "open",
+    "question"
+   ],
+   "overlapAnyTarget": 5,
+   "multi": false,
+   "split": "test"
+  },
+  {
    "id": "natural:milestone-plan:0",
    "text": "I'm the only backend dev at a 12-person logistics startup and I need a project outline I can send to our CTO on Monday. We're moving our shipment-tracking service from a single Flask app on one VM to containers on Kubernetes in about 8 weeks. The work is: dockerize the Flask app and the Celery workers, move Postgres 12 (about 40 GB) to a managed Postgres 15 instance with up to 3 hours of downtime on a Sunday, set up a GitHub Actions deploy pipeline, add Prometheus/Grafana dashboards, and move the customer-facing webhook endpoints that partners like DHL and FedEx Ground call. I also want to list two nice-to-haves as optional: a rewritten CSV bulk-import tool and a legacy SOAP adapter for one old client. Can you write this up as a markdown file in this folder?",
    "answers": [
@@ -2578,7 +3872,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:milestone-plan:2",
@@ -2598,7 +3893,67 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:milestone-plan:3",
+   "text": "I run the volunteer side of a neighborhood food pantry and we want to replace our shared spreadsheet and paper sign-in sheet with a small web app. We have 140 households right now, 2 part-time volunteer developers, and about 8 weeks before the winter holiday rush. Can you write up a project schedule for me? The must-haves are: importing our existing spreadsheet (columns are household name, adults, children, zip, dietary notes, last pickup), tablet check-in for volunteers, pickup history, and a printable monthly report for the board. Nice-to-haves if there's time are SMS reminders and a Spanish and Vietnamese interface.",
+   "answers": [
+    "milestone-plan"
+   ],
+   "near": [
+    "milestone-plan"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "week"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:milestone-plan:4",
+   "text": "I have a meeting with our CTO in 20 minutes and need a short write-up I can paste straight into the meeting doc. We're moving our driver-scheduling tool from a cron-driven Python script plus a shared spreadsheet to a web app with a Postgres database. The scope is: import the ~400 existing driver records from the spreadsheet, let dispatchers assign shifts in a browser, send SMS shift reminders to drivers through Twilio, and later add a payroll CSV export and a reporting dashboard. I'm the only developer and I have about two months. Can you lay out how to stage the work over that time, and add a note on what to drop first if things slip?",
+   "answers": [
+    "milestone-plan"
+   ],
+   "near": [
+    "milestone-plan"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 4,
+   "multi": false,
    "split": "dev"
+  },
+  {
+   "id": "natural:milestone-plan:5",
+   "text": "I run a 40-hectare family vineyard in the Okanagan and I want to add a small tasting room before harvest ends. Can you draft a project schedule I can show my business partner? I have an $85,000 budget, a prefab 60 m² building already ordered (delivery in about three weeks), a liquor licence application that usually takes 6 to 8 weeks to get approved, a gravel parking area for 12 cars to build, a point-of-sale tablet to set up, a wine-club signup form to add to our website, and an optional outdoor patio with string lights if there's money left. I need to see when I can realistically start pouring for visitors, and what to drop or push back if the licence or the building comes in late.",
+   "answers": [
+    "milestone-plan"
+   ],
+   "near": [
+    "milestone-plan"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "week"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:oncall-handoff:0",
@@ -2641,7 +3996,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "dev"
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:oncall-handoff:2",
@@ -2662,7 +4018,70 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
-   "split": "dev"
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:oncall-handoff:3",
+   "text": "I'm the on-duty tech contact for our food bank this weekend (Saturday 18:00 to Sunday 18:00) and Priya takes over after me, so I need a short, clear status message for Priya that I can send. Please write it with these points: the SMS gateway has 14 failed-delivery messages in its backlog and a retry is scheduled for 19:30 tonight; the sign-up site's backup folder is at 91% of its disk quota, I've asked the host to raise the limit but haven't heard back; Priya should keep an eye on the pickup-alert queue, which is fine now but could stall if it goes over 50 waiting messages; I got 3 alerts over the weekend; and an expiring domain reminder with more than 10 days left can wait until Monday.",
+   "answers": [
+    "oncall-handoff"
+   ],
+   "near": [
+    "oncall-handoff"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:oncall-handoff:4",
+   "text": "I'm leaving now and need a handoff note for whoever takes my on-call rotation at 08:00 Friday (I started Thursday 08:00), can you write it up as a file in this folder? Details: checkout-api DB connection pool was at 92% so I bumped it to 200 connections, but someone still needs to confirm it held; the nightly backup on the billing-db replica failed and Marcus is rerunning it at 07:30; the payments webhook retry queue has been creeping up to about 1,400 messages when it's normally under 300. I got 4 pages overnight, and there's a TLS cert warning on the staging gateway with 21 days left that I think can wait, but I'm not sure how to lay it all out so please organize it sensibly.",
+   "answers": [
+    "oncall-handoff"
+   ],
+   "near": [
+    "oncall-handoff"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "note",
+    "call"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:oncall-handoff:5",
+   "text": "I'm finishing the Saturday 18:00 to Sunday 06:00 shift watching the milking-parlor monitoring system, and Tomás is taking over. Can you write a handoff note for Tomás and save it as a file in this folder? Here's what to put in: the bulk milk tank in barn 2 read 4.8°C at 05:40 after the compressor restarted at 02:15, and it should settle by 07:00; the cow-collar sensor gateway in the east pasture dropped twice and is still running on backup battery at 41%; the water trough float alarm in paddock 6 is quiet now, but the well pump was cycling oddly; and I got woken 3 times overnight (the 02:15 tank temperature alert, and gateway dropouts at 03:30 and 04:50). Also say that the low-priority feed-inventory reminders and sensor firmware update prompts can wait until the daytime crew gets in.",
+   "answers": [
+    "oncall-handoff"
+   ],
+   "near": [
+    "oncall-handoff"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 4,
+   "overlapTerms": [
+    "shift",
+    "watch",
+    "note",
+    "quiet"
+   ],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test"
   },
   {
    "id": "natural:palette-token-names:0",
@@ -2684,7 +4103,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "dev"
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:palette-token-names:1",
@@ -2727,6 +4147,72 @@
    "split": "dev"
   },
   {
+   "id": "natural:palette-token-names:3",
+   "text": "I'm volunteering for a community garden nonprofit and building a small website for our seasonal plant sale. Can you write a stylesheet called garden.css? Use #22262b for the dark text on a near-white #fafaf7 page background, #2e7d4f (leafy green) for headings and icons, #e08a1e (warm orange) for the 'Buy now' button, and #dcefe2 (soft pale green) for card backgrounds. Please set it up so the link style and the button style are each easy to change later in one place.",
+   "answers": [
+    "palette-token-names"
+   ],
+   "near": [
+    "palette-token-names"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "css"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:palette-token-names:4",
+   "text": "I'm launching a small recipe-sharing site tomorrow and need a stylesheet fast. Can you make one CSS file that puts the colors in shared variables in one place, then styles links, primary buttons, and error messages using them? Colors: page background #16181d, body text #e8e6e1, blue #3b6fe0 for links and primary buttons with a lighter hover of #6a94f0, orange #e08a2f for highlights, red #d64545 for errors, green #3fa66b for success. The folder is empty, so just create the file and make it work.",
+   "answers": [
+    "palette-token-names"
+   ],
+   "near": [
+    "palette-token-names"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "css",
+    "color",
+    "variabl"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:palette-token-names:5",
+   "text": "I run the web dashboard for our family dairy co-op, it shows milk tank temperatures and pickup schedules on a wall screen in the barn office. Can you write a theme stylesheet in this empty folder? Page background should be dark #14161a and main text #e8e6df, plus a calm green for 'tank OK', an amber for 'temperature drifting', a red for 'pickup missed', and a blue for links, each with a couple of lighter and darker shades. Also add button, link, and status-badge styles that reuse those colors, so I can change the look later in one place without hunting through the file.",
+   "answers": [
+    "palette-token-names"
+   ],
+   "near": [
+    "palette-token-names"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "them",
+    "shad",
+    "color"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
    "id": "natural:postmortem-frame:0",
    "text": "Can you write a postmortem for the team as postmortem.md in this folder? Last Tuesday our nightly invoice export job silently produced empty CSVs for 9 hours (02:10 to 11:15 UTC), so 412 customers got no invoice emails. Here's what I know:\n\n- Cause: a config migration renamed the env var BILLING_EXPORT_DIR to EXPORT_OUTPUT_PATH, but the job still read the old name and fell back to a temp folder.\n- We assumed the job would exit non-zero on missing config, and that the 'rows exported' alert covered zero-row outputs. It only fired on errors.\n- Marcus merged the rename PR and Dana approved it.\n- We only noticed when a customer wrote to support at 11:05.\n- Fix: a hotfix reading the new var, then a re-run that finished at 13:40.\n\nFollow-ups: fail fast on missing config (backend team, by Oct 30), add a zero-row alert (me, Nov 6), add a config-name lint in CI (platform team, Nov 13), and a staging dry-run of the export before releases (Dana, Nov 20).",
    "answers": [
@@ -2744,7 +4230,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:postmortem-frame:1",
@@ -2764,7 +4251,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:postmortem-frame:2",
@@ -2785,6 +4273,63 @@
    "split": "dev"
   },
   {
+   "id": "natural:postmortem-frame:3",
+   "text": "I help run our neighborhood food pantry and I need to write up what happened last Saturday for the volunteer group. Our shared Google Sheet for pickup sign-ups got sorted by just one column by accident, which scrambled the time slots for all 140 households, so about 35 families showed up and found their slot taken and the line ran 90 minutes over. Volunteers fixed it by hand with a paper list and the sheet's old versions. We all thought only the three coordinators could edit and that the sheet got backed up every night, but really anyone with the link could edit since September, and the backup stopped quietly on Sept 20. Can you write the document in plain, friendly language (no blame), and include what we're doing next: make the sheet view-only for most people, get the backup running again, and print a backup list every week?",
+   "answers": [
+    "postmortem-frame"
+   ],
+   "near": [
+    "postmortem-frame"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:postmortem-frame:4",
+   "text": "I'm on call and have about 20 min before a team meeting, can you turn my notes into a postmortem doc and save it in this folder as a markdown file? Notes: the nightly invoice export job silently failed for 3 hours yesterday (02:10 to 05:15 UTC) because the TLS cert on the internal billing-api expired. 412 customer invoices went out late. We all thought cert renewal was automated by cron on the old host, but that host was decommissioned in September. The job alert only fires on non-zero exit code, and the job exited 0 with an empty file. Priya spotted the empty export at 05:15 and Marcus renewed the cert by hand. Follow-ups I want listed: move cert renewal to the new scheduler, alert on empty output from the export, and make an inventory of all our certs.",
+   "answers": [
+    "postmortem-frame"
+   ],
+   "near": [
+    "postmortem-frame"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "postmortem"
+   ],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:postmortem-frame:5",
+   "text": "I run the cold-storage barn at our family dairy co-op that makes aged cheese, and I need a write-up for our monthly meeting about what went wrong last Tuesday night. The humidity control in the aging room lost its setting after a software update and the room dropped from 85% to 62% for about 9 hours, which cracked the rinds on 340 wheels of 6-month alpine-style cheese, around $41,000 of stock. The alarm texts went to a phone number that was given to someone else when we changed the night shift list in August, and the backup buzzer got switched off during a cleaning and nobody turned it back on. Please write it up plainly, with fixes: send alerts to a shared group chat, test the alarm every week, and have someone sign off before any update to the controller, with Dimitri (facilities), Aoife (quality manager), and me each owning some of them and due dates in November. Save it as a document in this folder.",
+   "answers": [
+    "postmortem-frame"
+   ],
+   "near": [
+    "postmortem-frame"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
    "id": "natural:pr-description-proof:0",
    "text": "Can you write the PR description for my fix so reviewers can approve it? In billing/retry_worker.py the retry worker was re-sending payment webhooks to Stripe up to 9 times instead of 3, because MAX_RETRIES was compared with <= against a counter starting at 0 (off-by-one) and the constant was stale at 8. I changed the comparison to <, set MAX_RETRIES = 3, and added test_retry_stops_after_three in tests/test_retry_worker.py. Locally pytest tests/test_retry_worker.py gives 14 passed in 2.31s, and a staging run with 200 failing webhooks dropped average attempts per webhook from 8.7 to 3.0. Please also mention that this retry worker is shared with the refund-notification job and the customer email sender, so reviewers know those are affected too.",
    "answers": [
@@ -2803,7 +4348,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:pr-description-proof:1",
@@ -2824,7 +4370,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:pr-description-proof:2",
@@ -2841,6 +4388,62 @@
    "overlap": 0,
    "overlapTerms": [],
    "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:pr-description-proof:3",
+   "text": "I fixed a bug in rota.py, the script that builds our youth soccer league's weekly volunteer snack-duty rota from a CSV of families. Families with two kids on different teams were getting duty twice in the same week, so I now dedupe on the family_id column before assigning, and I added a check that prints a warning if any family shows up more than once in a week. I ran it on last season's file (212 rows, 187 unique families) and duplicates went from 14 to 0, and the output still has 187 assignments across 12 weeks. Can you help me write the description for this change so the other volunteer maintainers can review it?",
+   "answers": [
+    "pr-description-proof"
+   ],
+   "near": [
+    "pr-description-proof"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "description"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:pr-description-proof:4",
+   "text": "I'm about to board a flight and need the write-up for my change posted in the next few minutes, so can you turn my notes into something the team can read? The nightly invoice export was timing out for accounts with over 50k invoices, so in export_invoices.py I switched the query from loading all rows into memory to streaming in batches of 5,000, and raised the job timeout from 300s to 900s. I ran it locally on a seeded account with 120k invoices: before, it crashed at about 4 min with an out-of-memory error, and now it finishes in 2m41s with peak memory around 380 MB instead of 2.1 GB. The unit suite passed (42 passed, 0 failed), and heads up that finance also uses this job for their monthly reconciliation report.",
+   "answers": [
+    "pr-description-proof"
+   ],
+   "near": [
+    "pr-description-proof"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:pr-description-proof:5",
+   "text": "I fixed a bug in milk_scheduler/gate_timing.py and need a write-up for my teammates so I can open it for review on our Git host. Cows were getting locked out of the milking stall for a full 20 minutes after a failed teat-cup attach, because get_retry_delay() misread the config value retry_delay_min=20 (it's meant to be divided by 10, so 2 minutes, not 20). I changed the conversion so 20 becomes 120 seconds, added a clamp of 30 to 600 seconds, and updated the config comment. I ran `python sim.py --herd 64 --days 3` and average lockout time dropped from 19.8 min to 2.1 min, and missed milkings per day went from 11 to 2. Heads up that it also affects the 3 feed-station gates that share the same timer module, so please mention that in the write-up.",
+   "answers": [
+    "pr-description-proof"
+   ],
+   "near": [
+    "pr-description-proof"
+   ],
+   "shard": 7,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
    "multi": false,
    "split": "test"
   },
@@ -2905,6 +4508,60 @@
    "split": "test"
   },
   {
+   "id": "natural:python-docstring-contract:3",
+   "text": "I'm the treasurer for a community garden co-op with 40 plots and I need a small script to keep track of plot fees. Each plot's yearly fee is $85. Can you write three pieces for me: (1) one that takes a payment amount (a positive Decimal) for a member's plot, subtracts it from their balance and gives back the new balance, and gives a custom error if the payment is more than what they owe; (2) one that adds a 10% late fee to any balance that's more than 30 days overdue and gives back the new balance, and raises a ValueError if the balance is negative; and (3) one that takes a list of (plot_number, member_name, balance) tuples and gives back the names of members who owe money, and raises a TypeError if anything in the list isn't a 3-item tuple. Please explain each one clearly in comments or notes so the next treasurer can pick it up easily.",
+   "answers": [
+    "python-docstring-contract"
+   ],
+   "near": [
+    "python-docstring-contract"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:python-docstring-contract:4",
+   "text": "I've got a demo in an hour and need a file called shipping.py, just get it written and I'll tidy it later. It needs three things: one that takes a parcel weight in kg (has to be more than zero) and a zone like 'EU' or 'US' and gives back the shipping price in cents as a whole number, where it's 450 for EU or 900 for US, plus 120 for each kg. Second, one that takes a list of parcels (each has an 'id' and a 'weight') and gives back a dict of id to price. Third, one that reads a tracking code like 'TRK-2026-00123' and gives back the year and the sequence number. If the zone is unknown, the weight isn't above zero, or the tracking code looks wrong, it should throw an error.",
+   "answers": [
+    "python-docstring-contract"
+   ],
+   "near": [
+    "python-docstring-contract"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:python-docstring-contract:5",
+   "text": "I run a dairy farm and I need a small script to help track our milking herd, starting from an empty folder. Please write helpers that do three things: (1) work out a cow's average daily milk yield in liters from a list of daily readings, and refuse an empty list; (2) flag a cow for the vet when her yield drops more than 20% below her 14-day average; (3) convert a feed ration from kilograms to bags using a 25 kg bag size, and the bag size must be positive. Cows are identified by ear-tag strings like 'NL-4471', and I'd like the code written cleanly with proper documentation on the public helpers.",
+   "answers": [
+    "python-docstring-contract"
+   ],
+   "near": [
+    "python-docstring-contract"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test"
+  },
+  {
    "id": "natural:react-component-anatomy:0",
    "text": "Can you write a new TypeScript React component in ShipmentRow.tsx in this empty folder? It's called ShipmentRow and renders one shipment as a table row, with props shipmentId (string), carrier (string), etaMinutes (number), and optional isDelayed (boolean), plus an onReassign(shipmentId) callback. It keeps an 'expanded' boolean in useState, and clicking the row toggles it; it should show the ETA as a label like '45 min' or '1 h 15 min' worked out from etaMinutes. Put a 'Reassign' button in the row that calls onReassign(shipmentId), show an extra row with the carrier name when expanded, and show a red 'Delayed' badge if the shipment is delayed.",
    "answers": [
@@ -2945,7 +4602,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:react-component-anatomy:2",
@@ -2969,6 +4627,67 @@
    "overlapAnyTarget": 4,
    "multi": false,
    "split": "test"
+  },
+  {
+   "id": "natural:react-component-anatomy:3",
+   "text": "I'm building a small plot sign-up page for our community garden in this empty folder, using TypeScript and React. Can you make a PlotCard file that shows a plot's number (like 14), its size in square feet (like 48), the current tenant's name or 'Available' if nobody has it, and a 'Request this plot' button that calls a callback with the plot number? Then make a second file, PlotList, that takes an array of plots and renders a PlotCard for each one, with a text box above the list that filters the plots by tenant name as the volunteer types.",
+   "answers": [
+    "react-component-anatomy"
+   ],
+   "near": [
+    "react-component-anatomy"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "react",
+    "type"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:react-component-anatomy:4",
+   "text": "I have a demo in 20 minutes so I need this fast. The folder is empty, so please make a UserCard.tsx from scratch. It should take a name, a picture link, and a true/false for whether the person is online, then show the picture and the name with a little green dot if they're online. Also add a Follow button that switches to Following when you click it, with a follower count that starts at 128 and goes up by one when you follow and back down when you unfollow.",
+   "answers": [
+    "react-component-anatomy"
+   ],
+   "near": [
+    "react-component-anatomy"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:react-component-anatomy:5",
+   "text": "Can you create a new TypeScript React component called CowMilkYieldCard in this empty folder? It takes three props: cowId (string), litersToday (number) and herdAverage (number), and it shows the cow's yield for today. If the yield is more than 20% below the herd average, show it in a warning color. Also add a button that marks the cow for a vet check by calling an optional callback with the cowId. It's for a tablet dashboard that milking-parlor staff will use, so keep the button big enough to tap easily.",
+   "answers": [
+    "react-component-anatomy"
+   ],
+   "near": [
+    "react-component-anatomy"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "react",
+    "component",
+    "prop"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev"
   },
   {
    "id": "natural:react-hook-contracts:0",
@@ -3040,6 +4759,77 @@
    "split": "test"
   },
   {
+   "id": "natural:react-hook-contracts:3",
+   "text": "Hi! I'm building a small React site for our community garden co-op where members can sign up for watering shifts. Can you write a hook called useWateringShifts(gardenId) in a new file in this empty folder? It should fetch the shift list from https://api.eastsidegarden.example/ggardens/{gardenId}/shifts, where each shift has an id, a date, a volunteerName and a slotsLeft number. I also want the page to show a spinner while the list loads and a friendly message if the network call fails, like when our tiny server is down.",
+   "answers": [
+    "react-hook-contracts"
+   ],
+   "near": [
+    "react-hook-contracts"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 4,
+   "overlapTerms": [
+    "react",
+    "hook",
+    "fetch",
+    "load"
+   ],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:react-hook-contracts:4",
+   "text": "I've got a client demo in an hour and an empty project, so I need this fast. Can you write a React hook in TypeScript called useWeather(city) and put it in src/hooks/useWeather.ts? It should call https://api.example.com/weather?city=<city>, which returns JSON like { temp: 18.5, humidity: 62, summary: \"Cloudy\" }, and my component needs to show a spinner while loading, the temperature once it arrives, and a message if the network fails or the city isn't found (the server returns 404).",
+   "answers": [
+    "react-hook-contracts"
+   ],
+   "near": [
+    "react-hook-contracts"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 4,
+   "overlapTerms": [
+    "react",
+    "hook",
+    "return",
+    "load"
+   ],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:react-hook-contracts:5",
+   "text": "Can you write me a React hook in TypeScript called useMilkTankTemps(tankId) that polls https://barn.example.test/api/tanks/{tankId}/temps every 30 seconds? The endpoint returns JSON like {\"readings\": [{\"at\": \"2026-10-16T05:30:00Z\", \"celsius\": 3.8}]}, and I want it to give back the latest readings plus loading and error state, with a clear warning when the network drops or the sensor replies with a 503. Please also add a small example component that shows the temperature list, a loading message, and an error message, using a tank id like \"tank-east-2\". The folder is empty, so set up whatever files you need.",
+   "answers": [
+    "react-hook-contracts"
+   ],
+   "near": [
+    "react-hook-contracts"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 5,
+   "overlapTerms": [
+    "react",
+    "hook",
+    "return",
+    "load",
+    "stat"
+   ],
+   "overlapAnyTarget": 5,
+   "multi": false,
+   "split": "test"
+  },
+  {
    "id": "natural:readme-skeleton:0",
    "text": "Can you write a README.md from scratch in this empty folder for my Python CLI called logtrim? It shrinks big JSON-lines log files by dropping chosen keys and sampling every Nth line, installs with `pip install logtrim`, and a typical run is `logtrim app.jsonl --drop user_agent,trace --every 10 > small.jsonl`. Please include a short explanation of how it streams line by line so memory stays flat, say clearly that it only handles JSON-lines (not multi-line JSON, gzip, or CSV), and add a note that people can ask questions in the #sre-tools Slack channel or open an issue on the repo. The readers are our SREs, so keep it practical.",
    "answers": [
@@ -3077,7 +4867,8 @@
    ],
    "overlapAnyTarget": 4,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:readme-skeleton:2",
@@ -3096,6 +4887,63 @@
    "overlapAnyTarget": 4,
    "multi": false,
    "split": "test"
+  },
+  {
+   "id": "natural:readme-skeleton:3",
+   "text": "Can you write a README for my project folder? It's empty right now, but the project is seedswap.py, a small Python script I wrote for our community garden nonprofit. It reads a CSV of members' spare seed packets (columns: member, plant, quantity, year_packed) and a second file, wishlist.csv, then prints a matched list of who could trade with whom, pairing people by plants they have extra of versus plants others want. You run it with `python seedswap.py packets.csv`, and it only uses the standard library. Please mention that it doesn't handle seeds older than 5 years well and can't do mail-based swaps across multiple gardens, and say that questions should go to swaps@elmstreetgarden.example, since other volunteers keep asking how to use it.",
+   "answers": [
+    "readme-skeleton"
+   ],
+   "near": [
+    "readme-skeleton"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "readm"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:readme-skeleton:4",
+   "text": "I'm shipping a small command line tool called logtrim in about an hour and need the intro page people see first, rough is fine. It reads a big nginx access log, drops lines from health checks and bot user agents, and writes a smaller file. You install it with `pip install logtrim` and run it like `logtrim access.log -o clean.log --drop-bots`. It reads line by line so multi-GB files only use around 20 MB of memory. It's for sysadmins at small companies, it doesn't work well for JSON logs or live tailing (point those people to goaccess or vector), and questions go to GitHub Discussions at github.com/priyan/logtrim.",
+   "answers": [
+    "readme-skeleton"
+   ],
+   "near": [
+    "readme-skeleton"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:readme-skeleton:5",
+   "text": "My colleagues keep emailing me asking how to get started with our sea-ice tool, so I need a proper intro page for the project, written from scratch since the folder is empty. The tool is called icegauge: it takes raw buoy CSV dumps (columns buoy_id, timestamp_utc, draft_m, temp_c) from our moored sonar buoys and makes a daily mean ice-thickness file. You install it with `pip install icegauge` and run `icegauge summarize buoys_2025.csv --out daily.csv`; it resamples to 24h bins, drops readings where temp_c is above 5, and fills gaps up to 6 hours by interpolation. It's meant for polar field scientists, and it doesn't handle ship-mounted sonar or sub-hourly turbulence studies. Questions should go to our lab's mailing list, ice-help@fjordlab.example.",
+   "answers": [
+    "readme-skeleton"
+   ],
+   "near": [
+    "readme-skeleton"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev"
   },
   {
    "id": "natural:release-notes-voice:0",
@@ -3159,6 +5007,67 @@
    "split": "test"
   },
   {
+   "id": "natural:release-notes-voice:3",
+   "text": "I'm shipping version 2.4 of our community garden plot-sharing app and need the release notes for the members' newsletter, something I can paste in. The main change is that members can now swap a watering shift with a neighbor straight from the calendar. Also new: a text reminder goes out the evening before your shift, and there's a plot map with a printable PDF. Fixes: shifts on the last day of the month showed on the wrong day for people on Pacific time, and the sign-in page crashed if a password had an apostrophe. One more thing coordinators need to know: the old paper-form CSV import is being removed, so they should use the new spreadsheet upload instead.",
+   "answers": [
+    "release-notes-voice"
+   ],
+   "near": [
+    "release-notes-voice"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "version",
+    "releas",
+    "note"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:release-notes-voice:4",
+   "text": "I'm submitting v2.4 of my budgeting app in about ten minutes so I need a short, friendly what's-new text for the store page. Here's my messy list:\n\n- new dark theme, toggle is in Settings\n- recurring transactions, can be weekly or monthly\n- fixed a crash when importing a CSV with empty rows\n- fixed currency symbols showing twice on the Android build\n- removed the old 'Quick Add' widget since it never worked on Android 14\n\nMake it sound good, you decide the order.",
+   "answers": [
+    "release-notes-voice"
+   ],
+   "near": [
+    "release-notes-voice"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:release-notes-voice:5",
+   "text": "We're shipping version 3.4 of MilkRun, the tablet app farmers in our dairy co-op use to log milk tank pickups. Can you write the what's-new text for the farmers into a file called WHATS_NEW.md? Here are my rough notes, and the farmers aren't technical so please keep it plain:\n\n- app now works offline in barns with no signal and syncs when back in range (merged PR #212 for offline cache, refactored sync queue)\n- farmers can photograph a tank temperature gauge and the reading fills in automatically\n- fixed the bug where pickup times showed an hour off after the daylight saving change\n- fixed a crash when entering a tank volume over 9,999 liters\n- the old paper-style PDF pickup slip is being removed, replaced by the emailed digital slip",
+   "answers": [
+    "release-notes-voice"
+   ],
+   "near": [
+    "release-notes-voice"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "version",
+    "note"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
    "id": "natural:risk-register:0",
    "text": "Can you write me a markdown file from scratch about what could go wrong with our move of the warehouse scanning app from our old in-house SQL Server to Azure PostgreSQL? We have six weeks and a hard switchover on Saturday, 5 December. My worries: the nightly sync job was only tried with 2 million rows but production has about 40 million, our two senior DBAs Priyanka and Tomasz both have vacation in late November, the handheld scanners might have firmware that can't handle the new TLS version, and our license for the old database ends 31 December so there's little room if we slip. I think the sync speed is the biggest worry. I need it ready to paste into our team wiki before Monday's kickoff.",
    "answers": [
@@ -3218,6 +5127,60 @@
    "split": "test"
   },
   {
+   "id": "natural:risk-register:3",
+   "text": "I'm the volunteer treasurer for our community garden nonprofit, and we're about to build a 12-plot raised-bed extension on the vacant lot next to the garden. Can you write up what could go wrong with this project as a document I can hand to the board at next week's meeting? Here's what I know: we have a $6,500 grant that has to be spent by November 30, a volunteer crew of about 15 people, and the city water-hookup permit is still pending. The lumber supplier has been slow to deliver, autumn rain could delay the soil delivery, and two of our three experienced builders may drop out.",
+   "answers": [
+    "risk-register"
+   ],
+   "near": [
+    "risk-register"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:risk-register:4",
+   "text": "I've got a kickoff meeting in 20 minutes for moving our order-tracking service off our self-hosted Postgres box onto a managed cloud database, over about six weeks. Can you make me a markdown file I can put up on screen covering what could go wrong? Things like the weekend cutover running long, the old box dying before we're done, the two engineers who know the schema both being out on leave, and the vendor's connection limits turning out lower than we expected. I'm Dana, the engineering manager, so I'd own the worst of them, and Priya is our DBA so put her down for the data-related ones.",
+   "answers": [
+    "risk-register"
+   ],
+   "near": [
+    "risk-register"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:risk-register:5",
+   "text": "I run a family dairy farm with 140 Holstein cows, and we're switching from our old milking parlor to two robotic milking units, with installation the first week of March. Can you write a markdown file of what could go wrong with the changeover that I can give to my lender and my herd manager, Tomás? The things I'm worried about are cows refusing to go into the robots, a power outage during milking (we have no backup generator), the installer's technician showing up late, a spike in mastitis during the transition, and the co-op's milk-quality inspection landing in the middle of the switch.",
+   "answers": [
+    "risk-register"
+   ],
+   "near": [
+    "risk-register"
+   ],
+   "shard": 8,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "dev"
+  },
+  {
    "id": "natural:runbook-steps:0",
    "text": "I'm going on leave next week and need a how-to document for the night shift team so they can switch our main database over to the backup one if something goes wrong. Please write it as a file in this folder. Here's what I have: main database is db-prod-01 and the backup is db-prod-02, it's Postgres 15 run by Patroni, and the switch command is `patronictl -c /etc/patroni.yml switchover`. Before switching, they need to check with `patronictl list` that the backup is less than 1 MB behind. After switching, they need to run RELOAD on PgBouncer on pgb-01. They can watch connections and lag on the Grafana dashboard 'PG Overview'. The payments-platform team owns the database, and they can be paged through PagerDuty service 'payments-db'. The whole thing should take under 10 minutes, and writes should be working again within 30 seconds.",
    "answers": [
@@ -3255,7 +5218,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:runbook-steps:2",
@@ -3280,6 +5244,70 @@
    "split": "test"
   },
   {
+   "id": "natural:runbook-steps:3",
+   "text": "I'm the volunteer tech person for a community food pantry, and I need a simple troubleshooting doc for our shift leads (non-technical, they rotate monthly) to use on Saturday mornings if the sign-up page goes down. Please write it as a document in this folder. Here's what works: SSH in as user `pantry` at `pantry-pi.local`, check with `systemctl status pantry-signup`, restart with `sudo systemctl restart pantry-signup`, confirm nginx with `sudo nginx -t`, and check the page loads at http://pantry-pi.local/signup. If the database file (`/var/lib/pantry/signups.db`) is locked or missing, copy the nightly backup at `/home/pantry/backups/signups-latest.db` back into place, and if nothing works they should text me, Dana, at 555-0142. It's a Flask app behind nginx on a Raspberry Pi in the back office.",
+   "answers": [
+    "runbook-steps"
+   ],
+   "near": [
+    "runbook-steps"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:runbook-steps:4",
+   "text": "I'm on call tonight and need to fail over our billing Postgres from db-bill-01 (primary) to db-bill-02 (replica) before the 11pm maintenance window. Can you turn my rough notes into a runbook the next on-call can follow too? My notes: run `pg_ctl promote` on db-bill-02, edit /etc/pgbouncer/pgbouncer.ini to point the app at the new primary, then `systemctl reload pgbouncer`, then check replication lag and that the billing-api /healthz endpoint looks fine. The database owner is payments-data, page them at the alias payments-data-oncall. I only have about twenty minutes, so please make it a markdown file in this folder, clear and step by step.",
+   "answers": [
+    "runbook-steps"
+   ],
+   "near": [
+    "runbook-steps"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 4,
+   "overlapTerms": [
+    "call",
+    "runbook",
+    "follow",
+    "step"
+   ],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:runbook-steps:5",
+   "text": "I run a 400-cow dairy farm and a part-time worker who has never done it before is covering the weekend milking parlor chores, so I need a simple written guide for the bulk milk tank cooling system that they can follow alone at night. When the tank temperature alarm sounds, they should check the compressor breaker panel, confirm the tank reads 4°C or below within about 30 minutes of a milking, and restart the compressor with the red switch on the east wall. If that doesn't fix it, they call the refrigeration technician at Delgado Cooling, 555-0142, or me, the farm owner. The milk truck comes Sunday at 6 a.m., so make it clear and step by step with no guessing, and save it as a file in this folder that I can print.",
+   "answers": [
+    "runbook-steps"
+   ],
+   "near": [
+    "runbook-steps"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "follow",
+    "call",
+    "step"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
    "id": "natural:sql-house-style:0",
    "text": "Can you write a new file called monthly_refunds.sql with a Postgres report for our monthly business meeting? I have three tables: orders (id, customer_id, placed_at, status, total), refunds (id, order_id, amount, refunded_at, reason_code) and customers (id, email, country_code). For 2026 only, I want each country's count of refunded orders, total refunded amount, and refund rate as a share of that country's orders, only for countries with at least 200 orders, sorted by refund rate highest first. My old draft used a subquery in the from clause and one-letter aliases for the tables, so please make it clean and easy to read since it's going into our team repo.",
    "answers": [
@@ -3299,7 +5327,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:sql-house-style:1",
@@ -3343,7 +5372,76 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:sql-house-style:3",
+   "text": "I do the data work for our community food bank and need a SQL query for the monthly board report. My tables are households (id, household_name, zip_code, joined_on), pickups (id, household_id, picked_up_on, pounds_received) and volunteers (id, full_name, shift_day). I want each household that picked up more than 40 total pounds in September 2026, showing its total pounds and number of visits, only for zip codes 60614 or 60622, sorted by pounds from highest to lowest. Can you write it and save it in a new file called september_pickups.sql?",
+   "answers": [
+    "sql-house-style"
+   ],
+   "near": [
+    "sql-house-style"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "sql",
+    "query",
+    "tabl"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:sql-house-style:4",
+   "text": "I need a SQL query fast, stand-up in 10 min. Tables: customers (id, email, country), orders (id, customer_id, ordered_at, status), order_items (order_id, book_id, quantity, unit_price). I want the top 20 customers in Germany by total spend on orders with status 'shipped' during 2026, showing email, number of orders and total spend, highest spend first. Something clean I can paste into our dashboard.",
+   "answers": [
+    "sql-house-style"
+   ],
+   "near": [
+    "sql-house-style"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "sql",
+    "query",
+    "tabl"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
    "split": "test"
+  },
+  {
+   "id": "natural:sql-house-style:5",
+   "text": "Can you write me a SQL query for our milk-pickup meeting report? I have three tables: farms (id, farm_name, region), milk_pickups (id, farm_id, pickup_date, liters, fat_pct) and quality_tests (id, pickup_id, somatic_cell_count, passed). For each farm in the 'Northern Valley' region, I want the total liters picked up in September 2026 and the number of failed quality tests (passed is the flag), only showing farms with more than 5,000 liters total, sorted by liters from highest to lowest. Please save it as a .sql file in this folder.",
+   "answers": [
+    "sql-house-style"
+   ],
+   "near": [
+    "sql-house-style"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "sql",
+    "query",
+    "tabl"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:structured-log-lines:0",
@@ -3404,6 +5502,65 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:structured-log-lines:3",
+   "text": "I'm writing a small Python script for our food bank's Raspberry Pi that processes weekly volunteer shift sign-ups from a CSV with columns volunteer_email, shift_date, slot, role. Can you write it so it prints a line when a sign-up is accepted, when a shift is already full (max 8 per slot), and when a row is rejected because of a bad email, then at the end prints how many milliseconds the whole import took so I can grep the output later? Please start by making a sample CSV with a few rows I can test with (include a bad email and enough rows to fill a slot).",
+   "answers": [
+    "structured-log-lines"
+   ],
+   "near": [
+    "structured-log-lines"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "line"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev"
+  },
+  {
+   "id": "natural:structured-log-lines:4",
+   "text": "I have a demo in an hour and need a Python script called refund_worker.py in this empty folder. It should take a refund request for order 2087 for 35.50 USD, call a payment gateway (takes about 310 ms, so just simulate it for now), then write the result to a database. Can you write the whole worker with simple print output so we can see when the refund starts, when the gateway call succeeds or times out, and when the database write finishes? Doesn't need to be perfect, just observable for our team's dashboards.",
+   "answers": [
+    "structured-log-lines"
+   ],
+   "near": [
+    "structured-log-lines"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "order"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:structured-log-lines:5",
+   "text": "Can you write me a small Python script called bedwatch for my tulip greenhouse? It should check the soil moisture sensors every 30 seconds, and if a bed reads below 22% it opens that bed's irrigation valve. I want it to print reports to the console that our ops dashboard can parse later: each sensor read (like bed 'B7' read 18.4% in 3 ms), each valve opening (bed 'B7', 240 seconds), and a failure when the sensor on bed 'B9' times out after 5000 ms. Please use simulated sensor data so I can try it out, the folder is empty so just start from scratch.",
+   "answers": [
+    "structured-log-lines"
+   ],
+   "near": [
+    "structured-log-lines"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
    "split": "dev"
   },
   {
@@ -3425,7 +5582,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:survey-question-format:1",
@@ -3465,6 +5623,64 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:survey-question-format:3",
+   "text": "Hi! I coordinate a community garden in our town and I need a short poll I can hand out to our 40 plot holders after the autumn harvest weekend. Could you write it as garden-poll.md in this empty folder? It should start with a friendly intro line, then ask how satisfied people were with the tool shed organization, the compost bins, the watering schedule, and the Saturday workshop led by a local beekeeper. Add a couple of open spots where members can say in their own words what they'd like next season (like more raised beds or a seed-swap day), and finish with a thank-you.",
+   "answers": [
+    "survey-question-format"
+   ],
+   "near": [
+    "survey-question-format"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:survey-question-format:4",
+   "text": "I have a stakeholder meeting in an hour and need a short customer check-in form for people who just got their third weekly box from our meal-kit startup. Can you write it as one markdown file I can paste into my form tool, about 6-8 prompts total? I want to learn how they feel about recipe variety, how fresh the produce was when it arrived, whether the delivery window worked for them, and how likely they are to keep their subscription, plus an open spot at the end for anything else on their mind.",
+   "answers": [
+    "survey-question-format"
+   ],
+   "near": [
+    "survey-question-format"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "form"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:survey-question-format:5",
+   "text": "I run a family apple orchard and cider press in the Hudson Valley, and I want a short end-of-season check-in for the 40 seasonal pickers who worked for us this fall. Can you write it as a plain text file in this folder that I can print out? It should ask how clear the daily row assignments were, how comfortable the ladders and picking bags were, how fair the break schedule felt, and how satisfied they were with the on-site housing, plus two open spots where they can write what we should fix first and what they'd keep for next year.",
+   "answers": [
+    "survey-question-format"
+   ],
+   "near": [
+    "survey-question-format"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
    "split": "test"
   },
   {
@@ -3485,7 +5701,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:test-naming-givenwhen:1",
@@ -3525,6 +5742,65 @@
     "unit"
    ],
    "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:test-naming-givenwhen:3",
+   "text": "I'm the volunteer treasurer for a small community garden co-op and I need a little Python function, plot_fee(plot_sqft, is_member, months), that works out the seasonal rental fee for a plot. Members pay $0.40 per square foot per month, non-members pay $0.65, and anyone renting 6 or more months gets 10% off the total; a plot of 0 sq ft or 0 months should cost $0. Please put it in a new file and add pytest checks, including a 100 sq ft member plot for 3 months ($120.00), a 100 sq ft non-member plot for 6 months ($351.00), and the zero cases.",
+   "answers": [
+    "test-naming-givenwhen"
+   ],
+   "near": [
+    "test-naming-givenwhen"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:test-naming-givenwhen:4",
+   "text": "demo in like 20 min, need quick Jest tests for this. It's in discount.js and exports with module.exports = { applyDiscount }, put the tests in discount.test.js. Cover the main cases: 200 with SAVE10 gives 180, 3 with FIVEOFF gives 0 (never below 0), and a bogus or empty code leaves the subtotal unchanged.\n\nfunction applyDiscount(subtotal, code) {\n  if (code === 'SAVE10') return subtotal * 0.9;\n  if (code === 'FIVEOFF') return Math.max(0, subtotal - 5);\n  return subtotal;\n}\n\nmodule.exports = { applyDiscount };",
+   "answers": [
+    "test-naming-givenwhen"
+   ],
+   "near": [
+    "test-naming-givenwhen"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "test"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:test-naming-givenwhen:5",
+   "text": "I run the cold-storage scheduling software for a dairy co-op and need a Python function `milk_pickup_window(tank_temp_c, hours_since_milking)` that returns the hours of pickup eligibility remaining, never negative. Per our handbook: at or below 4 °C, milk is eligible for up to 48 hours after milking; above 4 up to and including 7 °C, only 24 hours; above 7 °C is rejected right away and returns 0. Please write it in this folder along with pytest tests covering the boundaries: exactly 4 °C, exactly 7 °C, exactly 48 hours elapsed, and a tank reading of None raising ValueError.",
+   "answers": [
+    "test-naming-givenwhen"
+   ],
+   "near": [
+    "test-naming-givenwhen"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 1,
+   "overlapTerms": [
+    "test"
+   ],
+   "overlapAnyTarget": 2,
    "multi": false,
    "split": "test"
   },
@@ -3589,6 +5865,67 @@
    "split": "dev"
   },
   {
+   "id": "natural:timestamp-format:3",
+   "text": "I volunteer at a community food pantry and I need a small script that makes a file I can hand to the board each week, plus the file itself made from three sample drop-offs. Each row should have the donor name, the pounds, when the box was received, and the day it was sorted onto shelves. Here are the three: Hendricks Bakery dropped off 42.5 lbs, received Tuesday Oct 13 2026 at 9:40 AM Eastern, sorted the same day; St. Anne's Youth Group dropped off 118 lbs, received Oct 14 2026 at 4:15 PM Eastern, sorted Oct 15; and an anonymous donor left 20.25 lbs on Oct 15 2026 at 7:05 AM Eastern, sorted Oct 15.",
+   "answers": [
+    "timestamp-format"
+   ],
+   "near": [
+    "timestamp-format"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:timestamp-format:4",
+   "text": "Can you write me a quick Python script that makes a CSV of today's pickup orders for our front counter? Columns should be order id, customer first name, time the order was placed, pickup slot start time, and the date it was paid. I just need three made-up sample rows for now so I can eyeball it, like order 1041, Marco, placed about 9:12 am Chicago time on Oct 16, pickup slot 2:30 pm, paid the same day. I'll hook it up to the real order system later, and I need it by lunch.",
+   "answers": [
+    "timestamp-format"
+   ],
+   "near": [
+    "timestamp-format"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "time",
+    "date"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:timestamp-format:5",
+   "text": "I run a small beekeeping business and I want a Python script that turns my hive inspection notes into a CSV I can open in a spreadsheet. Each row is one inspection with: hive id, the time the inspection started (with date and Pacific Daylight Time), the date of the last treatment (blank if none), frame count, and a short note. Here's what I have from Oct 14, 2026: H01 at 7:40 am, queen laid in spring, 42 lb honey super, no treatment; H02 at 8:25 am, mites 3 per 100 bees, treated with oxalic acid on Oct 2; H03 at 9:10 am, queenless, combined with H01, no treatment. I don't have frame counts written down yet, so leave that column empty for now. Please write the script and also make a sample CSV with those three rows.",
+   "answers": [
+    "timestamp-format"
+   ],
+   "near": [
+    "timestamp-format"
+   ],
+   "shard": 5,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "time",
+    "date"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "dev"
+  },
+  {
    "id": "natural:ts-oops-errors:0",
    "text": "Can you create a new TypeScript file shipments.ts in this empty folder? I need a function that takes one raw CSV line like \"SH-20431,2026-11-03,12.5,Rotterdam\" and returns a shipment with id, delivery date, weight in kg, and destination city. The id must start with \"SH-\" followed by digits, the date must be a real calendar date and not in the past, the weight must be a number over 0 and at most 1000, and the city can't be empty. Wrong column count, bad id, unreadable date, non-numeric weight, and out-of-range weight should each be clearly distinguishable by whoever calls it. Then add a second function that takes an array of lines, processes them all, and reports which line numbers were bad and why.",
    "answers": [
@@ -3629,7 +5966,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:ts-oops-errors:2",
@@ -3648,6 +5986,72 @@
     "typescript"
    ],
    "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:ts-oops-errors:3",
+   "text": "I'm the treasurer for our community garden club and I need a small TypeScript function that parses one signup line like \"Dana Whitfield, plot 14, 2 seasons, 45.50\" into a record with member name, plot number (1 to 60), number of seasons (1 to 4), and payment amount in dollars. Bad lines can have the wrong number of fields, a plot that isn't a number or is outside 1-60, or a negative amount, and I want it to tell me clearly which kind of problem each one has so I can email the member. The folder is empty, so please set up what's needed and also add a tiny example I can run that goes through a handful of sample lines, good and bad.",
+   "answers": [
+    "ts-oops-errors"
+   ],
+   "near": [
+    "ts-oops-errors"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "typescript",
+    "function",
+    "pars"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:ts-oops-errors:4",
+   "text": "I've got a demo in an hour and need a small TypeScript file for a signup form on a booking site. It should take the raw strings from the form: a username (3-20 chars, only letters, digits or underscores), a party size like \"4\" (whole number from 1 to 12), and a date like \"2026-11-03\" (has to be a real calendar day, not in the past). For each field it should either give back a clean value the UI can use or an error message I can show. The folder is empty so please write the whole file from scratch, plus a short example of how my form handler would call it. Just make it work and keep it tidy.",
+   "answers": [
+    "ts-oops-errors"
+   ],
+   "near": [
+    "ts-oops-errors"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "typescript",
+    "error"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:ts-oops-errors:5",
+   "text": "I run a small dairy farm and keep my milk tank pickup records in a CSV with columns farm_id, tank_id, litres, temp_c, and pickup_time (ISO timestamp). Can you set up a TypeScript module in this empty folder with a function that takes one CSV line and turns it into a usable record, and rejects lines with the wrong number of columns, litres that aren't a positive number up to 12000, or a tank temperature above 6.0 C? Then add a second function that reads a whole batch of lines and gives me the first problem it finds along with its line number, so the tanker driver knows which pickup to recheck. Please include a few sample lines to try it on, like 'F104,T2,8450,3.8,2026-10-14T05:30:00Z' (good) and 'F104,T3,abc,4.1,2026-10-14T05:45:00Z' (bad litres).",
+   "answers": [
+    "ts-oops-errors"
+   ],
+   "near": [
+    "ts-oops-errors"
+   ],
+   "shard": 6,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "typescript",
+    "function"
+   ],
+   "overlapAnyTarget": 2,
    "multi": false,
    "split": "test"
   },
@@ -3693,7 +6097,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:type-scale-ladder:2",
@@ -3714,7 +6119,70 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:type-scale-ladder:3",
+   "text": "I'm making a small static website for our library friends group's annual book sale and the folder is empty, so I need a new stylesheet from scratch. Older visitors will be reading it, so I want the text easy to read: body copy, a page title, section titles like 'Donate Books' and 'Volunteer Shifts', a small caption for the date and place ('Saturday, Nov 8, Oak Street Hall'), and a bigger banner phrase 'Everything Must Go!'. Can you set up the CSS with sizes and spacing for each of those text types, plus the rules that apply them to the page elements?",
+   "answers": [
+    "type-scale-ladder"
+   ],
+   "near": [
+    "type-scale-ladder"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "css",
+    "size",
+    "type"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
    "split": "test"
+  },
+  {
+   "id": "natural:type-scale-ladder:4",
+   "text": "I'm launching a small bakery's marketing site tomorrow morning and I'm short on time, so can you quickly make me a stylesheet (styles.css) for the text in this empty folder? I need styles for body copy, a big page title, section titles, a smaller caption for product descriptions, and a tiny footer note. I don't have exact sizes in mind, just make it look balanced and easy to read, with the page title and section titles clearly stepping up in size and the caption and footer note stepping down.",
+   "answers": [
+    "type-scale-ladder"
+   ],
+   "near": [
+    "type-scale-ladder"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "css",
+    "size"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:type-scale-ladder:5",
+   "text": "I do IT for a small dairy co-op that sells raw-milk cheese, and I'm putting together a one-page public website where customers can look up the story of each cheese wheel: milking date, vat number, days aged in the cave, and the cheesemaker's tasting notes. The folder is empty, so could you make an index.html with some sample content (like a batch called 'Alpine Reserve 14-month', a couple of paragraphs of tasting notes, and a little humidity table with values like 92% RH and 11.5°C with a small note under it) plus the stylesheet? I want the page title to be the biggest text, the batch name next, the tasting notes as normal easy-to-read text, and the note under the humidity table smaller, with comfortable spacing between everything so I can open it and see how it looks.",
+   "answers": [
+    "type-scale-ladder"
+   ],
+   "near": [
+    "type-scale-ladder"
+   ],
+   "shard": 1,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "dev"
   },
   {
    "id": "natural:user-story-cards:0",
@@ -3735,7 +6203,8 @@
    ],
    "overlapAnyTarget": 4,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:user-story-cards:1",
@@ -3756,7 +6225,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:user-story-cards:2",
@@ -3777,6 +6247,63 @@
    "split": "test"
   },
   {
+   "id": "natural:user-story-cards:3",
+   "text": "I coordinate a volunteer food pantry that runs out of a church hall every Saturday, and I need to write up what we want built so our part-time developer knows where to start. We have about 40 regular volunteers and around 120 households a week. The three things we want are: volunteers can sign up for a Saturday shift from their phones and get a text reminder two days before; the intake desk can look up a household by name and see if they already came this month; and a weekly summary of pounds of food handed out for our grant report. Can you write these up as clear work descriptions and put them in order of what to build first?",
+   "answers": [
+    "user-story-cards"
+   ],
+   "near": [
+    "user-story-cards"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:user-story-cards:4",
+   "text": "I run a small online bakery and I've got a call with my freelance developer in 20 minutes, so I need this fast. Can you break this into small tasks the developer can pick up one by one: (1) customers choose a delivery day at checkout, and Saturday slots cap at 20 orders, (2) a text message reminder goes out the evening before delivery, (3) the owner can see a list of tomorrow's deliveries sorted by postcode so the driver can plan a route. Nothing is written down yet, so just give me a clear list of tasks I can read out on the call.",
+   "answers": [
+    "user-story-cards"
+   ],
+   "near": [
+    "user-story-cards"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:user-story-cards:5",
+   "text": "I coordinate a small dairy co-op's milking operation and we're building a tablet app for the barn crew. Can you write these up as user stories for our planning doc, small enough that each could be built in a sprint? The needs are: (1) herd managers need to see which cows were treated with antibiotics so their milk gets held out of the tank for the withdrawal period, usually 4 days; (2) night shift milkers need to flag a cow with mastitis symptoms by scanning her ear tag; (3) the vet wants a weekly summary of flagged cows emailed to her every Monday at 6am. Feel free to split any of these into smaller stories if they're too big.",
+   "answers": [
+    "user-story-cards"
+   ],
+   "near": [
+    "user-story-cards"
+   ],
+   "shard": 3,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 2,
+   "overlapTerms": [
+    "user",
+    "story"
+   ],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "dev"
+  },
+  {
    "id": "natural:weekly-status:0",
    "text": "I need to send my director the end-of-week note on the Android rewrite of our Trailhead app this afternoon, can you write it as update.md? Done this week: offline map download feature is finished, and we fixed the crash on launch for Pixel 8 devices (TH-412). Not done: push notifications for trail alerts are blocked because IT hasn't approved the Firebase project yet, I now expect them around 2026-10-30, and biometric login failed QA regression on Samsung devices, team thinks 2026-10-23 is realistic. Next week we start the photo upload screen and begin beta testing with 50 users. Overall things are shaky but not on fire, so keep the tone honest and calm.",
    "answers": [
@@ -3795,7 +6322,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:weekly-status:1",
@@ -3815,7 +6343,8 @@
    ],
    "overlapAnyTarget": 3,
    "multi": false,
-   "split": "test"
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:weekly-status:2",
@@ -3833,6 +6362,66 @@
    "overlapTerms": [
     "overall"
    ],
+   "overlapAnyTarget": 4,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:weekly-status:3",
+   "text": "Can you write this week's Friday note to our community garden board and save it as a file in this folder? We finished building and filling 6 of the 8 raised beds and got the rain barrel installed. The donated soil for the last two beds is stuck at the supplier, so those beds won't be done until 2026-10-31, and the irrigation timer install got pushed to 2026-11-07 because the plumber is out sick. Next week we're holding the fall seed-sorting day and painting the tool shed.",
+   "answers": [
+    "weekly-status"
+   ],
+   "near": [
+    "weekly-status"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:weekly-status:4",
+   "text": "I need a quick status note for my director in the next ten minutes, can you write it up and save it as a file (status-update.md is fine)? Here's what I have: receipt scanning and CSV export both shipped this Tuesday. Dark mode got pushed to Nov 6 because our designer was out sick. The push-notification rewrite is now Nov 20 because the Apple certificate renewal is stuck. Next up we're starting multi-currency support and fixing the crash on Android 12. Overall I want it to come across as things are mostly fine but a bit bumpy.",
+   "answers": [
+    "weekly-status"
+   ],
+   "near": [
+    "weekly-status"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "lexical",
+   "overlap": 3,
+   "overlapTerms": [
+    "statu",
+    "updat",
+    "overall"
+   ],
+   "overlapAnyTarget": 3,
+   "multi": false,
+   "split": "test",
+   "excluded": "tier quota: semantic must be the largest tier"
+  },
+  {
+   "id": "natural:weekly-status:5",
+   "text": "Can you write the end-of-week project note to the owners of our family tomato farm for the greenhouse retrofit and save it as a text file in this folder? This week we finished installing the drip-irrigation controllers in bays 1 through 4 and calibrated the humidity sensors in bay 2. The CO2 dosing valves are stuck waiting on a back-ordered part from the supplier, so that now looks like 2026-11-03, and the shade-curtain motor wiring got pushed to 2026-10-30 because the electrician was out sick. Next we plan to start commissioning bay 5 and run the first full irrigation schedule test. It's been a bumpy week but nothing is catastrophic, so keep the tone calm and honest.",
+   "answers": [
+    "weekly-status"
+   ],
+   "near": [
+    "weekly-status"
+   ],
+   "shard": 4,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
    "overlapAnyTarget": 4,
    "multi": false,
    "split": "test"
@@ -3856,7 +6445,8 @@
    ],
    "overlapAnyTarget": 2,
    "multi": false,
-   "split": "dev"
+   "split": "dev",
+   "excluded": "tier quota: semantic must be the largest tier"
   },
   {
    "id": "natural:yaml-config-layout:1",
@@ -3893,6 +6483,60 @@
     "yaml"
    ],
    "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:yaml-config-layout:3",
+   "text": "I volunteer at a community food pantry and our volunteer-tech group looks after the little inventory program that runs on a Raspberry Pi in the storage room. Can you write the settings file for it from scratch so I can commit it? The database should allow at most 5 connections with a 10 second connect timeout; low-stock alerts should email coordinator@eastsidepantry.example whenever any item drops below 12 units and recheck every 15 minutes; and the web dashboard should listen on port 8085 with sessions expiring after 2 hours.",
+   "answers": [
+    "yaml-config-layout"
+   ],
+   "near": [
+    "yaml-config-layout"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:yaml-config-layout:4",
+   "text": "I need a settings file for my new notification worker, and we deploy in an hour so I'd like it written from scratch in this empty folder. The web listener should be on port 9090 with a read timeout of 45 seconds and a write timeout of 10 seconds. The database part needs host db.internal, a max of 20 connections in the pool, and a connect timeout of 5 seconds. For retries, 3 attempts with a 2 second backoff between them.",
+   "answers": [
+    "yaml-config-layout"
+   ],
+   "near": [
+    "yaml-config-layout"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 1,
+   "multi": false,
+   "split": "test"
+  },
+  {
+   "id": "natural:yaml-config-layout:5",
+   "text": "Can you make me a new settings file for the program that runs our milking stalls? We have 24 stalls, and the holding pen can have at most 60 cows in it. Vacuum pressure should be 42 kPa, wait 5 seconds before the teat dip, check the sensors every 250 milliseconds, and if a stall has a fault, wait 2 minutes before trying again. Alerts should go by email to barn-ops@greenmeadow.example. Please group it into stall settings, pen settings, and alert settings, and put in a note that the file belongs to the milking-systems crew.",
+   "answers": [
+    "yaml-config-layout"
+   ],
+   "near": [
+    "yaml-config-layout"
+   ],
+   "shard": 2,
+   "kind": "natural",
+   "tier": "semantic",
+   "overlap": 0,
+   "overlapTerms": [],
+   "overlapAnyTarget": 2,
    "multi": false,
    "split": "test"
   },

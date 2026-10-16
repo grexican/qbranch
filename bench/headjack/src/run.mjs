@@ -58,7 +58,7 @@ async function recordListings({ adapter, model, libs, opts, log }) {
       const sb = makeSandbox(tpl.dir, { mode: 'copy' });
       try {
         tap.bodies.length = 0;
-        await adapter.run({ prompt: 'Reply with OK.', dir: sb.dir, model, authFromHome: opts.authFromHome, env: { ANTHROPIC_BASE_URL: tap.url }, extraArgs: ['--tools', ''], timeoutMs: 180_000, budgetUsd: 0.5 });
+        await adapter.run({ prompt: 'Reply with OK.', dir: sb.dir, model, authFromHome: opts.authFromHome, env: { ANTHROPIC_BASE_URL: tap.url }, extraArgs: ['--tools', 'Skill'], timeoutMs: 180_000, budgetUsd: 0.5 });
         const body = tap.bodies.filter(b => (b.messages || []).length).pop();
         const a = analyzeListing(parseListing(body ? requestText(body) : ''), L.lib.map(s => s.name), L.lib.filter(s => s.kind === 'target').map(s => s.name));
         out[L.key] = a;

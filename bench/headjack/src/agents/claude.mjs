@@ -64,13 +64,13 @@ const cleanEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k
  * Run one prompt. `dir` is the sandbox project (already set up by the arm), `settings` extra project settings (hooks),
  * `env` extra environment (PATH shims, HEADJACK_HOME). Returns what the scorer needs.
  */
-export async function run({ prompt, dir, model, settings = {}, env = {}, timeoutMs = 600_000, budgetUsd = 2, authFromHome = false, keepTranscript, extraArgs = [] }) {
+export async function run({ prompt, dir, model, settings = {}, env = {}, timeoutMs = 600_000, budgetUsd = 2, authFromHome = false, keepTranscript, extraArgs = [], noMdExcludes = false }) {
   const cfgDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'hjbench-cfg-')));
   const guard = path.join(cfgDir, 'guard.mjs');
   fs.writeFileSync(guard, guardSource());
   const hooks = { ...(settings.hooks || {}) };
   hooks.PreToolUse = [{ matcher: '*', hooks: [{ type: 'command', command: `node "${fwd(guard)}"` }] }, ...(hooks.PreToolUse || [])];
-  const projSettings = { ...settings, hooks, claudeMdExcludes: [...ancestorMemoryFiles(dir), '**/.claude/CLAUDE.md'] };
+  const projSettings = { ...settings, hooks, ...(noMdExcludes ? {} : { claudeMdExcludes: [...ancestorMemoryFiles(dir), '**/.claude/CLAUDE.md'] }) };
   fs.mkdirSync(path.join(dir, '.claude'), { recursive: true });
   fs.writeFileSync(path.join(dir, '.claude', 'settings.json'), JSON.stringify(projSettings, null, 2));
   const args = ['-p', '--output-format', 'stream-json', '--verbose', '--max-budget-usd', budgetUsd.toFixed(2),

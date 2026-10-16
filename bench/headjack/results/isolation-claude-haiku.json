@@ -1,0 +1,47 @@
+{
+ "agent": {
+  "agent": "claude",
+  "cli": "claude",
+  "version": "2.1.285 (Claude Code)"
+ },
+ "model": "haiku",
+ "date": "2026-10-16T11:24:20.763Z",
+ "arms": {
+  "none": {
+   "ran": true,
+   "captured": true,
+   "userClaudeMdLeaked": false,
+   "userSkillsListed": 0,
+   "unexpectedSkills": [],
+   "mcpTools": 0
+  },
+  "native": {
+   "ran": true,
+   "captured": true,
+   "userClaudeMdLeaked": false,
+   "userSkillsListed": 0,
+   "unexpectedSkills": [],
+   "mcpTools": 0
+  },
+  "headjack": {
+   "ran": true,
+   "captured": true,
+   "userClaudeMdLeaked": false,
+   "userSkillsListed": 0,
+   "unexpectedSkills": [],
+   "mcpTools": 0
+  },
+  "control-no-excludes": {
+   "ran": true,
+   "captured": true,
+   "userClaudeMdLeaked": true,
+   "userSkillsListed": 0,
+   "unexpectedSkills": [],
+   "mcpTools": 0
+  }
+ },
+ "probeLines": 12,
+ "newTranscriptDirsUnderHome": 0,
+ "controlShowsLeak": true,
+ "isolated": true
+}
