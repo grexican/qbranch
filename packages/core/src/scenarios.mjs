@@ -44,6 +44,7 @@ export function glob(g) {
  *   maxFiles    commits that change more non-test files than this are skipped (default 20)
  *   neighbours  how many unchanged test files beside the hidden ones form the pass-to-pass set (default 10)
  *   testTimeoutSec    per test command (default 600)
+ *   interface   false: do not tell the agent which new names the hidden tests import (default: tell it)
  * QBRANCH_SCENARIOS_CONFIG names another file (settings for a repo you may not write to).
  */
 export function scenarioConfig(root) {
@@ -279,10 +280,13 @@ process.stdin.on('end', () => {
 
 const TRAILER = /^(co-authored-by|signed-off-by|reviewed-by|claude-session|change-id|generated-by|on-behalf-of):/i;
 /** The task an agent gets: the commit message (trailers dropped) and the PR text. Never the diff or the tests. */
-export function scenarioPrompt(message, pr) {
+export function scenarioPrompt(message, pr, iface = []) {
   const msg = String(message).split('\n').filter(l => !TRAILER.test(l.trim())).join('\n').trim();
+  const byModule = {};
+  for (const i of iface) (byModule[i.module] ||= []).push(i.name);
   return ['Make the change described below in this repository.', '', msg,
     ...(pr ? ['', `Pull request #${pr.number}: ${pr.title}`, ...(pr.body?.trim() ? ['', pr.body.trim().slice(0, 4000)] : [])] : []),
+    ...(iface.length ? ['', 'The tests import these names, which do not exist yet:', ...Object.entries(byModule).map(([m, n]) => `- ${n.map(x => `\`${x}\``).join(', ')} from \`${m}\``)] : []),
     '', 'When you are done, the change is checked by tests you cannot see, and the existing tests must keep passing.'].join('\n');
 }
 
@@ -338,6 +342,35 @@ export function mineScenarios({ root, limit = 100, since, pr = true } = {}) {
   return { root, scanned, scenarios, rejected };
 }
 
+// ---------- interface: names the hidden tests need that the parent does not export ----------
+
+const EXTS = ['', '.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs', '/index.ts', '/index.tsx', '/index.js', '/index.mjs'];
+const exportsName = (src, n) => new RegExp(`export\\s+(declare\\s+)?(default\\s+)?(async\\s+)?(function\\*?|const|let|var|class|interface|type|enum|abstract\\s+class)\\s+${n}\\b`).test(src)
+  || new RegExp(`export\\s+(type\\s+)?\\{[^}]*\\b${n}\\b[^}]*\\}`).test(src) || /export\s+\*\s+from/.test(src); // a star re-export: assume it is there
+/**
+ * The interface the hidden tests expect: named imports from the repo's own relative modules that the parent does not
+ * export (SWE-bench Pro's "interface" hint). Without it, a scenario measures how well the agent guesses names, not how
+ * well it builds. Names only, never the implementation. read(p) reads the sandbox (the parent).
+ */
+export function missingInterface(read, tests, existsAtCommit) {
+  const out = [], seen = new Set();
+  for (const t of tests) {
+    const src = read(t) || '';
+    for (const m of src.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["'](\.{1,2}\/[^"']+)["']/g)) {
+      const base = path.posix.normalize(path.posix.join(path.posix.dirname(t), m[2])).replace(/\.(m|c)?js$/, '');
+      const at = EXTS.map(e => base + e).find(p => read(p) != null);
+      const module = at || EXTS.map(e => base + e).find(existsAtCommit) || base;
+      const code = at ? read(at) : '';
+      for (const raw of m[1].split(',')) {
+        const name = raw.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim();
+        if (!/^[A-Za-z_$][\w$]*$/.test(name) || seen.has(`${module}:${name}`) || (code && exportsName(code, name))) continue;
+        seen.add(`${module}:${name}`); out.push({ name, module });
+      }
+    }
+  }
+  return out;
+}
+
 // ---------- validate ----------
 
 const DEPS_ERROR = /Cannot find (module|package) ['"](?![./])|ERR_MODULE_NOT_FOUND|Failed to resolve (import|entry for package) ["'](?![./])|Failed to load url (?![./])/;
@@ -376,6 +409,8 @@ export async function validateScenario(s, { install = s.install || false, log = 
     applyFiles(sb.root, s.repo, s.sha, s.files.hidden);
     const tests = testPlan(read, s.files.tests, cfg);
     if (!tests.length) return done('rejected', 'no test runner found at the parent');
+    const iface = cfg.interface === false ? [] : missingInterface(read, s.files.tests, (p) => git(['-C', s.repo, 'cat-file', '-e', `${s.sha}:${p}`]).status === 0);
+    s = { ...s, interface: iface, prompt: scenarioPrompt(s.message, s.pr, iface) };
     log(`  parent: ${tests.map(g => g.cmd).join('; ')}`);
     const atParent = await runGroups(sb, tests, cfg);
     if (atParent.pass) return done('rejected', 'the parent already passes the hidden tests (cannot discriminate)', { validation: { parent: atParent } });

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { mineScenarios, validateScenario, runScenario, runnerFromScript, testCommand, glob, scenarioPrompt, depsGuard, saveScenario, loadScenarios, scenariosDir } from '../src/scenarios.mjs';
+import { mineScenarios, validateScenario, runScenario, runnerFromScript, testCommand, glob, scenarioPrompt, missingInterface, depsGuard, saveScenario, loadScenarios, scenariosDir } from '../src/scenarios.mjs';
 import { registerAgent, gradeRun, compareVariants } from '../src/replay.mjs';
 
 const tmp = (p) => fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), p)));
@@ -59,6 +59,10 @@ test('runner detection, globs, prompt and the deps guard', () => {
   const p = scenarioPrompt('Fix it\n\nBody.\n\nCo-Authored-By: A <a@b>', { number: 7, title: 'Fix it', body: 'Because.' });
   assert.match(p, /Fix it[\s\S]*Body\.[\s\S]*Pull request #7: Fix it[\s\S]*Because\./);
   assert.doesNotMatch(p, /Co-Authored-By/);
+  // the interface hint: new names the hidden tests import from the repo's own modules, never their code
+  const src = { 'src/t.test.ts': "import { a, b as c, type T } from './lib.js';\nimport { x } from './fresh.js';\nimport { y } from 'pkg';", 'src/lib.ts': 'export const a = 1;\nexport type T = 1;' };
+  assert.deepEqual(missingInterface((p) => src[p] ?? null, ['src/t.test.ts'], (p) => p === 'src/fresh.ts'), [{ name: 'b', module: 'src/lib.ts' }, { name: 'x', module: 'src/fresh.ts' }]);
+  assert.match(scenarioPrompt('Do it', null, [{ name: 'b', module: 'src/lib.ts' }]), /do not exist yet:\n- `b` from `src\/lib.ts`/);
   assert.match(depsGuard({ tool: 'Bash', input: { command: 'npm install left-pad' } }), /dependencies/);
   assert.match(depsGuard({ tool: 'Bash', input: { command: 'rm -rf node_modules' } }), /dependencies/);
   assert.match(depsGuard({ tool: 'Edit', input: { file_path: 'node_modules/x/index.js' } }), /dependencies/);

@@ -57,7 +57,9 @@ await compareVariants({ tasks: validScenarios, variants, budgetUsd, runner: runS
 
 - **Sandbox:** a fresh one-commit repository holding the parent's tree, exported through a temporary index. It shares no
   refs or objects with the live repository, so the agent cannot read the commit it is reproducing.
-- **Prompt:** the commit message (trailers dropped) plus the PR title and body when `gh` finds one. Never the diff.
+- **Prompt:** the commit message (trailers dropped) plus the PR title and body when `gh` finds one, and the names the
+  hidden tests import that the parent does not export yet (the interface, as in SWE-bench Pro; `interface: false` drops
+  it). Never the diff or any test code. Without the interface, a scenario mostly measures whether the agent guesses names.
 - **Hidden tests:** the test files (and test fixtures) the commit added or changed. They are written into the sandbox
   only after the agent finishes, over whatever the agent left there.
 - **Grading** (`suite` checks, all deterministic): `fail-to-pass` (hidden tests, hard), `pass-to-pass` (unchanged test

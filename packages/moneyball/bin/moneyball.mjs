@@ -29,7 +29,8 @@ const HELP = `moneyball: pay for the model each job needs, not the one you defau
                                                         replay recurring tasks under each variant; recommend safe trims
            [--scenarios]                                 ...replay validated history scenarios instead (build tasks graded by tests)
   moneyball scenarios mine [--limit N] [--since DATE] [--no-pr]     past commits with tests -> build tasks (no spend)
-  moneyball scenarios validate [--limit N] [--valid N] [--install]  keep those whose parent fails and commit passes the hidden tests
+  moneyball scenarios validate [--limit N] [--valid N] [--install] [--again]
+                                                        keep those whose parent fails and commit passes the hidden tests
   moneyball scenarios list [--all] [--json]                         cached scenarios (.qbranch/scenarios/, or --cache DIR)
   moneyball scenarios run --budget USD [--per-run USD] [--limit N] [--model M] [--timeout SEC] [--id ID]
                                                         baseline: rebuild each scenario with the unchanged setup
@@ -103,8 +104,9 @@ async function scenarios(cfg) {
     }
     case 'validate': {
       const want = opt('--valid') ? Number(opt('--valid')) : Infinity;
-      const todo = cached(flag('--install') ? ['candidate', 'needs-install'] : 'candidate').filter(s => !ids || ids.includes(s.id)).slice(0, Number(opt('--limit', 20)));
-      let valid = cached('valid').length;
+      // --again: re-validate the valid ones too (after a harness change)
+      const todo = cached(['candidate', ...(flag('--install') ? ['needs-install'] : []), ...(flag('--again') ? ['valid'] : [])]).filter(s => !ids || ids.includes(s.id)).slice(0, Number(opt('--limit', 20)));
+      let valid = flag('--again') ? 0 : cached('valid').length;
       for (const s of todo) {
         if (valid >= want) break;
         console.log(`${s.id} ${s.subject.slice(0, 70)}`);

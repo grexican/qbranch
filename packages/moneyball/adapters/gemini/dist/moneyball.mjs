@@ -2944,13 +2944,16 @@ process.stdin.on('end', () => {
 });
 `;
 var TRAILER = /^(co-authored-by|signed-off-by|reviewed-by|claude-session|change-id|generated-by|on-behalf-of):/i;
-function scenarioPrompt(message, pr) {
+function scenarioPrompt(message, pr, iface = []) {
   const msg = String(message).split("\n").filter((l) => !TRAILER.test(l.trim())).join("\n").trim();
+  const byModule = {};
+  for (const i of iface) (byModule[i.module] ||= []).push(i.name);
   return [
     "Make the change described below in this repository.",
     "",
     msg,
     ...pr ? ["", `Pull request #${pr.number}: ${pr.title}`, ...pr.body?.trim() ? ["", pr.body.trim().slice(0, 4e3)] : []] : [],
+    ...iface.length ? ["", "The tests import these names, which do not exist yet:", ...Object.entries(byModule).map(([m, n]) => `- ${n.map((x) => `\`${x}\``).join(", ")} from \`${m}\``)] : [],
     "",
     "When you are done, the change is checked by tests you cannot see, and the existing tests must keep passing."
   ].join("\n");
@@ -3039,6 +3042,27 @@ function mineScenarios({ root, limit = 100, since, pr = true } = {}) {
   }
   return { root, scanned, scenarios: scenarios2, rejected };
 }
+var EXTS = ["", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", "/index.ts", "/index.tsx", "/index.js", "/index.mjs"];
+var exportsName = (src, n) => new RegExp(`export\\s+(declare\\s+)?(default\\s+)?(async\\s+)?(function\\*?|const|let|var|class|interface|type|enum|abstract\\s+class)\\s+${n}\\b`).test(src) || new RegExp(`export\\s+(type\\s+)?\\{[^}]*\\b${n}\\b[^}]*\\}`).test(src) || /export\s+\*\s+from/.test(src);
+function missingInterface(read3, tests, existsAtCommit) {
+  const out = [], seen = /* @__PURE__ */ new Set();
+  for (const t of tests) {
+    const src = read3(t) || "";
+    for (const m of src.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["'](\.{1,2}\/[^"']+)["']/g)) {
+      const base = path11.posix.normalize(path11.posix.join(path11.posix.dirname(t), m[2])).replace(/\.(m|c)?js$/, "");
+      const at = EXTS.map((e) => base + e).find((p) => read3(p) != null);
+      const module = at || EXTS.map((e) => base + e).find(existsAtCommit) || base;
+      const code = at ? read3(at) : "";
+      for (const raw of m[1].split(",")) {
+        const name = raw.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0].trim();
+        if (!/^[A-Za-z_$][\w$]*$/.test(name) || seen.has(`${module}:${name}`) || code && exportsName(code, name)) continue;
+        seen.add(`${module}:${name}`);
+        out.push({ name, module });
+      }
+    }
+  }
+  return out;
+}
 var DEPS_ERROR = /Cannot find (module|package) ['"](?![./])|ERR_MODULE_NOT_FOUND|Failed to resolve (import|entry for package) ["'](?![./])|Failed to load url (?![./])/;
 function neighbours(work, s, cfg) {
   const out = [], hidden = new Set(s.files.hidden.map((h) => h.path));
@@ -3087,6 +3111,8 @@ async function validateScenario(s, { install = s.install || false, log = () => {
     applyFiles(sb.root, s.repo, s.sha, s.files.hidden);
     const tests = testPlan(read3, s.files.tests, cfg);
     if (!tests.length) return done("rejected", "no test runner found at the parent");
+    const iface = cfg.interface === false ? [] : missingInterface(read3, s.files.tests, (p) => git2(["-C", s.repo, "cat-file", "-e", `${s.sha}:${p}`]).status === 0);
+    s = { ...s, interface: iface, prompt: scenarioPrompt(s.message, s.pr, iface) };
     log(`  parent: ${tests.map((g) => g.cmd).join("; ")}`);
     const atParent = await runGroups(sb, tests, cfg);
     if (atParent.pass) return done("rejected", "the parent already passes the hidden tests (cannot discriminate)", { validation: { parent: atParent } });
@@ -3178,7 +3204,8 @@ var HELP = `moneyball: pay for the model each job needs, not the one you default
                                                         replay recurring tasks under each variant; recommend safe trims
            [--scenarios]                                 ...replay validated history scenarios instead (build tasks graded by tests)
   moneyball scenarios mine [--limit N] [--since DATE] [--no-pr]     past commits with tests -> build tasks (no spend)
-  moneyball scenarios validate [--limit N] [--valid N] [--install]  keep those whose parent fails and commit passes the hidden tests
+  moneyball scenarios validate [--limit N] [--valid N] [--install] [--again]
+                                                        keep those whose parent fails and commit passes the hidden tests
   moneyball scenarios list [--all] [--json]                         cached scenarios (.qbranch/scenarios/, or --cache DIR)
   moneyball scenarios run --budget USD [--per-run USD] [--limit N] [--model M] [--timeout SEC] [--id ID]
                                                         baseline: rebuild each scenario with the unchanged setup
@@ -3264,8 +3291,8 @@ async function scenarios(cfg) {
     }
     case "validate": {
       const want = opt("--valid") ? Number(opt("--valid")) : Infinity;
-      const todo = cached(flag("--install") ? ["candidate", "needs-install"] : "candidate").filter((s) => !ids || ids.includes(s.id)).slice(0, Number(opt("--limit", 20)));
-      let valid = cached("valid").length;
+      const todo = cached(["candidate", ...flag("--install") ? ["needs-install"] : [], ...flag("--again") ? ["valid"] : []]).filter((s) => !ids || ids.includes(s.id)).slice(0, Number(opt("--limit", 20)));
+      let valid = flag("--again") ? 0 : cached("valid").length;
       for (const s of todo) {
         if (valid >= want) break;
         console.log(`${s.id} ${s.subject.slice(0, 70)}`);
