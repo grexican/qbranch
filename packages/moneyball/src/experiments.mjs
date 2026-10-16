@@ -129,6 +129,8 @@ export function writeVariants(cfg, variants) {
   for (const v of variants) {
     const vd = path.join(dir, v.id);
     fs.mkdirSync(vd, { recursive: true });
+    const gi = path.join(cfg.dataDir, '.gitignore'); // tool state never shows up in the user's repo
+    if (!fs.existsSync(gi)) fs.writeFileSync(gi, '*\n');
     fs.writeFileSync(path.join(vd, 'manifest.json'), JSON.stringify({ ...v, created: new Date().toISOString(), root: cfg.root }, null, 2) + '\n');
     fs.writeFileSync(path.join(vd, 'patch.diff'), patchFor(cfg.root, v));
   }

@@ -1878,6 +1878,8 @@ function writeVariants(cfg, variants) {
   for (const v of variants) {
     const vd = path9.join(dir, v.id);
     fs7.mkdirSync(vd, { recursive: true });
+    const gi = path9.join(cfg.dataDir, ".gitignore");
+    if (!fs7.existsSync(gi)) fs7.writeFileSync(gi, "*\n");
     fs7.writeFileSync(path9.join(vd, "manifest.json"), JSON.stringify({ ...v, created: (/* @__PURE__ */ new Date()).toISOString(), root: cfg.root }, null, 2) + "\n");
     fs7.writeFileSync(path9.join(vd, "patch.diff"), patchFor(cfg.root, v));
   }
