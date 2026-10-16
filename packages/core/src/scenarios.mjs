@@ -356,6 +356,21 @@ export function mineScenarios({ root, limit = 100, since, pr = true } = {}) {
 
 // ---------- interface: names the hidden tests need that the parent does not export ----------
 
+/** Path aliases from the root tsconfig.json (`"@/*": ["./src/*"]`) as [{ prefix: '@/', target: 'src/' }]. */
+export function tsAliases(read) {
+  const raw = read('tsconfig.json');
+  if (!raw) return [];
+  // tsconfig allows comments and trailing commas; strip both (a // inside a string such as a URL is left alone)
+  const t = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[\s,{[])\/\/[^\n]*/g, '$1').replace(/,(\s*[}\]])/g, '$1');
+  const paths = json(t)?.compilerOptions?.paths || {};
+  const base = String(json(t)?.compilerOptions?.baseUrl || '.');
+  return Object.entries(paths).filter(([k, v]) => k.endsWith('/*') && String(v?.[0] || '').endsWith('/*'))
+    .map(([k, v]) => {
+      const dir = path.posix.normalize(path.posix.join(base, v[0].slice(0, -1))).replace(/\/$/, '');
+      return { prefix: k.slice(0, -1), target: dir === '.' ? '' : dir + '/' };
+    });
+}
+
 const EXTS = ['', '.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs', '/index.ts', '/index.tsx', '/index.js', '/index.mjs'];
 const exportsName = (src, n) => new RegExp(`export\\s+(declare\\s+)?(default\\s+)?(async\\s+)?(function\\*?|const|let|var|class|interface|type|enum|abstract\\s+class)\\s+${n}\\b`).test(src)
   || new RegExp(`export\\s+(type\\s+)?\\{[^}]*\\b${n}\\b[^}]*\\}`).test(src) || /export\s+\*\s+from/.test(src); // a star re-export: assume it is there
@@ -364,12 +379,19 @@ const exportsName = (src, n) => new RegExp(`export\\s+(declare\\s+)?(default\\s+
  * export (SWE-bench Pro's "interface" hint). Without it, a scenario measures how well the agent guesses names, not how
  * well it builds. Names only, never the implementation. read(p) reads the sandbox (the parent).
  */
-export function missingInterface(read, tests, existsAtCommit) {
+export function missingInterface(read, tests, existsAtCommit, aliases = tsAliases(read)) {
   const out = [], seen = new Set();
+  const resolve = (t, spec) => {
+    if (spec.startsWith('.')) return path.posix.normalize(path.posix.join(path.posix.dirname(t), spec));
+    const a = aliases.find(x => spec.startsWith(x.prefix));
+    return a ? path.posix.normalize(a.target + spec.slice(a.prefix.length)) : null; // a package: not ours to describe
+  };
   for (const t of tests) {
     const src = read(t) || '';
-    for (const m of src.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["'](\.{1,2}\/[^"']+)["']/g)) {
-      const base = path.posix.normalize(path.posix.join(path.posix.dirname(t), m[2])).replace(/\.(m|c)?js$/, '');
+    for (const m of src.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g)) {
+      const at0 = resolve(t, m[2]);
+      if (!at0) continue;
+      const base = at0.replace(/\.(m|c)?js$/, '');
       const at = EXTS.map(e => base + e).find(p => read(p) != null);
       const module = at || EXTS.map(e => base + e).find(existsAtCommit) || base;
       const code = at ? read(at) : '';

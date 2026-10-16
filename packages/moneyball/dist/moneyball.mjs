@@ -3053,14 +3053,32 @@ function mineScenarios({ root, limit = 100, since, pr = true } = {}) {
   }
   return { root, scanned, scenarios: scenarios2, rejected };
 }
+function tsAliases(read3) {
+  const raw = read3("tsconfig.json");
+  if (!raw) return [];
+  const t = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[\s,{[])\/\/[^\n]*/g, "$1").replace(/,(\s*[}\]])/g, "$1");
+  const paths = json(t)?.compilerOptions?.paths || {};
+  const base = String(json(t)?.compilerOptions?.baseUrl || ".");
+  return Object.entries(paths).filter(([k, v]) => k.endsWith("/*") && String(v?.[0] || "").endsWith("/*")).map(([k, v]) => {
+    const dir = path11.posix.normalize(path11.posix.join(base, v[0].slice(0, -1))).replace(/\/$/, "");
+    return { prefix: k.slice(0, -1), target: dir === "." ? "" : dir + "/" };
+  });
+}
 var EXTS = ["", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", "/index.ts", "/index.tsx", "/index.js", "/index.mjs"];
 var exportsName = (src, n) => new RegExp(`export\\s+(declare\\s+)?(default\\s+)?(async\\s+)?(function\\*?|const|let|var|class|interface|type|enum|abstract\\s+class)\\s+${n}\\b`).test(src) || new RegExp(`export\\s+(type\\s+)?\\{[^}]*\\b${n}\\b[^}]*\\}`).test(src) || /export\s+\*\s+from/.test(src);
-function missingInterface(read3, tests, existsAtCommit) {
+function missingInterface(read3, tests, existsAtCommit, aliases = tsAliases(read3)) {
   const out = [], seen = /* @__PURE__ */ new Set();
+  const resolve = (t, spec) => {
+    if (spec.startsWith(".")) return path11.posix.normalize(path11.posix.join(path11.posix.dirname(t), spec));
+    const a = aliases.find((x) => spec.startsWith(x.prefix));
+    return a ? path11.posix.normalize(a.target + spec.slice(a.prefix.length)) : null;
+  };
   for (const t of tests) {
     const src = read3(t) || "";
-    for (const m of src.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["'](\.{1,2}\/[^"']+)["']/g)) {
-      const base = path11.posix.normalize(path11.posix.join(path11.posix.dirname(t), m[2])).replace(/\.(m|c)?js$/, "");
+    for (const m of src.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g)) {
+      const at0 = resolve(t, m[2]);
+      if (!at0) continue;
+      const base = at0.replace(/\.(m|c)?js$/, "");
       const at = EXTS.map((e) => base + e).find((p) => read3(p) != null);
       const module = at || EXTS.map((e) => base + e).find(existsAtCommit) || base;
       const code = at ? read3(at) : "";
