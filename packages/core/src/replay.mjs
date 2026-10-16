@@ -297,6 +297,8 @@ export function exec(bin, args, { cwd, env, input = '', timeoutMs = 300_000 } = 
     child.stderr.on('data', (d) => { stderr += d; });
     child.on('error', (e) => { clearTimeout(timer); resolve({ exitCode: -1, stdout, stderr: stderr + e.message, killed }); });
     child.on('close', (code) => { clearTimeout(timer); resolve({ exitCode: code ?? -1, stdout, stderr, killed }); });
+    // a process the agent started and orphaned (a dev server) keeps our pipes open, so 'close' may never come
+    child.on('exit', (code) => { setTimeout(() => { clearTimeout(timer); resolve({ exitCode: code ?? -1, stdout, stderr, killed }); }, 5000).unref(); });
     child.stdin.on('error', () => {});
     child.stdin.end(input);
   });

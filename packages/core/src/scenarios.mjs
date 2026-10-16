@@ -131,6 +131,7 @@ function sh(cmd, { cwd, env, timeoutMs }) {
     const done = (code) => { clearTimeout(timer); resolve({ pass: code === 0 && !killed, exitCode: code, killed, ms: Date.now() - t0, tail: out.replace(/\x1b\[[0-9;]*m/g, '').slice(-2000) }); };
     child.on('error', (e) => { add(e.message); done(-1); });
     child.on('close', (c) => done(c ?? -1));
+    child.on('exit', (c) => setTimeout(() => done(c ?? -1), 5000).unref()); // an orphan holding the pipes must not hang us
     child.stdin.on('error', () => {}); child.stdin.end();
   });
 }

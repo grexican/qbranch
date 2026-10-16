@@ -1663,6 +1663,12 @@ function exec(bin, args, { cwd, env, input = "", timeoutMs = 3e5 } = {}) {
       clearTimeout(timer);
       resolve({ exitCode: code ?? -1, stdout, stderr, killed });
     });
+    child.on("exit", (code) => {
+      setTimeout(() => {
+        clearTimeout(timer);
+        resolve({ exitCode: code ?? -1, stdout, stderr, killed });
+      }, 5e3).unref();
+    });
     child.stdin.on("error", () => {
     });
     child.stdin.end(input);
@@ -1961,6 +1967,7 @@ function sh(cmd2, { cwd, env, timeoutMs }) {
       done(-1);
     });
     child.on("close", (c) => done(c ?? -1));
+    child.on("exit", (c) => setTimeout(() => done(c ?? -1), 5e3).unref());
     child.stdin.on("error", () => {
     });
     child.stdin.end();
