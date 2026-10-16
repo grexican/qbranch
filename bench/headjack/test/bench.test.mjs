@@ -89,7 +89,10 @@ test('loadedSkills sees Skill calls, headjack get and SKILL.md reads, only for l
     { t: 'tool', name: 'Bash', input: { command: 'headjack find adr && headjack get library/adr-revisit' } },
     { t: 'tool', name: 'Read', input: { file_path: 'C:\\x\\.claude\\skills\\runbook-steps\\SKILL.md' } },
     { t: 'tool', name: 'Skill', input: { skill: 'dataviz' } },
+    { t: 'tool', name: 'Skill', input: { skill: 'adr-revisit' }, id: 'x1' },
+    { t: 'result', id: 'x1', isError: true, text: 'Unknown skill: adr-revisit' },
   ];
+  assert.deepEqual(loadedSkills(ev.slice(-2), lib), [], 'a failed Skill call loads nothing');
   assert.deepEqual(loadedSkills(ev, lib).sort(), ['adr-revisit', 'runbook-steps', 'sql-house-style']);
   const s = scoreRun({ prompt: { answers: [] }, events: ev, outputText: '', library: lib, canaries: cans });
   assert.equal(s.falseLoad, true); assert.equal(s.useHit, null);

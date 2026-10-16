@@ -21,9 +21,12 @@ const ROOT = new Set(['find-skill', 'load-skill']);
  */
 export function loadedSkills(events, library) {
   const out = new Set();
+  // a call only loads a skill when it succeeded: a Skill call for a skill that is not installed, or `headjack get`
+  // for an id that does not exist, returns an error and loads nothing
+  const failed = new Set((events || []).filter(e => e.t === 'result' && (e.isError || /Unknown skill|No skill \\?"|tool_use_error/i.test(String(e.text || '').slice(0, 300)))).map(e => e.id));
   const add = (n) => { n = String(n || '').trim().replace(/^["'`]|["'`]$/g, ''); n = n.split(/[/:]/).pop(); if (library.has(n) && !ROOT.has(n)) out.add(n); };
   for (const e of events || []) {
-    if (e.t !== 'tool') continue;
+    if (e.t !== 'tool' || (e.id && failed.has(e.id))) continue;
     const inp = e.input || {};
     if (e.name === 'Skill') add(inp.skill ?? inp.name ?? inp.command);
     if (/^(Bash|PowerShell|Shell)$/.test(e.name)) for (const m of String(inp.command || '').matchAll(/headjack(?:\.mjs)?["']?\s+get\s+(?:--acquire\s+)?(?:--\S+\s+)*([^\s;&|"'`]+)/g)) add(m[1]);

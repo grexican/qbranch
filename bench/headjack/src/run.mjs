@@ -130,11 +130,13 @@ export async function main() {
         const sb = makeSandbox(tpl.dir, { mode: 'copy' });
         let rec;
         try {
-          const r = await adapter.run({ prompt: u.p.text, dir: sb.dir, model, settings: tpl.settings(), env: tpl.env(), timeoutMs: opts.timeoutMs, budgetUsd: opts.budgetUsd, authFromHome: opts.authFromHome });
+          const keepTranscript = path.join(RESULTS, 'raw', 'transcripts', base, `${u.key.replace(/[|]/g, '__').replace(/[^A-Za-z0-9_.-]/g, '-')}.jsonl`);
+          const r = await adapter.run({ prompt: u.p.text, dir: sb.dir, model, settings: tpl.settings(), env: tpl.env(), timeoutMs: opts.timeoutMs, budgetUsd: opts.budgetUsd, authFromHome: opts.authFromHome, keepTranscript });
           const out = collectOutput(r, sb.dir);
+          try { fs.mkdirSync(path.dirname(keepTranscript), { recursive: true }); fs.writeFileSync(keepTranscript.replace(/.jsonl$/, '.out.txt'), out.text); } catch { /* best effort */ }
           let suggested = [];
           try { suggested = Object.entries(JSON.parse(fs.readFileSync(path.join(sb.dir, '.headjack-stats.json'), 'utf8')).skills || {}).filter(([, v]) => v.suggested).map(([k]) => k.split('/').pop()); } catch { /* not headjack */ }
-          const library = L ? L.names : new Set(Object.keys(cans));
+          const library = L ? L.names : new Set(); // the none arm has no skills: nothing it does can load one
           const s = scoreRun({ prompt: u.p, events: r.events, outputText: out.text, library, canaries: cans });
           const lst = L && listings[L.key];
           rec = { key: u.key, model, arm: u.arm, size: u.size, shard: u.p.shard, prompt: u.p.id, tier: u.p.tier, multi: u.p.multi, rep: u.rep,
