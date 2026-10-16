@@ -10,6 +10,7 @@ import { preToolUse, sessionStart, writeRoutes } from '../src/route.mjs';
 import { upsert, summarize } from '../src/stats.mjs';
 import { measureOverhead, staticContributors, attribute } from '../src/overhead.mjs';
 import { deriveVariants, writeVariants, condense, tune } from '../src/experiments.mjs';
+import { mineScenarios, validateScenario, runScenario, saveScenario, loadScenarios, scenariosDir } from '@qbranch/core/scenarios';
 
 const [cmd, ...rest] = process.argv.slice(2);
 const flag = (n) => rest.includes(n);
@@ -26,6 +27,13 @@ const HELP = `moneyball: pay for the model each job needs, not the one you defau
   moneyball experiments [--condense --budget USD]        derive startup-context variants into .moneyball/experiments/
   moneyball tune --budget USD [--limit N] [--repeats N] [--only a,b] [--concurrency N] [--per-run USD] [--timeout SEC] [--judge MODEL | --no-judge]
                                                         replay recurring tasks under each variant; recommend safe trims
+           [--scenarios]                                 ...replay validated history scenarios instead (build tasks graded by tests)
+  moneyball scenarios mine [--limit N] [--since DATE] [--no-pr]     past commits with tests -> build tasks (no spend)
+  moneyball scenarios validate [--limit N] [--valid N] [--install] [--again]
+                                                        keep those whose parent fails and commit passes the hidden tests
+  moneyball scenarios list [--all] [--json]                         cached scenarios (.qbranch/scenarios/, or --cache DIR)
+  moneyball scenarios run --budget USD [--per-run USD] [--limit N] [--model M] [--timeout SEC] [--id ID]
+                                                        baseline: rebuild each scenario with the unchanged setup
   moneyball hook pre|session [--platform P]              PreToolUse (subagent dispatch) / SessionStart hooks
 
 Modes (moneyball.config.json "mode" or MONEYBALL_MODE): report | suggest (default) | enforce | explore`;
@@ -69,6 +77,69 @@ async function doScan(cfg) {
   };
   upsert(cfg, (s) => { s.totals.scans++; s.last_scan = last; });
   return { ...r, ...last };
+}
+
+const cacheDir = (cfg) => (opt('--cache') ? path.resolve(opt('--cache')) : process.env.QBRANCH_SCENARIOS_DIR || scenariosDir(cfg.root));
+const secs = (ms) => `${Math.round((ms || 0) / 1000)}s`;
+
+/** History scenarios: past commits as build tasks graded by their own tests (@qbranch/core/scenarios). */
+async function scenarios(cfg) {
+  const [sub] = rest, dir = cacheDir(cfg);
+  fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(path.join(dir, '.gitignore'))) fs.writeFileSync(path.join(dir, '.gitignore'), '*\n'); // tool state stays out of the repo
+  const cached = (status) => loadScenarios(cfg.root, { dir, status });
+  const ids = opt('--id') ? opt('--id').split(',') : null;
+  switch (sub) {
+    case 'mine': {
+      const m = mineScenarios({ root: cfg.root, limit: Number(opt('--limit', 100)), since: opt('--since'), pr: !flag('--no-pr') });
+      const known = new Map(cached().map(s => [s.id, s]));
+      let added = 0;
+      for (const s of m.scenarios) if (!known.has(s.id)) { saveScenario(s, dir); added++; }
+      const why = {};
+      for (const r of m.rejected) { const k = r.reason.replace(/\s*\(.*\)$/, ''); why[k] = (why[k] || 0) + 1; }
+      fs.writeFileSync(path.join(dir, 'last-mine.json'), JSON.stringify({ at: new Date().toISOString(), scanned: m.scanned, candidates: m.scenarios.length, rejected: m.rejected }, null, 2) + '\n');
+      console.log(`scanned ${m.scanned} commits: ${m.scenarios.length} candidates (${added} new), ${m.rejected.length} skipped`);
+      for (const [k, n] of Object.entries(why).sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${k}`);
+      return console.log(`cache: ${dir}. Next: moneyball scenarios validate`);
+    }
+    case 'validate': {
+      const want = opt('--valid') ? Number(opt('--valid')) : Infinity;
+      // --again: re-validate the valid ones too (after a harness change)
+      const todo = cached(['candidate', ...(flag('--install') ? ['needs-install'] : []), ...(flag('--again') ? ['valid'] : [])]).filter(s => !ids || ids.includes(s.id)).slice(0, Number(opt('--limit', 20)));
+      let valid = flag('--again') ? 0 : cached('valid').length;
+      for (const s of todo) {
+        if (valid >= want) break;
+        console.log(`${s.id} ${s.subject.slice(0, 70)}`);
+        const v = await validateScenario(s, { install: flag('--install') || s.install, log: (m) => console.log(m) });
+        saveScenario(v, dir);
+        if (v.status === 'valid') valid++;
+        console.log(`  -> ${v.status}${v.reason ? `: ${v.reason}` : ''} (${secs(v.validationMs)})`);
+      }
+      const all = cached();
+      const n = (st) => all.filter(s => s.status === st).length;
+      return console.log(`${n('valid')} valid, ${n('rejected')} rejected, ${n('needs-install')} need a fresh install (--install), ${n('candidate')} not yet validated`);
+    }
+    case 'list': {
+      const all = cached(flag('--all') ? null : 'valid');
+      if (flag('--json')) return console.log(JSON.stringify(all, null, 2));
+      for (const s of all) console.log(`${s.status.padEnd(13)} ${s.id}  ${s.at.slice(0, 10)}  ${s.subject.slice(0, 70)}${s.reason ? `  -- ${s.reason}` : ''}`);
+      return console.log(`${all.length} scenario(s) in ${dir}`);
+    }
+    case 'run': {
+      const budgetUsd = budgetOpt();
+      const tasks = cached('valid').filter(s => !ids || ids.includes(s.id)).slice(0, Number(opt('--limit', 5)));
+      if (!tasks.length) throw new Error('no validated scenarios: run `moneyball scenarios mine` and `validate` first');
+      const replay = await import('@qbranch/core/replay');
+      const r = await replay.compareVariants({ tasks, variants: { baseline: async () => {} }, budgetUsd, perRunUsd: opt('--per-run') ? Number(opt('--per-run')) : undefined,
+        model: opt('--model'), timeoutMs: Number(opt('--timeout', 1200)) * 1000, runner: runScenario,
+        onRun: ({ task, run, grade, inconclusive }) => console.log(`${(inconclusive ? 'cut off' : grade.pass ? 'pass' : 'fail').padEnd(8)} ${task.id}  ${money(run.costUsd || 0)} ${secs(run.durationMs)}  `
+          + `${Object.entries(run.suites || {}).map(([k, v]) => `${k} ${v.pass ? 'ok' : 'FAIL'}`).join(', ')}${inconclusive ? `  (${run.error || 'timeout'})` : ''}  ${task.subject.slice(0, 50)}`) });
+      const b = r.perVariant.baseline;
+      fs.writeFileSync(path.join(dir, 'last-run.json'), JSON.stringify({ at: new Date().toISOString(), model: opt('--model') || null, ...r }, null, 2) + '\n');
+      return console.log(`baseline: ${b.runs} scored, pass ${b.runs ? Math.round(b.passRate * 100) + '%' : 'n/a'}, mean score ${b.meanScore?.toFixed(2) ?? 'n/a'}, ${money(r.spentUsd)} spent; ${r.inconclusive.length} cut off, ${r.skipped.length} skipped (budget)`);
+    }
+    default: console.log(HELP);
+  }
 }
 
 async function main() {
@@ -120,9 +191,11 @@ async function main() {
       for (const v of vs) console.log(`${v.id.padEnd(32)} ${(v.estTokensSaved == null ? 'probe' : `~${num(v.estTokensSaved)}`).padStart(8)}  ${v.description}`);
       return console.log(`${vs.length} variants in ${dir} (manifest.json + patch.diff each; live files untouched). Test them: moneyball tune --budget <usd>`);
     }
+    case 'scenarios': return scenarios(cfg);
     case 'tune': {
       const budget = budgetOpt();
-      const r = await tune(cfg, { budget, replay: await loadReplay(), days: Number(opt('--days', cfg.days)), limit: Number(opt('--limit', 20)), repeats: Number(opt('--repeats', 1)),
+      const given = flag('--scenarios') ? { tasks: loadScenarios(cfg.root, { dir: cacheDir(cfg), status: 'valid' }), runner: runScenario } : {};
+      const r = await tune(cfg, { budget, replay: await loadReplay(), ...given, days: Number(opt('--days', cfg.days)), limit: Number(opt('--limit', 20)), repeats: Number(opt('--repeats', 1)),
         only: opt('--only') ? opt('--only').split(',') : null, concurrency: Number(opt('--concurrency', 1)), perRunUsd: opt('--per-run') ? Number(opt('--per-run')) : undefined,
         timeoutMs: opt('--timeout') ? Number(opt('--timeout')) * 1000 : undefined, judgeModel: flag('--no-judge') ? null : opt('--judge', 'sonnet') });
       upsert(cfg, (s) => { s.last_experiment = { at: r.at, tasks: r.tasks, variants: r.variants.length, recommended: r.variants.filter(v => v.recommend).map(v => v.id), spent: r.spent }; });

@@ -281,7 +281,7 @@ function which(bin) {
   for (const d of (process.env.PATH || '').split(path.delimiter)) for (const e of exts) { const f = path.join(d, bin + e.toLowerCase()); if (fs.existsSync(f)) return f; const g = path.join(d, bin + e); if (fs.existsSync(g)) return g; }
   return bin;
 }
-function killTree(child) {
+export function killTree(child) {
   if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
   else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
 }
@@ -297,6 +297,8 @@ export function exec(bin, args, { cwd, env, input = '', timeoutMs = 300_000 } = 
     child.stderr.on('data', (d) => { stderr += d; });
     child.on('error', (e) => { clearTimeout(timer); resolve({ exitCode: -1, stdout, stderr: stderr + e.message, killed }); });
     child.on('close', (code) => { clearTimeout(timer); resolve({ exitCode: code ?? -1, stdout, stderr, killed }); });
+    // a process the agent started and orphaned (a dev server) keeps our pipes open, so 'close' may never come
+    child.on('exit', (code) => { setTimeout(() => { clearTimeout(timer); resolve({ exitCode: code ?? -1, stdout, stderr, killed }); }, 5000).unref(); });
     child.stdin.on('error', () => {});
     child.stdin.end(input);
   });
@@ -359,13 +361,17 @@ const swapRoot = (text, from, to) => {
   return out;
 };
 
-/** Run one task in a sandbox (never the live tree) and collect what happened. The sandbox is deleted afterwards. */
-export async function runTask(task, { agent = 'claude', model, setup, budgetUsd, timeoutMs = 300_000, sandbox = 'auto', keep = false, allowUnsafe = false, artifactsDir = path.join(os.tmpdir(), 'qbranch-replay-runs') } = {}) {
+/**
+ * Run one task in a sandbox (never the live tree) and collect what happened. The sandbox is deleted afterwards.
+ * `sandbox` is a mode for makeSandbox, or a function (task) -> sandbox with the same shape (scenarios use a snapshot
+ * of a past commit). `after(sandbox, run)` runs once the agent is done, before cleanup; what it returns joins the run.
+ */
+export async function runTask(task, { agent = 'claude', model, setup, budgetUsd, timeoutMs = 300_000, sandbox = 'auto', after, keep = false, allowUnsafe = false, artifactsDir = path.join(os.tmpdir(), 'qbranch-replay-runs') } = {}) {
   if (!(budgetUsd > 0)) throw new Error('runTask needs an explicit budgetUsd (spending is opt-in)');
   if (!task.readOnly && !allowUnsafe) throw new Error(`task ${task.id} is not read-only (${(task.unsafe || []).join('; ')}): refusing to replay it`);
   const adapter = AGENTS[agent];
   if (!adapter) throw new Error(`unknown agent '${agent}' (registered: ${Object.keys(AGENTS).join(', ')})`);
-  const sb = makeSandbox(task.cwd, { mode: sandbox });
+  const sb = typeof sandbox === 'function' ? await sandbox(task) : makeSandbox(task.cwd, { mode: sandbox });
   const t0 = Date.now();
   try {
     const variant = (setup && await setup(sb.dir, { task, sandbox: sb })) || {};
@@ -377,12 +383,13 @@ export async function runTask(task, { agent = 'claude', model, setup, budgetUsd,
       if (f && within(path.resolve(sb.dir, f), sb.dir)) changed.add(path.relative(sb.dir, path.resolve(sb.dir, f)).split(path.sep).join('/'));
     }
     const usage = r.events?.find(e => e.t === 'usage')?.usage;
-    return {
+    const run = {
       ok: r.exitCode === 0 && !r.killed && !r.isError, costUsd: r.costUsd || 0, usage: r.usage, durationMs: Date.now() - t0,
       transcriptPath: r.transcriptPath, finalText: r.finalText || '', exitCode: r.exitCode, sandboxDir: sb.dir,
       events: r.events || [], changedFiles: [...changed], killed: !!r.killed, error: r.error || '',
       startupTokens: usage ? (usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0) : null,
     };
+    return after ? { ...run, ...(await after(sb, run)) } : run;
   } finally { if (!keep) sb.cleanup(); }
 }
 
@@ -410,6 +417,8 @@ const CHECKS = {
     return [bad.length === 0, `ran and failed: ${bad[0]?.cmd.slice(0, 120)}`];
   },
   mentions: (t, run, c) => [String(run.finalText).toLowerCase().includes(String(c.text).toLowerCase()), `final answer does not mention ${c.text}`],
+  // a command the harness ran in the sandbox after the agent finished (scenarios: hidden tests, lint, typecheck)
+  suite: (t, run, c) => { const s = run.suites?.[c.name]; return [s?.pass === true, s ? `${c.name} failed: ${String(s.tail || '').slice(-200)}` : `${c.name} was not run`]; },
 };
 
 /**

@@ -9,6 +9,7 @@ import { loadConfig } from '../src/config.mjs';
 import { mine } from '../src/mine.mjs';
 import { accept, fromRecovery, loadLessons, preToolUse, recurrences, sessionStart, updateLesson } from '../src/lessons.mjs';
 import { verifyLesson, acceptable } from '../src/verify.mjs';
+import { loadScenarios, scenariosDir } from '@qbranch/core/scenarios';
 import { draftRunbook } from '../src/draft.mjs';
 import { upsert, summarize } from '../src/stats.mjs';
 
@@ -25,6 +26,7 @@ const HELP = `groundhog: stop re-living the same session.
                                                held-out sample; add it only if it helps (or never hurts) and breaks nothing
   groundhog verify [L<n>] --budget USD         re-check accepted lessons; a lesson that breaks another task is flagged
       verify options: [--model M] [--tasks N] [--held-out N] [--repeats N] [--days N] [--timeout SEC]
+                      [--scenarios [--cache DIR]]  held-out set = validated history scenarios (moneyball scenarios)
   groundhog add --when <regex> --instead <text> [--remind]   add a lesson by hand
   groundhog lessons                            list the ledger
   groundhog draft S<n>|R<n> [--name x]         write a runbook skill draft to .groundhog/drafts/
@@ -45,7 +47,8 @@ async function verifyOpts(cfg) {
   const [exe, pre] = await selfCommand('groundhog', fileURLToPath(import.meta.url));
   return { budgetUsd, model: opt('--model'), days: Number(opt('--days', cfg.days)), tasks: Number(opt('--tasks', 2)), heldOut: Number(opt('--held-out', 2)),
     repeats: Number(opt('--repeats', 1)), timeoutMs: Number(opt('--timeout', 300)) * 1000, log: (m) => console.log(m),
-    hookCommand: [exe, ...pre].map(a => `"${a.split(path.sep).join('/')}"`).join(' ') };
+    hookCommand: [exe, ...pre].map(a => `"${a.split(path.sep).join('/')}"`).join(' '),
+    scenarios: flag('--scenarios') ? loadScenarios(cfg.root, { dir: opt('--cache') ? path.resolve(opt('--cache')) : process.env.QBRANCH_SCENARIOS_DIR || scenariosDir(cfg.root), status: 'valid' }) : null };
 }
 const showVerified = (v) => !v ? '' : v.before
   ? `${v.verdict}: pass ${v.before.passRate} -> ${v.after.passRate}, score ${v.before.meanScore} -> ${v.after.meanScore} on ${v.tasks} task(s)${v.regressions.length ? `, regressions: ${v.regressions.join(', ')}` : ''}, $${v.costUsd}`
