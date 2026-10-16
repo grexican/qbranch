@@ -187,10 +187,22 @@ export function snapshotSandbox(root, ref) {
   const links = [];
   const status = () => git(['-C', work, 'status', '--porcelain', '-uall'], genv).stdout || '';
   const cleanup = () => {
+    killStrays(path.basename(base));
     for (const l of links.splice(0)) try { fs.unlinkSync(l); } catch { /* already gone */ } // links first: never recurse into the live node_modules
     try { fs.rmSync(base, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* a locked file on Windows: left for the OS temp cleaner */ }
   };
   return { base, root: work, dir: work, git: true, env, status, cleanup, links };
+}
+
+/**
+ * Kill processes still running from a sandbox (a dev server the agent or a test started and never stopped): any process
+ * whose command line names the sandbox's unique directory. Without this they hold ports and pipes across runs.
+ */
+function killStrays(tag) {
+  if (!/^qbranch-replay-\w{6}$/.test(tag)) return; // only ever our own sandboxes
+  if (process.platform === 'win32') spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+    `Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*${tag}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`], { windowsHide: true, timeout: 30_000 });
+  else spawnSync('pkill', ['-9', '-f', tag], { timeout: 30_000 });
 }
 
 /** Write files as they are at `sha` into the sandbox (status D deletes). entries: [{ path, status }] */
@@ -460,6 +472,7 @@ export async function runScenario(s, { agent = 'claude', model, setup, budgetUsd
       return { ...v, settings: { ...v.settings, hooks: { ...hooks, PreToolUse: [...(hooks.PreToolUse || []), { matcher: '*', hooks: [{ type: 'command', command: `node "${posix(guard)}"` }] }] } } };
     },
     after: async (sb) => {
+      killStrays(path.basename(sb.base)); // a server the agent left running would hold the ports the tests need
       applyFiles(sb.root, s.repo, s.sha, s.files.hidden); // the agent's version of a hidden file never counts
       const suites = { 'fail-to-pass': await runGroups(sb, s.plan.tests, cfg) };
       if (s.plan.neighbours?.length) suites['pass-to-pass'] = await runGroups(sb, s.plan.neighbours, cfg);

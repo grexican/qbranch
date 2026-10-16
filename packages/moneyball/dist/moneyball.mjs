@@ -2845,6 +2845,7 @@ function snapshotSandbox(root, ref) {
   const links = [];
   const status = () => git2(["-C", work, "status", "--porcelain", "-uall"], genv).stdout || "";
   const cleanup = () => {
+    killStrays(path11.basename(base));
     for (const l of links.splice(0)) try {
       fs9.unlinkSync(l);
     } catch {
@@ -2855,6 +2856,16 @@ function snapshotSandbox(root, ref) {
     }
   };
   return { base, root: work, dir: work, git: true, env, status, cleanup, links };
+}
+function killStrays(tag) {
+  if (!/^qbranch-replay-\w{6}$/.test(tag)) return;
+  if (process.platform === "win32") spawnSync2("powershell", [
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    `Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*${tag}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
+  ], { windowsHide: true, timeout: 3e4 });
+  else spawnSync2("pkill", ["-9", "-f", tag], { timeout: 3e4 });
 }
 function applyFiles(work, root, sha, entries) {
   for (const e of entries) {
@@ -3163,6 +3174,7 @@ async function runScenario(s, { agent = "claude", model, setup, budgetUsd, timeo
       return { ...v, settings: { ...v.settings, hooks: { ...hooks, PreToolUse: [...hooks.PreToolUse || [], { matcher: "*", hooks: [{ type: "command", command: `node "${posix2(guard)}"` }] }] } } };
     },
     after: async (sb) => {
+      killStrays(path11.basename(sb.base));
       applyFiles(sb.root, s.repo, s.sha, s.files.hidden);
       const suites = { "fail-to-pass": await runGroups(sb, s.plan.tests, cfg) };
       if (s.plan.neighbours?.length) suites["pass-to-pass"] = await runGroups(sb, s.plan.neighbours, cfg);
