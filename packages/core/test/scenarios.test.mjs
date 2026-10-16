@@ -48,6 +48,10 @@ test('runner detection, globs, prompt and the deps guard', () => {
   assert.deepEqual(testCommand(read, 'apps/web/src/a.test.ts'), { cwd: 'apps/web', cmd: 'vitest run' });
   assert.deepEqual(testCommand(read, 'lib/x/b.test.js'), { cwd: 'lib', cmd: 'jest --runTestsByPath' });
   assert.equal(testCommand(read, 'other/c.test.js'), null);
+  // a workspace package without its own runner config is run by the root's
+  const ws = { 'package.json': '{"scripts":{"test":"vitest run"}}', 'vitest.config.ts': 'x', 'pkgs/a/package.json': '{"scripts":{"test":"vitest run"}}', 'pkgs/b/package.json': '{"scripts":{"test":"vitest run"}}', 'pkgs/b/vite.config.mts': 'x' };
+  assert.deepEqual(testCommand((p) => ws[p] ?? null, 'pkgs/a/src/x.test.ts'), { cwd: '', cmd: 'vitest run' });
+  assert.deepEqual(testCommand((p) => ws[p] ?? null, 'pkgs/b/src/x.test.ts'), { cwd: 'pkgs/b', cmd: 'vitest run' });
   assert.deepEqual(testCommand(read, 'other/c.test.js', { test: 'make test {files}' }), { cwd: '', cmd: 'make test {files}' });
   assert.ok(glob('tests/db/**').test('tests/db/a/b.test.ts'));
   assert.ok(glob('**/*.e2e.test.ts').test('x/y.e2e.test.ts') && glob('**/*.e2e.test.ts').test('y.e2e.test.ts'));

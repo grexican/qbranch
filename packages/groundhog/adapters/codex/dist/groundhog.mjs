@@ -1931,7 +1931,8 @@ function glob(g) {
   return new RegExp(`^${re}$`);
 }
 function scenarioConfig(root) {
-  const c = json(fs7.existsSync(path9.join(root, "qbranch.scenarios.json")) ? fs7.readFileSync(path9.join(root, "qbranch.scenarios.json"), "utf8") : "null") || {};
+  const file2 = process.env.QBRANCH_SCENARIOS_CONFIG || path9.join(root, "qbranch.scenarios.json");
+  const c = json(fs7.existsSync(file2) ? fs7.readFileSync(file2, "utf8") : "null") || {};
   return { maxFiles: 20, neighbours: 10, testTimeoutSec: 600, ...c, include: (c.include || []).map(glob), exclude: (c.exclude || []).map(glob) };
 }
 var packageManager = (has) => has("pnpm-lock.yaml") ? "pnpm" : has("yarn.lock") ? "yarn" : has("bun.lockb") || has("bun.lock") ? "bun" : "npm";

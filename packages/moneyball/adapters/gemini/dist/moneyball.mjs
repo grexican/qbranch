@@ -2690,7 +2690,8 @@ function glob(g) {
   return new RegExp(`^${re}$`);
 }
 function scenarioConfig(root) {
-  const c = json(fs9.existsSync(path11.join(root, "qbranch.scenarios.json")) ? fs9.readFileSync(path11.join(root, "qbranch.scenarios.json"), "utf8") : "null") || {};
+  const file = process.env.QBRANCH_SCENARIOS_CONFIG || path11.join(root, "qbranch.scenarios.json");
+  const c = json(fs9.existsSync(file) ? fs9.readFileSync(file, "utf8") : "null") || {};
   return { maxFiles: 20, neighbours: 10, testTimeoutSec: 600, ...c, include: (c.include || []).map(glob), exclude: (c.exclude || []).map(glob) };
 }
 var runnable = (cfg, p) => isTestFile(p) && (!cfg.include.length || cfg.include.some((g) => g.test(p))) && !cfg.exclude.some((g) => g.test(p));
@@ -2718,15 +2719,24 @@ var runnerFromDeps = (pkg) => {
   const d = { ...pkg?.dependencies, ...pkg?.devDependencies };
   return d.vitest ? "vitest run" : d.jest ? "jest --runTestsByPath" : null;
 };
+var CONFIGS = { vitest: ["vitest.config", "vite.config", "vitest.workspace"], jest: ["jest.config"] };
+var hasConfig = (read3, d, cmd2, pkg) => {
+  const runner = cmd2.split(" ")[0];
+  if (runner === "jest" && pkg.jest) return true;
+  return (CONFIGS[runner] || []).some((n) => ["ts", "mts", "cts", "js", "mjs", "cjs"].some((e) => read3(d === "." ? `${n}.${e}` : `${d}/${n}.${e}`) != null));
+};
 function testCommand(read3, file, cfg = {}) {
   if (cfg.test) return { cwd: "", cmd: cfg.test };
+  const found = [];
   for (let d = path11.posix.dirname(file); ; d = path11.posix.dirname(d)) {
     const pkg = json(read3(d === "." ? "package.json" : `${d}/package.json`));
-    if (pkg) {
-      const cmd2 = pkg.scripts?.test && runnerFromScript(pkg.scripts.test) || runnerFromDeps(pkg);
-      if (cmd2) return { cwd: d === "." ? "" : d, cmd: cmd2 };
+    const cmd2 = pkg && (pkg.scripts?.test && runnerFromScript(pkg.scripts.test) || runnerFromDeps(pkg));
+    if (cmd2) {
+      const c = { cwd: d === "." ? "" : d, cmd: cmd2 };
+      if (hasConfig(read3, d, cmd2, pkg)) return c;
+      found.push(c);
     }
-    if (d === "." || d === "/" || d === "") return null;
+    if (d === "." || d === "/" || d === "") return found[0] || null;
   }
 }
 function testPlan(read3, files, cfg) {
@@ -3090,7 +3100,7 @@ async function validateScenario(s, { install = s.install || false, log = () => {
     const lint = lintCmd ? await runOne(sb, lintCmd, cfg) : null, typecheck = typeCmd ? await runOne(sb, typeCmd, cfg) : null;
     log(`  pass-to-pass ${near.length} file(s)${lint ? `, lint ${lint.pass ? "ok" : "fails at the commit (dropped)"}` : ""}${typecheck ? `, typecheck ${typecheck.pass ? "ok" : "fails at the commit (dropped)"}` : ""}`);
     const plan2 = { tests: testPlan(read3, s.files.tests, cfg), neighbours: near.length ? testPlan(read3, near, cfg) : [], lint: lint?.pass ? lintCmd : null, typecheck: typecheck?.pass ? typeCmd : null };
-    const strip = (r) => r && { pass: r.pass, ms: r.ms, ...r.groups ? { groups: r.groups } : { cmd: r.cmd, exitCode: r.exitCode } };
+    const strip = (r) => r && { pass: r.pass, ms: r.ms, ...r.groups ? { groups: r.groups } : { cmd: r.cmd, exitCode: r.exitCode }, ...r.pass ? {} : { tail: String(r.tail).slice(-600) } };
     const v = { ...s, plan: plan2 };
     return done("valid", "", { plan: plan2, checks: checksFor(v), validation: { parent: strip(atParent), commit: strip(atCommit), passToPass: strip(p2p), lint: strip(lint), typecheck: strip(typecheck), dropped: { passToPass: !!p2p && !p2p.pass } } });
   } catch (e) {

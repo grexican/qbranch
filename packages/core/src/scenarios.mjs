@@ -44,9 +44,11 @@ export function glob(g) {
  *   maxFiles    commits that change more non-test files than this are skipped (default 20)
  *   neighbours  how many unchanged test files beside the hidden ones form the pass-to-pass set (default 10)
  *   testTimeoutSec    per test command (default 600)
+ * QBRANCH_SCENARIOS_CONFIG names another file (settings for a repo you may not write to).
  */
 export function scenarioConfig(root) {
-  const c = json(fs.existsSync(path.join(root, 'qbranch.scenarios.json')) ? fs.readFileSync(path.join(root, 'qbranch.scenarios.json'), 'utf8') : 'null') || {};
+  const file = process.env.QBRANCH_SCENARIOS_CONFIG || path.join(root, 'qbranch.scenarios.json'); // env: settings without touching the repo
+  const c = json(fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : 'null') || {};
   return { maxFiles: 20, neighbours: 10, testTimeoutSec: 600, ...c, include: (c.include || []).map(glob), exclude: (c.exclude || []).map(glob) };
 }
 const runnable = (cfg, p) => isTestFile(p) && (!cfg.include.length || cfg.include.some(g => g.test(p))) && !cfg.exclude.some(g => g.test(p));
@@ -74,13 +76,25 @@ export function runnerFromScript(script) {
 }
 const runnerFromDeps = (pkg) => { const d = { ...pkg?.dependencies, ...pkg?.devDependencies }; return d.vitest ? 'vitest run' : d.jest ? 'jest --runTestsByPath' : null; };
 
-/** Where and how a test file runs: the nearest package.json with a test script we can drive (or the config's `test`). */
+const CONFIGS = { vitest: ['vitest.config', 'vite.config', 'vitest.workspace'], jest: ['jest.config'] };
+const hasConfig = (read, d, cmd, pkg) => {
+  const runner = cmd.split(' ')[0];
+  if (runner === 'jest' && pkg.jest) return true;
+  return (CONFIGS[runner] || []).some(n => ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'].some(e => read(d === '.' ? `${n}.${e}` : `${d}/${n}.${e}`) != null));
+};
+/**
+ * Where and how a test file runs (or the config's `test`): among the package.json files above it whose test script we
+ * can drive, the nearest one with its own runner config, else the nearest one. A workspace package whose script says
+ * `vitest run` but has no config of its own is run by the root config in practice.
+ */
 export function testCommand(read, file, cfg = {}) {
   if (cfg.test) return { cwd: '', cmd: cfg.test };
+  const found = [];
   for (let d = path.posix.dirname(file); ; d = path.posix.dirname(d)) {
     const pkg = json(read(d === '.' ? 'package.json' : `${d}/package.json`));
-    if (pkg) { const cmd = (pkg.scripts?.test && runnerFromScript(pkg.scripts.test)) || runnerFromDeps(pkg); if (cmd) return { cwd: d === '.' ? '' : d, cmd }; }
-    if (d === '.' || d === '/' || d === '') return null;
+    const cmd = pkg && ((pkg.scripts?.test && runnerFromScript(pkg.scripts.test)) || runnerFromDeps(pkg));
+    if (cmd) { const c = { cwd: d === '.' ? '' : d, cmd }; if (hasConfig(read, d, cmd, pkg)) return c; found.push(c); }
+    if (d === '.' || d === '/' || d === '') return found[0] || null;
   }
 }
 /** Test files grouped into one command per package: [{ cwd, cmd, files }] (files relative to cwd). */
@@ -378,7 +392,8 @@ export async function validateScenario(s, { install = s.install || false, log = 
     const lint = lintCmd ? await runOne(sb, lintCmd, cfg) : null, typecheck = typeCmd ? await runOne(sb, typeCmd, cfg) : null;
     log(`  pass-to-pass ${near.length} file(s)${lint ? `, lint ${lint.pass ? 'ok' : 'fails at the commit (dropped)'}` : ''}${typecheck ? `, typecheck ${typecheck.pass ? 'ok' : 'fails at the commit (dropped)'}` : ''}`);
     const plan = { tests: testPlan(read, s.files.tests, cfg), neighbours: near.length ? testPlan(read, near, cfg) : [], lint: lint?.pass ? lintCmd : null, typecheck: typecheck?.pass ? typeCmd : null };
-    const strip = (r) => r && { pass: r.pass, ms: r.ms, ...(r.groups ? { groups: r.groups } : { cmd: r.cmd, exitCode: r.exitCode }) };
+    // keep the tail of a failure (why the parent fails is the audit trail of a scenario), not of a pass
+    const strip = (r) => r && { pass: r.pass, ms: r.ms, ...(r.groups ? { groups: r.groups } : { cmd: r.cmd, exitCode: r.exitCode }), ...(r.pass ? {} : { tail: String(r.tail).slice(-600) }) };
     const v = { ...s, plan };
     return done('valid', '', { plan, checks: checksFor(v), validation: { parent: strip(atParent), commit: strip(atCommit), passToPass: strip(p2p), lint: strip(lint), typecheck: strip(typecheck), dropped: { passToPass: !!p2p && !p2p.pass } } });
   } catch (e) {
