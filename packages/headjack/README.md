@@ -10,7 +10,7 @@ In *The Matrix*, the headjack is the port at the base of the skull through which
 
 Preloading skills does not scale, and it does not guarantee use.
 
-- **The listing gets cut.** Claude Code truncates a large skill listing (each description is capped, and big listings lose entries), so with hundreds of skills the right one may never reach the model.
+- **The descriptions get cut.** Past a listing budget, Claude Code keeps every skill's name but drops its description (measured on Claude Code 2.1.285: about 8 skills keep a description on Haiku, about 105 on Sonnet). A skill asked for by name still works, but a request in the user's own words can't be matched to a skill whose description isn't in context.
 - **Preloaded skills often get skipped.** In our tests, an agent with 377 skills installed natively used the right one 33% of the time.
 - **Skipping costs quality.** A blind judge scored outputs against the skill that should have applied: 6 vs 2 on an ads audit, 9 vs 4–5.5 on a canvas file, 6 vs 1 on a decision council. Skills that hold *your* conventions (formats, checklists, house rules) are the ones that matter, and the ones a model cannot guess.
 
