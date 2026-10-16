@@ -16,7 +16,13 @@
     "test": "node --test \"packages/*/test/*.test.mjs\"",
     "sync": "node scripts/sync.mjs",
     "sync:check": "node scripts/sync.mjs --check",
-    "install-tools": "node scripts/install.mjs"
+    "install-tools": "node scripts/install.mjs",
+    "release": "node scripts/release.mjs",
+    "release:patch": "node scripts/release.mjs patch",
+    "release:hotfix": "node scripts/release.mjs patch",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major",
+    "release:dry": "node scripts/release.mjs patch --dry-run"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"
