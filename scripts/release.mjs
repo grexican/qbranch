@@ -20,7 +20,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const dry = args.includes('--dry-run');
 const bump = args.find(a => !a.startsWith('--'));
-const sh = (cmd, a, opts = {}) => execFileSync(cmd, a, { cwd: ROOT, encoding: 'utf8', stdio: opts.show ? 'inherit' : 'pipe', shell: process.platform === 'win32' && cmd === 'npm' }) ?? '';
+const sh = (cmd, a) => execFileSync(cmd, a, { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }) ?? '';
+// node itself, never npm through a shell (Windows needs a shell for npm.cmd, and Node warns about passing args that way)
+const node = (...a) => sh(process.execPath, a);
+const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+const test = () => node('--test', 'packages/*/test/*.test.mjs');
 const git = (...a) => sh('git', a).trim();
 const fail = (msg) => { console.error(`release: ${msg}`); process.exit(1); };
 
@@ -42,8 +46,8 @@ if (git('status', '--porcelain')) fail('the working tree is not clean: commit or
 git('fetch', '-q', 'origin');
 if (git('rev-parse', 'HEAD') !== git('rev-parse', 'origin/main')) fail('main is not in sync with origin/main: pull or push first');
 if (git('tag', '-l', tag)) fail(`${tag} already exists`);
-step('tests'); sh('npm', ['test']);
-step('generated files are current'); sh('npm', ['run', 'sync:check']);
+step('tests'); test();
+step('generated files are current'); node('scripts/sync.mjs', '--check');
 
 // ---------- changelog from commits since the last tag ----------
 const last = (() => { try { return git('describe', '--tags', '--abbrev=0', '--match', 'v*'); } catch { return null; } })();
@@ -70,13 +74,13 @@ for (const f of files) {
   fs.writeFileSync(full, JSON.stringify(j, null, 2) + '\n');
 }
 step(`bumped ${files.length} manifests`);
-sh('npm', ['install', '--package-lock-only', '--silent']);
-sh('npm', ['run', 'sync']);
+if (fs.existsSync(npmCli)) node(npmCli, 'install', '--package-lock-only', '--silent'); // keep the lockfile's versions in step
+node('scripts/sync.mjs');
 step('regenerated marketplaces, adapters and bundles');
 const cl = path.join(ROOT, 'CHANGELOG.md');
 const prev = fs.existsSync(cl) ? fs.readFileSync(cl, 'utf8').replace(/^# Changelog\n+/, '') : '';
 fs.writeFileSync(cl, `# Changelog\n\n${section}\n${prev}`);
-sh('npm', ['test']);   // the bumped tree must still pass before anything leaves the machine
+test();   // the bumped tree must still pass before anything leaves the machine
 
 // ---------- commit, tag, push ----------
 git('add', '-A');

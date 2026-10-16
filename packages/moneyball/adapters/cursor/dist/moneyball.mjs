@@ -158,7 +158,8 @@ async function runHook(handler, argv = process.argv.slice(2)) {
   let out = { stdout: "", exitCode: 0 };
   try {
     const text = await readStdin();
-    const raw = text.trim() ? JSON.parse(text) : {};
+    const body = text.replace(/^﻿/, "");
+    const raw = body.trim() ? JSON.parse(body) : {};
     const h = normalize(raw, flag2("platform") || detectPlatform(raw), flag2("event"));
     out = render(h, await handler(h));
   } catch (e) {

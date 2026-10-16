@@ -107,7 +107,9 @@ export async function runHook(handler, argv = process.argv.slice(2)) {
   let out = { stdout: '', exitCode: 0 };
   try {
     const text = await readStdin();
-    const raw = text.trim() ? JSON.parse(text) : {};
+    // PowerShell (and any host that pipes through it, e.g. Windows hook runners) prefixes stdin with a UTF-8 BOM
+    const body = text.replace(/^﻿/, '');
+    const raw = body.trim() ? JSON.parse(body) : {};
     const h = normalize(raw, flag('platform') || detectPlatform(raw), flag('event'));
     out = render(h, await handler(h));
   } catch (e) {

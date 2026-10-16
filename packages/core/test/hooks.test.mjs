@@ -21,6 +21,15 @@ test('normalizes events, tool names and inputs to Claude Code vocabulary', () =>
   assert.equal(normalize({ hook_event_name: 'BeforeAgent', prompt: 'hi' }).event, 'UserPromptSubmit');
 });
 
+test('a BOM-prefixed hook payload (PowerShell pipes add one) still parses', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const script = `import { runHook } from ${JSON.stringify(new URL('../src/hooks.mjs', import.meta.url).href)};
+runHook((h) => ({ deny: 'seen ' + h.tool }));`;
+  const out = execFileSync(process.execPath, ['--input-type=module', '-e', script],
+    { input: '﻿' + JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'x' } }), encoding: 'utf8' });
+  assert.equal(JSON.parse(out).hookSpecificOutput.permissionDecisionReason, 'seen Bash');
+});
+
 test('renders one decision per platform', () => {
   const pre = (platform) => ({ platform, event: 'PreToolUse' });
   const deny = { deny: 'no' };
