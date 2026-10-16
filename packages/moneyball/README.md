@@ -88,14 +88,14 @@ moneyball tune --budget 5                     # replay recurring tasks under eac
 
 ## Every vendor's ladder
 
-Model names parse into a rung: vendor, model and reasoning effort. Claude, GPT, Gemini, Grok and Cursor's Composer are all covered, including editor-style names like . The cheaper rungs come in a fixed order:
+Model names parse into a rung: vendor, model and reasoning effort. Claude, GPT, Gemini, Grok and Cursor's Composer are all covered, including editor-style names like `cursor-grok-4.6-high-fast`. The cheaper rungs come in a fixed order:
 
-1. **lower effort on the same model** ( → ,  → ): the smallest change, and the prompt cache survives;
-2. **the next size down from the same vendor and version** ( → ,  → ,  → ).
+1. **lower effort on the same model** (`grok-4.7-high` → `grok-4.7`, `opus-thinking-high` → `opus`): the smallest change, and the prompt cache survives;
+2. **the next size down from the same vendor and version** (`opus` → `sonnet`, `gpt-5.2` → `gpt-5.2-mini`, `gemini-3-pro` → `gemini-3-flash`).
 
-An older version is never treated as a cheaper rung. An editor's automatic pick () is measured but not tuned. Only Claude rungs can be enforced by the hook; for other vendors, moneyball's recommendations are advice.
+An older version is never treated as a cheaper rung. An editor's automatic pick (`default`) is measured but not tuned. Only Claude rungs can be enforced by the hook; for other vendors, moneyball's recommendations are advice.
 
-From one developer's Cursor history:  at default effort finished **99.4%** of 163 subagent runs, against **97.8%** of 137 at . On that evidence, high effort wasn't buying anything.
+From one developer's Cursor history: `grok-4.7` at default effort finished **99.4%** of 163 subagent runs, against **97.8%** of 137 at `-high`. On that evidence, high effort wasn't buying anything.
 
 ## The startup tax
 
