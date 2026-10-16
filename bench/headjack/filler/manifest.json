@@ -1,0 +1,3545 @@
+{
+ "note": "Public filler skills at pinned commits. Fetched at run time by src/filler.mjs into .cache/ and never vendored. Only SKILL.md is fetched.",
+ "repos": [
+  {
+   "repo": "anthropics/skills",
+   "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+   "license": "Apache-2.0 (per skill)",
+   "skills": [
+    {
+     "name": "academy-guide",
+     "path": "skills/academy-guide/SKILL.md",
+     "sha256": "f27992510c051355dfe68c92394d509af730da5298094ec86834ee40bbd31376",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "algorithmic-art",
+     "path": "skills/algorithmic-art/SKILL.md",
+     "sha256": "3bc4092c09804853186524c826bc0621b940bb6122c05b84496dff95388e6eef",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "brand-guidelines",
+     "path": "skills/brand-guidelines/SKILL.md",
+     "sha256": "1120b3769e2985cefb3d25be981b1f914abeba57ae079b83c20c666c164fa9fe",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "canvas-design",
+     "path": "skills/canvas-design/SKILL.md",
+     "sha256": "a1f288079624402f30682753c1d43920b6664785698d21d3e7aa197450a6448b",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "discernment-nudge",
+     "path": "skills/discernment-nudge/SKILL.md",
+     "sha256": "9191177c4a8ef11a20dace786d708506b22d43e748c71287bb823de0dc812dad",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "frontend-design",
+     "path": "skills/frontend-design/SKILL.md",
+     "sha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "internal-comms",
+     "path": "skills/internal-comms/SKILL.md",
+     "sha256": "067b7587a344a928fc6534ef66b1bcd591fc7c26d207ea7ca3334aeb678d6475",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "mcp-builder",
+     "path": "skills/mcp-builder/SKILL.md",
+     "sha256": "0f4592dcb53cf2b5d6b7febee6b4152018b565551a1c29e3c612f57b218ab295",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "skill-creator",
+     "path": "skills/skill-creator/SKILL.md",
+     "sha256": "dcd4803e61e913e6fc27294184cd3a71f09f5e924ff20c8a9a20173e7b3c2bcf",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "slack-gif-creator",
+     "path": "skills/slack-gif-creator/SKILL.md",
+     "sha256": "2efca615ce55a3edd8fc05c779068a8085816617991987e446606403cd3abb22",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "theme-factory",
+     "path": "skills/theme-factory/SKILL.md",
+     "sha256": "c35893e221e28895c52143cc11bf30e41a44817796b39d4b15727dadc9796552",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "web-artifacts-builder",
+     "path": "skills/web-artifacts-builder/SKILL.md",
+     "sha256": "81c5002c6643b0de7b8710b00e7a9038daa6fb9b68d59870ee6adb12da8d10f8",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "webapp-testing",
+     "path": "skills/webapp-testing/SKILL.md",
+     "sha256": "51b7349e77ec63b7744a6f63647e7566a0b4d2e301121cc10e8c2113af6556a2",
+     "license": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "repo": "obra/superpowers",
+   "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
+   "license": "MIT",
+   "skills": [
+    {
+     "name": "brainstorming",
+     "path": "skills/brainstorming/SKILL.md",
+     "sha256": "6ee10d1481b8a2580d5336ff66c5c08acc9d4b251b13bbc3bfd31be99c261d43",
+     "license": "MIT"
+    },
+    {
+     "name": "diagnosing-superpowers",
+     "path": "skills/diagnosing-superpowers/SKILL.md",
+     "sha256": "5a652f8132cc901eb5ca61f89157839f87a2f20aed037fc7a2b51051bc37cd19",
+     "license": "MIT"
+    },
+    {
+     "name": "dispatching-parallel-agents",
+     "path": "skills/dispatching-parallel-agents/SKILL.md",
+     "sha256": "1968923066f3b707eb01d1992cdf4c42284c3855f70253b9cd5000ff45fca13c",
+     "license": "MIT"
+    },
+    {
+     "name": "executing-plans",
+     "path": "skills/executing-plans/SKILL.md",
+     "sha256": "f38e8f2ddcf079f65493adc713c1fed78421dfaf5f4dbf6b3a6b2b1d95466e71",
+     "license": "MIT"
+    },
+    {
+     "name": "finishing-a-development-branch",
+     "path": "skills/finishing-a-development-branch/SKILL.md",
+     "sha256": "8db5a922b242dd4e1bf824cb91c13b3e8d8e8a86d6ceaf7f0774eb9cce909d65",
+     "license": "MIT"
+    },
+    {
+     "name": "receiving-code-review",
+     "path": "skills/receiving-code-review/SKILL.md",
+     "sha256": "091df1629510af1b92fc4abd6f96732ebedb4cb2c0f3457e8f2740b0504a2438",
+     "license": "MIT"
+    },
+    {
+     "name": "requesting-code-review",
+     "path": "skills/requesting-code-review/SKILL.md",
+     "sha256": "2180e14a448e9410bec88e6646a2d1f0ce7fdd58de27388c1e052e929679d2bc",
+     "license": "MIT"
+    },
+    {
+     "name": "subagent-driven-development",
+     "path": "skills/subagent-driven-development/SKILL.md",
+     "sha256": "8dde5589ee083fb4999106d116f01c8fdaf3116a8a9813fdedeb80329de49046",
+     "license": "MIT"
+    },
+    {
+     "name": "systematic-debugging",
+     "path": "skills/systematic-debugging/SKILL.md",
+     "sha256": "51c6435d98c83c42c96ba7c35725a0b2c376cd487fb1a4e6bd0ddbe7e33ef202",
+     "license": "MIT"
+    },
+    {
+     "name": "test-driven-development",
+     "path": "skills/test-driven-development/SKILL.md",
+     "sha256": "64b03fce4aee5a97a93160cea8111f3ba13a17b7c001db4bd5836d67fd10705d",
+     "license": "MIT"
+    },
+    {
+     "name": "using-git-worktrees",
+     "path": "skills/using-git-worktrees/SKILL.md",
+     "sha256": "8cfb86f121269e8f7f12361e6795c4f6738828340e28964c9229d365666c9edd",
+     "license": "MIT"
+    },
+    {
+     "name": "using-superpowers",
+     "path": "skills/using-superpowers/SKILL.md",
+     "sha256": "82c5c8866ad7f5dd4440ce66bd7806ba48a2f13771beae5cf112e53f08fe36ba",
+     "license": "MIT"
+    },
+    {
+     "name": "verification-before-completion",
+     "path": "skills/verification-before-completion/SKILL.md",
+     "sha256": "2befe7fc55bcadaa3d97dd9e8efeb633d2561c0ebe74c5a8b17c4d9e7e4520b3",
+     "license": "MIT"
+    },
+    {
+     "name": "writing-plans",
+     "path": "skills/writing-plans/SKILL.md",
+     "sha256": "a6c67c1900064347c2a329990dd3c555657c51c3ec53b259a08aa01a2c26139a",
+     "license": "MIT"
+    },
+    {
+     "name": "writing-skills",
+     "path": "skills/writing-skills/SKILL.md",
+     "sha256": "bbdfe742f853562e643a3d40d64476359d47881e39cef80a189283fa26d11ab9",
+     "license": "MIT"
+    }
+   ]
+  },
+  {
+   "repo": "hashicorp/agent-skills",
+   "commit": "f706481af9b8fedb66de909f6243ad29601afa0c",
+   "license": "MPL-2.0",
+   "skills": [
+    {
+     "name": "aws-ami-builder",
+     "path": "plugins/packer/skills/aws-ami-builder/SKILL.md",
+     "sha256": "4bbafef8e86e3efc50c0f6fcc34b6cf32daf3ad25d545310889f87b6706c3f81",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "azure-image-builder",
+     "path": "plugins/packer/skills/azure-image-builder/SKILL.md",
+     "sha256": "1badb5146eee39e74e036a72dfe99ff53d883283ea7d02dc6353796d60b36c28",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "push-to-registry",
+     "path": "plugins/packer/skills/push-to-registry/SKILL.md",
+     "sha256": "7fb27a52a48b9d2857ceeb539b1ccb29de79742c4ef2017d2ac5934611939d95",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "windows-builder",
+     "path": "plugins/packer/skills/windows-builder/SKILL.md",
+     "sha256": "0ddd0188747e826fb43d36563344fd8e105702962b01d23f443206fc4f23b576",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "azure-verified-modules",
+     "path": "plugins/terraform/skills/azure-verified-modules/SKILL.md",
+     "sha256": "4c129022c5b8e784780bfd61e00dd11a5fb73157267d2a0b114fec7a0e09369d",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "new-terraform-provider",
+     "path": "plugins/terraform/skills/new-terraform-provider/SKILL.md",
+     "sha256": "98e3bf99e4d1ae20884a837ffa591ebf253be8fbc0105eb9f8c99da9dbe7898b",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "provider-actions",
+     "path": "plugins/terraform/skills/provider-actions/SKILL.md",
+     "sha256": "340a1ed0b1c6f68fae81cdff27300d521583b044cabecef97810ebcc235bce20",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "provider-configuration",
+     "path": "plugins/terraform/skills/provider-configuration/SKILL.md",
+     "sha256": "27455b64f76edc92a21e9631153237aac5af090c6a1c52f77314ea555ee2845d",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "provider-docs",
+     "path": "plugins/terraform/skills/provider-docs/SKILL.md",
+     "sha256": "53c943f9ce01c65db8da502e4ed27fff7c15f628bd721a203b9a634aa7aab6df",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "provider-ephemeral-resources",
+     "path": "plugins/terraform/skills/provider-ephemeral-resources/SKILL.md",
+     "sha256": "e725873b52addac31d27e313f48e85fa39182007fd1caf558feeb35026964d34",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "provider-framework-migration",
+     "path": "plugins/terraform/skills/provider-framework-migration/SKILL.md",
+     "sha256": "6f5d9f2f94c3068dcc47f49d7f987da6b7de4715d70d53f12b9d04b9a21b0791",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "provider-resources",
+     "path": "plugins/terraform/skills/provider-resources/SKILL.md",
+     "sha256": "3f87a1c9e8b8313f66a6db26d340b53faf4e51448f69227afafc1144b85d50c6",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "provider-test-patterns",
+     "path": "plugins/terraform/skills/provider-test-patterns/SKILL.md",
+     "sha256": "9abc623c2523ee76126aee4a332ea7f708cb2df9e04f0dc1f52f97e007f874ea",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "refactor-module",
+     "path": "plugins/terraform/skills/refactor-module/SKILL.md",
+     "sha256": "da0b9f3599ed0e513a92b57f0c0ff3fad3168ba461215a9197ebbffe4e0d538f",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "run-acceptance-tests",
+     "path": "plugins/terraform/skills/run-acceptance-tests/SKILL.md",
+     "sha256": "cfde9629744883a4458640e698789048ae8352e47a130e3e69322ba392958598",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "terraform-policy",
+     "path": "plugins/terraform/skills/terraform-policy/SKILL.md",
+     "sha256": "80d14e9223640263488c93fee0693a50f2a19f1ca10a90fa2900d53081616bea",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "terraform-search-import",
+     "path": "plugins/terraform/skills/terraform-search-import/SKILL.md",
+     "sha256": "7884e0086042742202b86eb074318ccf51d2b3674ceb2a6ee7267a6175dbe233",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "terraform-stacks",
+     "path": "plugins/terraform/skills/terraform-stacks/SKILL.md",
+     "sha256": "2ccf67ec434439133b83b7905c8846e4f7b1fd99c360b35f884f189ffcb8e091",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "terraform-style-guide",
+     "path": "plugins/terraform/skills/terraform-style-guide/SKILL.md",
+     "sha256": "3a5c2e06a1daa07600d03f48328d1479284e7a9d59d66b2663693ca972080e22",
+     "license": "MPL-2.0"
+    },
+    {
+     "name": "terraform-test",
+     "path": "plugins/terraform/skills/terraform-test/SKILL.md",
+     "sha256": "bba613c50727af9a8e47e690b0e16a4093f0239afec495016e016b5152c9a598",
+     "license": "MPL-2.0"
+    }
+   ]
+  },
+  {
+   "repo": "huggingface/skills",
+   "commit": "c3ff942be3e07116b475253f0a8fc4f54682c1a8",
+   "license": "Apache-2.0",
+   "skills": [
+    {
+     "name": "hf-mcp",
+     "path": "hf-mcp/skills/hf-mcp/SKILL.md",
+     "sha256": "4cd99f2f6fabc5d87eac1b9e9bb2278d8348eca3621c2120599dede8d6b66eb4",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "hf-cli",
+     "path": "skills/hf-cli/SKILL.md",
+     "sha256": "4a8a1265fbf1c39c6596b10916ebacd8d09836fbfa5418317d04b4213d1ed07c",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "hf-cloud-aws-context-discovery",
+     "path": "skills/hf-cloud-aws-context-discovery/SKILL.md",
+     "sha256": "6b59128ea1834913b01ff6752d52e529d304ee6086e2edec5c7ce451f7a14dff",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "hf-cloud-python-env-setup",
+     "path": "skills/hf-cloud-python-env-setup/SKILL.md",
+     "sha256": "c5d108b134dc5237ec63fbbb3200717853f2c5281ab33b7a2f1576b46a4d0fe8",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "hf-cloud-sagemaker-deployment-planner",
+     "path": "skills/hf-cloud-sagemaker-deployment-planner/SKILL.md",
+     "sha256": "2538e5f705466ef2912c07eb4311befc29940f026dfd17720242e4c976a8d8e9",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "hf-cloud-sagemaker-iam-preflight",
+     "path": "skills/hf-cloud-sagemaker-iam-preflight/SKILL.md",
+     "sha256": "a4ff26c2af2c0ce82a4ab34c5cf5eadce5db4573ed2525745c4ee7b21f1773e4",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "hf-cloud-sagemaker-production-defaults",
+     "path": "skills/hf-cloud-sagemaker-production-defaults/SKILL.md",
+     "sha256": "6a8c1aff465e548ac4476d56831f864621af83b6a0f54544637601f3ecc44f9e",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "hf-cloud-serving-image-selection",
+     "path": "skills/hf-cloud-serving-image-selection/SKILL.md",
+     "sha256": "6af6adfe1cdcf7bcc061ee11e1e2cf88bae9fbb08bf79d16945ce748839c1d76",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "hf-mem",
+     "path": "skills/hf-mem/SKILL.md",
+     "sha256": "ee99f9d97e084aa61a80eaec4e6de2265341e71256d918d48fb87a2ac01ce99f",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-best",
+     "path": "skills/huggingface-best/SKILL.md",
+     "sha256": "4566c02cb6da804dcc434b6b4d48a1895e937157cdaec4ec4c523a2f97cf16d0",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-community-evals",
+     "path": "skills/huggingface-community-evals/SKILL.md",
+     "sha256": "a97f1c703f55b72427453a76af858237e6392a447fcafa9eeb85f7ac67f0155d",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-datasets",
+     "path": "skills/huggingface-datasets/SKILL.md",
+     "sha256": "eeca50adf211ea64a288b852938f85a5183b045c720dc696b62db9aa2ea8deb2",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-gradio",
+     "path": "skills/huggingface-gradio/SKILL.md",
+     "sha256": "ce41c656e364a8027755a520372448036d90811f5a1d377f02bb9d549c0865a9",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-llm-trainer",
+     "path": "skills/huggingface-llm-trainer/SKILL.md",
+     "sha256": "fb5c5e25103e38226e4d8ae28db84a01de42a11da4be1918fa72f833699f9d0d",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-local-models",
+     "path": "skills/huggingface-local-models/SKILL.md",
+     "sha256": "814640db1d5f2f274aec09d66b3589ed5a0fdcfaf536afd508b1d757dcae1534",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-lora-space-builder",
+     "path": "skills/huggingface-lora-space-builder/SKILL.md",
+     "sha256": "7192d4a44172609eb073334e0410aff1d3b9134f82b94f1329435ca7fcfa0ad2",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-paper-publisher",
+     "path": "skills/huggingface-paper-publisher/SKILL.md",
+     "sha256": "04b59406cf88054ab365f5bbbc57fe2e2fcb369e942dff2841c4f4297318c353",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-papers",
+     "path": "skills/huggingface-papers/SKILL.md",
+     "sha256": "985c2d5c7261aba2b157811cde0c2b30134663694a4ab701280de28f941eb3b2",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-spaces",
+     "path": "skills/huggingface-spaces/SKILL.md",
+     "sha256": "efa6506be823aaea03c31ef6cd06734485f7c451065aab43cfa5b5053c0df82b",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-tool-builder",
+     "path": "skills/huggingface-tool-builder/SKILL.md",
+     "sha256": "2846b591259b134a5978073e4da477a06275d7a10893ce1383a0a3920c3ff1e1",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-trackio",
+     "path": "skills/huggingface-trackio/SKILL.md",
+     "sha256": "540f52974f4f77c2455a7b37ed983da0dbfb0f5af3d2c482e4736f14f1cc8724",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-vision-trainer",
+     "path": "skills/huggingface-vision-trainer/SKILL.md",
+     "sha256": "c7aba4de75fa6595ffdaf5c50136786e8346aba0c9ff0261eaee656af4a3b0d9",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "huggingface-zerogpu",
+     "path": "skills/huggingface-zerogpu/SKILL.md",
+     "sha256": "829659aec34224970fe7ed619729fdc7849fc5dd696e2000256c3ee0b517eff7",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "train-sentence-transformers",
+     "path": "skills/train-sentence-transformers/SKILL.md",
+     "sha256": "9bd098d81049fc245032ee4f97cf5d9de906d726731ace4a6df0bad6d9dcd182",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "transformers-js",
+     "path": "skills/transformers-js/SKILL.md",
+     "sha256": "241ef15a39acbdf1d610acab683c0f76500d7c021c9c0303e6bb2c751ac3d395",
+     "license": "Apache-2.0"
+    },
+    {
+     "name": "trl-training",
+     "path": "skills/trl-training/SKILL.md",
+     "sha256": "42c855bdc6171390abc7413cdb19bd4fd8dddfb31094d519a874427de08ddc2a",
+     "license": "Apache-2.0"
+    }
+   ]
+  },
+  {
+   "repo": "K-Dense-AI/claude-scientific-skills",
+   "commit": "a1043ef544e3a100c28e70a736b6cf32554d0677",
+   "license": "MIT",
+   "skills": [
+    {
+     "name": "13c-metabolic-flux",
+     "path": "skills/13c-metabolic-flux/SKILL.md",
+     "sha256": "8318b1c785cc80bf095b8667a96061cd5f4b0b9c4e5fa77fd7f57fd8403f2c0f",
+     "license": "MIT"
+    },
+    {
+     "name": "adaptyv",
+     "path": "skills/adaptyv/SKILL.md",
+     "sha256": "5de115067c118609dc096f9d582c687fdf331150e3f21c54eedb2ade24d12846",
+     "license": "MIT"
+    },
+    {
+     "name": "aeon",
+     "path": "skills/aeon/SKILL.md",
+     "sha256": "e1d25cbe0ba5f849299e9e02bd339773bb41529dcece5a6ee68bb080855b97a6",
+     "license": "MIT"
+    },
+    {
+     "name": "alphagenome",
+     "path": "skills/alphagenome/SKILL.md",
+     "sha256": "b133d2a9ff99652b439e0a6f00f93bad49f388be207f7e0241837e001a964947",
+     "license": "MIT"
+    },
+    {
+     "name": "anndata",
+     "path": "skills/anndata/SKILL.md",
+     "sha256": "a619c4088e1be6f6feaa5838c63ff8c4381fa21b4adee2a9276aa61464f3a034",
+     "license": "MIT"
+    },
+    {
+     "name": "arbor",
+     "path": "skills/arbor/SKILL.md",
+     "sha256": "aae219831d92984eb6584831f77509cb8650a3986e8c42474aaa4d118ce080a6",
+     "license": "MIT"
+    },
+    {
+     "name": "arboreto",
+     "path": "skills/arboreto/SKILL.md",
+     "sha256": "38ff6f24b8fd4a86e2a57ae7bb7669fe4ce401f7375efcc82a6c004f4c51d344",
+     "license": "MIT"
+    },
+    {
+     "name": "astropy",
+     "path": "skills/astropy/SKILL.md",
+     "sha256": "2f9d43ae65766a9715112e3b56cb83fb9c12e4e8b6356c0c4c22131c6cfa536f",
+     "license": "MIT"
+    },
+    {
+     "name": "autoskill",
+     "path": "skills/autoskill/SKILL.md",
+     "sha256": "d7fc7db094649f5cd1ee6349110d78197166011e929aecd2d468e251b0542ecc",
+     "license": "MIT"
+    },
+    {
+     "name": "benchling-integration",
+     "path": "skills/benchling-integration/SKILL.md",
+     "sha256": "115b5418f7c42748918eed922b78010c795920b276063b8b759802eb0172d5de",
+     "license": "MIT"
+    },
+    {
+     "name": "bgpt-paper-search",
+     "path": "skills/bgpt-paper-search/SKILL.md",
+     "sha256": "3b7db6956c13ccf24df151f0905ae579ed58230708a4ba19e6d6fb3bf9d4d6b7",
+     "license": "MIT"
+    },
+    {
+     "name": "bids",
+     "path": "skills/bids/SKILL.md",
+     "sha256": "e1ae63105ccc2e4da7c40e8a2f40d031dd8f2a77270be626df780f0c39eb0b1b",
+     "license": "MIT"
+    },
+    {
+     "name": "biopython",
+     "path": "skills/biopython/SKILL.md",
+     "sha256": "b617561b38a2e3ecc8f8cf3dd8bb0307ac1aaf4d67e6e0432b0c248bc4382245",
+     "license": "MIT"
+    },
+    {
+     "name": "bioservices",
+     "path": "skills/bioservices/SKILL.md",
+     "sha256": "9edc884f0fe216d510417d565ae74cc61608824b52eeb53ed0cdea3dcda5bda3",
+     "license": "MIT"
+    },
+    {
+     "name": "bulk-rnaseq",
+     "path": "skills/bulk-rnaseq/SKILL.md",
+     "sha256": "e945e970268505368e20d9ddc0c135de469e86626d67565ae9047fb05f70cdbf",
+     "license": "MIT"
+    },
+    {
+     "name": "cantera",
+     "path": "skills/cantera/SKILL.md",
+     "sha256": "1dcb22bba51475a69dc93bbefa7d2581f3dfdb6a03a6fc55f8637e398f733a51",
+     "license": "MIT"
+    },
+    {
+     "name": "cellprofiler",
+     "path": "skills/cellprofiler/SKILL.md",
+     "sha256": "b822ed64acb189d900f59ba69418e5e41261d539fd2fd847e402cded2fc1bb38",
+     "license": "MIT"
+    },
+    {
+     "name": "cellxgene-census",
+     "path": "skills/cellxgene-census/SKILL.md",
+     "sha256": "123b66d6701c7c0587d0a615a2394caee52e62745b3fd31176381ea64aaa794a",
+     "license": "MIT"
+    },
+    {
+     "name": "cirq",
+     "path": "skills/cirq/SKILL.md",
+     "sha256": "6ab4c57fd133d21013ac0a8cfdbb2235dcc461d6fc82445693ea475c3d5d6bc1",
+     "license": "MIT"
+    },
+    {
+     "name": "citation-management",
+     "path": "skills/citation-management/SKILL.md",
+     "sha256": "dc79fe1e8438dcf598040615d5323360c6a7ed0b868fc3ffc82512c871a1e3ff",
+     "license": "MIT"
+    },
+    {
+     "name": "clinical-decision-support",
+     "path": "skills/clinical-decision-support/SKILL.md",
+     "sha256": "05645e4bc5c73a613ddaeba5bea616739cc0cd71c789c869d97cdfcd8994e072",
+     "license": "MIT"
+    },
+    {
+     "name": "clinical-reports",
+     "path": "skills/clinical-reports/SKILL.md",
+     "sha256": "0d7c821b7857a4a761805e1a8263920a37f181658f77f1397755df0e14125022",
+     "license": "MIT"
+    },
+    {
+     "name": "cobrapy",
+     "path": "skills/cobrapy/SKILL.md",
+     "sha256": "b11365507e183d8e153dd415df3a85a00f34b068bcf8edbad28c0580253564db",
+     "license": "MIT"
+    },
+    {
+     "name": "consciousness-council",
+     "path": "skills/consciousness-council/SKILL.md",
+     "sha256": "84b5eb07e5459cc110d7d6f63be48a7a01d374ec618da8e293a88b1d037c0c8c",
+     "license": "MIT"
+    },
+    {
+     "name": "dask",
+     "path": "skills/dask/SKILL.md",
+     "sha256": "3b563a98f4cb42858bb1cc49832a3fa1ff9483d929af57ebe629473538e5a041",
+     "license": "MIT"
+    },
+    {
+     "name": "database-lookup",
+     "path": "skills/database-lookup/SKILL.md",
+     "sha256": "ead247f623212ca1560486d863a2d0a8c0555d8d20b975d55053eeb4ed043d37",
+     "license": "MIT"
+    },
+    {
+     "name": "datalad",
+     "path": "skills/datalad/SKILL.md",
+     "sha256": "bb902427db0c501db4187aafd3433eea67fa1071348cf07adcea2558ed49debb",
+     "license": "MIT"
+    },
+    {
+     "name": "datamol",
+     "path": "skills/datamol/SKILL.md",
+     "sha256": "3a0d725456f37c650595a1bdf0cd104936acc5e2bf4146be6829d3fcd4ea6c59",
+     "license": "MIT"
+    },
+    {
+     "name": "deepchem",
+     "path": "skills/deepchem/SKILL.md",
+     "sha256": "2965735ee473cf70d63c6170f1c8867bd533539809d4535c162acacc07d0b17d",
+     "license": "MIT"
+    },
+    {
+     "name": "deepspot-m",
+     "path": "skills/deepspot-m/SKILL.md",
+     "sha256": "a917434c523e136ddc1ce45b54acbef8c28398dd293314f72faa278431e67418",
+     "license": "MIT"
+    },
+    {
+     "name": "deeptools",
+     "path": "skills/deeptools/SKILL.md",
+     "sha256": "f09f32bad2d0c54f4a422cb7bcca7703466e653544b2b6e77a7492e6f29ccf8b",
+     "license": "MIT"
+    },
+    {
+     "name": "depmap",
+     "path": "skills/depmap/SKILL.md",
+     "sha256": "893eb02a2dc8a77e61260dfb74b2acdf6c85e08f33028329d73657a23d398586",
+     "license": "MIT"
+    },
+    {
+     "name": "dhdna-profiler",
+     "path": "skills/dhdna-profiler/SKILL.md",
+     "sha256": "55cbc0e142ec3e6e6427c601391aeb38b8de6a83897082f46154f5c8273ccf50",
+     "license": "MIT"
+    },
+    {
+     "name": "diffdock",
+     "path": "skills/diffdock/SKILL.md",
+     "sha256": "5fafc5d9f53fa35a47c498f1cf3bad20fbee7404f248226e76e62bb327749912",
+     "license": "MIT"
+    },
+    {
+     "name": "dnanexus-integration",
+     "path": "skills/dnanexus-integration/SKILL.md",
+     "sha256": "e8fcca26f5558e04256a2253c002cc8c8c024c06614fbd7d6e0161e53c5aa519",
+     "license": "MIT"
+    },
+    {
+     "name": "esm",
+     "path": "skills/esm/SKILL.md",
+     "sha256": "49da3c6f5c81359d48b7c0b4416a212e7106f777b4c7174b2b42ce0c02bd95f6",
+     "license": "MIT"
+    },
+    {
+     "name": "etetoolkit",
+     "path": "skills/etetoolkit/SKILL.md",
+     "sha256": "da2e57c0e3677a4219d0629a2c1392470f20bc3ade2809c1f0334fd84441da08",
+     "license": "MIT"
+    },
+    {
+     "name": "exa-search",
+     "path": "skills/exa-search/SKILL.md",
+     "sha256": "8cdedf5648783a209593ff91024f43bd8d8e066b03f0a72a6cf36d90e1650204",
+     "license": "MIT"
+    },
+    {
+     "name": "experimental-design",
+     "path": "skills/experimental-design/SKILL.md",
+     "sha256": "db2de0f3d29b7729776a91e923c9c83801298f5ad8e88fe44570045fbefcc248",
+     "license": "MIT"
+    },
+    {
+     "name": "exploratory-data-analysis",
+     "path": "skills/exploratory-data-analysis/SKILL.md",
+     "sha256": "955c4cefa49106dd03b55cbd62603bab2d2fb678e627dd452ba62040c7128484",
+     "license": "MIT"
+    },
+    {
+     "name": "fictiv",
+     "path": "skills/fictiv/SKILL.md",
+     "sha256": "c4f9b182d2f4664fe4b729832fff7fe98112b6823eaea3601633fa17112a6164",
+     "license": "MIT"
+    },
+    {
+     "name": "flowio",
+     "path": "skills/flowio/SKILL.md",
+     "sha256": "24247696d4e9455f4b5509b7bee1856c251fa59181d80aa8de22d54ecd685b62",
+     "license": "MIT"
+    },
+    {
+     "name": "flowkit",
+     "path": "skills/flowkit/SKILL.md",
+     "sha256": "47c4dcb907dc6ec15daa4bdf1855e9c96860ef1a558507bef0084d79c2d1c57c",
+     "license": "MIT"
+    },
+    {
+     "name": "fluidsim",
+     "path": "skills/fluidsim/SKILL.md",
+     "sha256": "7784bbf33615014f5965ff1db3d11bcc42e1bc4bb1f18f26208c62892b66df28",
+     "license": "MIT"
+    },
+    {
+     "name": "folklore-variant-evidence",
+     "path": "skills/folklore-variant-evidence/SKILL.md",
+     "sha256": "134b5ea684815b99c56fadf92a1cb42d37eaca4245515278e404b8876b7acfe0",
+     "license": "MIT"
+    },
+    {
+     "name": "generate-image",
+     "path": "skills/generate-image/SKILL.md",
+     "sha256": "42438be890c5ba875ddee1bbbf505e623433886a2b180f21b2012f72d038f92a",
+     "license": "MIT"
+    },
+    {
+     "name": "geniml",
+     "path": "skills/geniml/SKILL.md",
+     "sha256": "7fb9ad57657b2fda7dbc3f234af5dab47915953c6678fbc066c9086c83eadd21",
+     "license": "MIT"
+    },
+    {
+     "name": "genomic-coordinates",
+     "path": "skills/genomic-coordinates/SKILL.md",
+     "sha256": "da3eee43dfee06ee632388ddda0c38bb0bc57ec33420cbf26b14ce86be3c28a0",
+     "license": "MIT"
+    },
+    {
+     "name": "genomic-intelligence",
+     "path": "skills/genomic-intelligence/SKILL.md",
+     "sha256": "cdb027004996d313d31b55f6b93306de45306a89b8a4a792e94c36cf2d1dea20",
+     "license": "MIT"
+    },
+    {
+     "name": "geomaster",
+     "path": "skills/geomaster/SKILL.md",
+     "sha256": "7b3b88f13f0094285372dfcc25a000fb7e74e5fc4b67c1b6999543fff3cadde8",
+     "license": "MIT"
+    },
+    {
+     "name": "geopandas",
+     "path": "skills/geopandas/SKILL.md",
+     "sha256": "c03a46f911535326802af476208a1e04de13ea385f4d5309b022ad931826b222",
+     "license": "MIT"
+    },
+    {
+     "name": "get-available-resources",
+     "path": "skills/get-available-resources/SKILL.md",
+     "sha256": "54044d598fce28fca2ce50e7895f44423b070493db2f9c96ff0445bee4d3689d",
+     "license": "MIT"
+    },
+    {
+     "name": "gget",
+     "path": "skills/gget/SKILL.md",
+     "sha256": "55027a94be8dde013fd17e563ba20ccba92b7131c29c21e9c83e54fbce2b348a",
+     "license": "MIT"
+    },
+    {
+     "name": "ginkgo-cloud-lab",
+     "path": "skills/ginkgo-cloud-lab/SKILL.md",
+     "sha256": "b3675d3ad36070fd598642fd2b58c36d3cfd09a08eef3f52d77629856e2e845b",
+     "license": "MIT"
+    },
+    {
+     "name": "glycoengineering",
+     "path": "skills/glycoengineering/SKILL.md",
+     "sha256": "b529bde5367cd84175f07db473361c9713a69af8f641cd740a10c0b660b32bc7",
+     "license": "MIT"
+    },
+    {
+     "name": "gtars",
+     "path": "skills/gtars/SKILL.md",
+     "sha256": "c3586bcfa1e8d89a2abb23d74496d41e68daec5e7a8af6cefb9080a0ed469161",
+     "license": "MIT"
+    },
+    {
+     "name": "histolab",
+     "path": "skills/histolab/SKILL.md",
+     "sha256": "af0c6c98951d02cab64e904504a8ab97b815a461e99744134da0e7dd57189331",
+     "license": "MIT"
+    },
+    {
+     "name": "hugging-science",
+     "path": "skills/hugging-science/SKILL.md",
+     "sha256": "cff6c7e67d7f1925f008e11f5d0428f08391c35f4294d2c4c70350667b2decb2",
+     "license": "MIT"
+    },
+    {
+     "name": "hypogenic",
+     "path": "skills/hypogenic/SKILL.md",
+     "sha256": "8ad3f55669b7c5e8bbf1c70111259f2782fc26ec39826b011d51799de08b9da5",
+     "license": "MIT"
+    },
+    {
+     "name": "hypothesis-generation",
+     "path": "skills/hypothesis-generation/SKILL.md",
+     "sha256": "5bccec0437d96d61821ec2095e7e32b61e8634cd8c02f11f42da953121e92719",
+     "license": "MIT"
+    },
+    {
+     "name": "imaging-data-commons",
+     "path": "skills/imaging-data-commons/SKILL.md",
+     "sha256": "8dd250a80dc6959fcebc9cbae8049b25a83be31647c597f17a9e674c4f2e3685",
+     "license": "MIT"
+    },
+    {
+     "name": "infographics",
+     "path": "skills/infographics/SKILL.md",
+     "sha256": "dcd4ac5b46ac7f88ce8bd4ddf3efc8aa99a3f4bc6cc9ce2067c7d469758f0a8f",
+     "license": "MIT"
+    },
+    {
+     "name": "iso-standards-readiness",
+     "path": "skills/iso-standards-readiness/SKILL.md",
+     "sha256": "0ffd95e86924a698fcd0c806e51f24e2fc500847697d8ff99b255af817e15259",
+     "license": "MIT"
+    },
+    {
+     "name": "lab-hardware-cad",
+     "path": "skills/lab-hardware-cad/SKILL.md",
+     "sha256": "d3e9c67c3f08bfd7c6bb6c91d6ccc6621a72d2f47248965b4db4e1e296426b18",
+     "license": "MIT"
+    },
+    {
+     "name": "labarchive-integration",
+     "path": "skills/labarchive-integration/SKILL.md",
+     "sha256": "dcc452099ec0c4db3bf7aa0417bfeb70b14d249650be316b67f4f495461d1c0a",
+     "license": "MIT"
+    },
+    {
+     "name": "lamindb",
+     "path": "skills/lamindb/SKILL.md",
+     "sha256": "00f1246a7f59b6ec11ca119687ccc3ff384547f40d44f2140f557ac3ddd01b35",
+     "license": "MIT"
+    },
+    {
+     "name": "latchbio-integration",
+     "path": "skills/latchbio-integration/SKILL.md",
+     "sha256": "0f01df45ed4aecb81d672a5576820aee37c32864b4fe84bb4d049471a14d3e5c",
+     "license": "MIT"
+    },
+    {
+     "name": "latex-posters",
+     "path": "skills/latex-posters/SKILL.md",
+     "sha256": "4350dc80280fea210f9682991103445e97c58504ddd14e7a26f3d84e2fee5837",
+     "license": "MIT"
+    },
+    {
+     "name": "liteparse",
+     "path": "skills/liteparse/SKILL.md",
+     "sha256": "02a789c7959670cb8898e329588a41d43fa7b270c768a70c22aed05031d042a4",
+     "license": "MIT"
+    },
+    {
+     "name": "literature-review",
+     "path": "skills/literature-review/SKILL.md",
+     "sha256": "16a9e85bcdcb9bb859e1646bf836e51b22900445ba2e367d8d75be05b5a5cba8",
+     "license": "MIT"
+    },
+    {
+     "name": "mageck",
+     "path": "skills/mageck/SKILL.md",
+     "sha256": "562d7e2cb2febef14ab722bc29cd33983b523da287fb02b64eadf18702d4a9d1",
+     "license": "MIT"
+    },
+    {
+     "name": "marine-carbonate-chemistry",
+     "path": "skills/marine-carbonate-chemistry/SKILL.md",
+     "sha256": "03e58c7f9d7df75a323a6a8cf29ec18ae524cc308e5002c27fb5c65e1230f174",
+     "license": "MIT"
+    },
+    {
+     "name": "markdown-mermaid-writing",
+     "path": "skills/markdown-mermaid-writing/SKILL.md",
+     "sha256": "c28a9d602fc5b55e9fa80cff493b045bb70d3cec47e2288e38051744337214c4",
+     "license": "MIT"
+    },
+    {
+     "name": "market-research-reports",
+     "path": "skills/market-research-reports/SKILL.md",
+     "sha256": "8fba27d8509bb95caade7ef856d83ddbd7e51303590f5f2db149b0270cf6fd40",
+     "license": "MIT"
+    },
+    {
+     "name": "markitdown",
+     "path": "skills/markitdown/SKILL.md",
+     "sha256": "8c165c18ceaddc9367dd74f65fd60e42c1c3de9d180828ae1ff09a001af42339",
+     "license": "MIT"
+    },
+    {
+     "name": "matchms",
+     "path": "skills/matchms/SKILL.md",
+     "sha256": "1bde0e20f69f99dfa44800b9e908b0f90aa1256cfdb1d88a36ed0b8064c447ec",
+     "license": "MIT"
+    },
+    {
+     "name": "matlab",
+     "path": "skills/matlab/SKILL.md",
+     "sha256": "91afa6ec0f0b3797f51da62b79d44d00a32fcdf3690b9505e5987982a8e6d0e2",
+     "license": "MIT"
+    },
+    {
+     "name": "matplotlib",
+     "path": "skills/matplotlib/SKILL.md",
+     "sha256": "60b80aaa802e1a88db30729611789bf5ee92b3f2a7bb695502bac10dd255ee86",
+     "license": "MIT"
+    },
+    {
+     "name": "medchem",
+     "path": "skills/medchem/SKILL.md",
+     "sha256": "07e44d0dc965278ab8e4fe9a325e89198bccd7e3ee26c1c454e788e1f4df9c2f",
+     "license": "MIT"
+    },
+    {
+     "name": "modal",
+     "path": "skills/modal/SKILL.md",
+     "sha256": "5da5d0a39db4ea5f429ffc40772bbce87e26f778fac363c42873ca6bb84fecd9",
+     "license": "MIT"
+    },
+    {
+     "name": "molecular-dynamics",
+     "path": "skills/molecular-dynamics/SKILL.md",
+     "sha256": "1efb31165ec1477b37c31394ba04b5fb280d44db8907afdf2a956e48487f1136",
+     "license": "MIT"
+    },
+    {
+     "name": "molfeat",
+     "path": "skills/molfeat/SKILL.md",
+     "sha256": "6bc3c336b58c8c7214042c5679cd793e655c15e703fa5d5ac34e09250d11df5e",
+     "license": "MIT"
+    },
+    {
+     "name": "ncats-arax",
+     "path": "skills/ncats-arax/SKILL.md",
+     "sha256": "f15f9f9a149a942ab1eaed0115879afa399249e261d7118a6d19e3da834ba74c",
+     "license": "MIT"
+    },
+    {
+     "name": "networkx",
+     "path": "skills/networkx/SKILL.md",
+     "sha256": "981a213f33ddca21ec327ecee13e8ef8b85b7986274b84a10268ee73310df5be",
+     "license": "MIT"
+    },
+    {
+     "name": "neurokit2",
+     "path": "skills/neurokit2/SKILL.md",
+     "sha256": "6f73a726bdea37723aa68bf7aaf896eb10322e875cbf3bc5ee96707643f1be35",
+     "license": "MIT"
+    },
+    {
+     "name": "neuropixels-analysis",
+     "path": "skills/neuropixels-analysis/SKILL.md",
+     "sha256": "65985e85e9ac2206c92291446f543505b2b568bf1d622448e162ae6255e154dc",
+     "license": "MIT"
+    },
+    {
+     "name": "nextflow",
+     "path": "skills/nextflow/SKILL.md",
+     "sha256": "daa37795b3fe13ebf1c980acafb8401c4d1d7749dae013acc948f76c50c7379c",
+     "license": "MIT"
+    },
+    {
+     "name": "nmrglue",
+     "path": "skills/nmrglue/SKILL.md",
+     "sha256": "358b5a5d64d20092e8631aeb8f4a06f11634a9fdeb8c594a93e6c1282b04b10b",
+     "license": "MIT"
+    },
+    {
+     "name": "nwb-conversion",
+     "path": "skills/nwb-conversion/SKILL.md",
+     "sha256": "e2381f17db5e2b20354186a8a3c85b466afcf534cc1ae6181e87654ba5ed5fc6",
+     "license": "MIT"
+    },
+    {
+     "name": "omero-integration",
+     "path": "skills/omero-integration/SKILL.md",
+     "sha256": "c75e73ba447bbf9530f6d3df4ba6224185f3c7728460b37938c8626dab664ad2",
+     "license": "MIT"
+    },
+    {
+     "name": "onekgpd",
+     "path": "skills/onekgpd/SKILL.md",
+     "sha256": "6a7c0a90c42e899e818de866e843cf60d5434422fa69b910a7db9a06f25240e9",
+     "license": "MIT"
+    },
+    {
+     "name": "ontology-term-resolution",
+     "path": "skills/ontology-term-resolution/SKILL.md",
+     "sha256": "db310515a230a47023169be207f654458789377c98b30fa593ee420738e4eefb",
+     "license": "MIT"
+    },
+    {
+     "name": "open-notebook",
+     "path": "skills/open-notebook/SKILL.md",
+     "sha256": "39f3bb01946218b53c02e3aedde025e6f8b786307e5ba0c4698c5aed02f9fdd6",
+     "license": "MIT"
+    },
+    {
+     "name": "openpiv",
+     "path": "skills/openpiv/SKILL.md",
+     "sha256": "dc9aeeb18ef4b4832b9405c342ce40abbb09bc8162e35f2c659dd5814b07369a",
+     "license": "MIT"
+    },
+    {
+     "name": "opentrons-integration",
+     "path": "skills/opentrons-integration/SKILL.md",
+     "sha256": "3600fece96f89e7cedc23d13e48ce7eb25a90698d7ae3d8bae65035d89f392ff",
+     "license": "MIT"
+    },
+    {
+     "name": "optimize-for-gpu",
+     "path": "skills/optimize-for-gpu/SKILL.md",
+     "sha256": "e31bdb10b8ea66e5ec438583755999b66b9afab90f2583e1d500b8457ef28054",
+     "license": "MIT"
+    },
+    {
+     "name": "pacsomatic",
+     "path": "skills/pacsomatic/SKILL.md",
+     "sha256": "5425319387beb29684ae5148cba33bd3a6c4306651ba574d47c76a8dc390d45d",
+     "license": "MIT"
+    },
+    {
+     "name": "paper-lookup",
+     "path": "skills/paper-lookup/SKILL.md",
+     "sha256": "fac99456ad404ff9a0d3043709b956b5d6383838ae8e8394f274a5693d8bd294",
+     "license": "MIT"
+    },
+    {
+     "name": "paperclip",
+     "path": "skills/paperclip/SKILL.md",
+     "sha256": "4f6fc05346aefdf5685b11d6d34fbe5b9782fc5156d69702c00dd8c71bf63473",
+     "license": "MIT"
+    },
+    {
+     "name": "paperzilla",
+     "path": "skills/paperzilla/SKILL.md",
+     "sha256": "f1b5feb3c76ce064803e5d44757f0fc468bf670499015b9c6a9d487fca699771",
+     "license": "MIT"
+    },
+    {
+     "name": "parallel-web",
+     "path": "skills/parallel-web/SKILL.md",
+     "sha256": "04b4873674998c4fb47de017397e753d69049609135efed43a82572b9002f52c",
+     "license": "MIT"
+    },
+    {
+     "name": "pathml",
+     "path": "skills/pathml/SKILL.md",
+     "sha256": "654cef910bd567689b854eab52176628f39184d7cca7a6bf405343f337e58538",
+     "license": "MIT"
+    },
+    {
+     "name": "pathogen-variant-surveillance",
+     "path": "skills/pathogen-variant-surveillance/SKILL.md",
+     "sha256": "95510f890a47ab2e2275832fe60e725eca34e5318dcde88b0940d9362b3ab590",
+     "license": "MIT"
+    },
+    {
+     "name": "pathway-enrichment",
+     "path": "skills/pathway-enrichment/SKILL.md",
+     "sha256": "82783d8ba63b6b03646492ee75afcdf591903a213decf7e7c9d844eb517acd78",
+     "license": "MIT"
+    },
+    {
+     "name": "peer-review",
+     "path": "skills/peer-review/SKILL.md",
+     "sha256": "a042ccdc76d3399431b9a6c4cd4f98968eab964b1c14baeea4d9e73de82c7d19",
+     "license": "MIT"
+    },
+    {
+     "name": "pennylane",
+     "path": "skills/pennylane/SKILL.md",
+     "sha256": "7908ee374ed9bef310bd7071a175d97e0428cec184cce3e36db9fe3ae8e77c52",
+     "license": "MIT"
+    },
+    {
+     "name": "phylogenetics",
+     "path": "skills/phylogenetics/SKILL.md",
+     "sha256": "eef2354a8fe6c51c2ad8a506e512326553bda52c731952598adef677ae2d67d5",
+     "license": "MIT"
+    },
+    {
+     "name": "pi-agent",
+     "path": "skills/pi-agent/SKILL.md",
+     "sha256": "ef84742b6e491b3f65941dbb19fdd508b0aada3b87d95aa28b0f66a111f7c748",
+     "license": "MIT"
+    },
+    {
+     "name": "pkpd-modeling",
+     "path": "skills/pkpd-modeling/SKILL.md",
+     "sha256": "fc58aed600d0fe9de911176cb0f2a43e8df6bbae8c2260be6f8abade133a2837",
+     "license": "MIT"
+    },
+    {
+     "name": "polars-bio",
+     "path": "skills/polars-bio/SKILL.md",
+     "sha256": "b9dbf93b5d8dbaa3de4541449b828cd6199625c54956e8598f7552eefc30116f",
+     "license": "MIT"
+    },
+    {
+     "name": "polars",
+     "path": "skills/polars/SKILL.md",
+     "sha256": "05d64a001190b516bc922bac616483c3109a6d29c3e9950e3e2d6c31b9415e79",
+     "license": "MIT"
+    },
+    {
+     "name": "pptx-posters",
+     "path": "skills/pptx-posters/SKILL.md",
+     "sha256": "bb4923ec520ac5175f837e75c8b600344cc1eb71490b1fa9c809ac65e64f1fb9",
+     "license": "MIT"
+    },
+    {
+     "name": "primekg",
+     "path": "skills/primekg/SKILL.md",
+     "sha256": "b20698944fa51b287a13e7dc22ac033b83836b73614a21cff725ad7d6d807226",
+     "license": "MIT"
+    },
+    {
+     "name": "primer-design",
+     "path": "skills/primer-design/SKILL.md",
+     "sha256": "ea8bed0aa340a5f6538c206bb3d9fe503da6759e68a944a2bce564fa115d25e4",
+     "license": "MIT"
+    },
+    {
+     "name": "protocolsio-integration",
+     "path": "skills/protocolsio-integration/SKILL.md",
+     "sha256": "4439249ba8cd35a8507463f8be84db511abc23daa00be3f892c47d847d2aeda5",
+     "license": "MIT"
+    },
+    {
+     "name": "pufferlib",
+     "path": "skills/pufferlib/SKILL.md",
+     "sha256": "031975c6abaabd8237c18b6472886f4a718c509da70fc6ebca06455f8a002fa7",
+     "license": "MIT"
+    },
+    {
+     "name": "pybamm",
+     "path": "skills/pybamm/SKILL.md",
+     "sha256": "9d6f375f4d9def40072ea734f07e1a48c60a1cd906231cab1a4189a75499a1a4",
+     "license": "MIT"
+    },
+    {
+     "name": "pycalphad",
+     "path": "skills/pycalphad/SKILL.md",
+     "sha256": "7748a9413e22566316893d882596b5c2a321e9e03de93e6097c59a003e899a24",
+     "license": "MIT"
+    },
+    {
+     "name": "pydeseq2",
+     "path": "skills/pydeseq2/SKILL.md",
+     "sha256": "f06a9f5ece540c05bd8a8208bb3970d000b13cb1032abc9488cfbfe6106cd843",
+     "license": "MIT"
+    },
+    {
+     "name": "pydicom",
+     "path": "skills/pydicom/SKILL.md",
+     "sha256": "e42c35688a3dc7e0faaf1d1e88c8883eabc60ad291d348bfe5aee89a64c95b01",
+     "license": "MIT"
+    },
+    {
+     "name": "pyhealth",
+     "path": "skills/pyhealth/SKILL.md",
+     "sha256": "ec4de54618b71a4f8cfeb086d131c610127784a6839d842a67b3c1e87b66e161",
+     "license": "MIT"
+    },
+    {
+     "name": "pylabrobot",
+     "path": "skills/pylabrobot/SKILL.md",
+     "sha256": "b2aab8871006d84e53621fc0f4886d0fd0c671007d112569e444e0a56a564d76",
+     "license": "MIT"
+    },
+    {
+     "name": "pymatgen",
+     "path": "skills/pymatgen/SKILL.md",
+     "sha256": "4a106d7682cd9881765700d534cb419458ba407935a59168547da1ae6ea4b6b1",
+     "license": "MIT"
+    },
+    {
+     "name": "pymc",
+     "path": "skills/pymc/SKILL.md",
+     "sha256": "77d29ba7adf73d822329eab576d15a748811633a60bca88f5e93954793b3ea8a",
+     "license": "MIT"
+    },
+    {
+     "name": "pymoo",
+     "path": "skills/pymoo/SKILL.md",
+     "sha256": "942573e5b8099717487b45cf84798348fb2128516791dcafe2d76aa1bdfed117",
+     "license": "MIT"
+    },
+    {
+     "name": "pyopenms",
+     "path": "skills/pyopenms/SKILL.md",
+     "sha256": "020e7392adbb000aaab4968ae9a803ca4bd97818ca35e9eebd3abc222766a48f",
+     "license": "MIT"
+    },
+    {
+     "name": "pysam",
+     "path": "skills/pysam/SKILL.md",
+     "sha256": "afc275bbeb084553cd6507c4ffee848c46bef94dcd24c3b8a58d8b14d021ea09",
+     "license": "MIT"
+    },
+    {
+     "name": "pytdc",
+     "path": "skills/pytdc/SKILL.md",
+     "sha256": "b7df3f50c1c618a47a81e994b2863ddd8adf695e795aa495c3a8fef5e78a0493",
+     "license": "MIT"
+    },
+    {
+     "name": "pytorch-lightning",
+     "path": "skills/pytorch-lightning/SKILL.md",
+     "sha256": "d8829e74e8a1d908f923cf0c0a850ecfdd9edcb004d2fa90ec32fb1ed0006ce8",
+     "license": "MIT"
+    },
+    {
+     "name": "pyzotero",
+     "path": "skills/pyzotero/SKILL.md",
+     "sha256": "82dec36c7294674f33d9b6003e523d1dc4da33ed1c7427dc4e53731119fc5f74",
+     "license": "MIT"
+    },
+    {
+     "name": "qiime2-amplicon",
+     "path": "skills/qiime2-amplicon/SKILL.md",
+     "sha256": "605ae0581620f654ca9e12122a2bdb1d62a813841c5fea61b0eacb2031377cf7",
+     "license": "MIT"
+    },
+    {
+     "name": "qiskit",
+     "path": "skills/qiskit/SKILL.md",
+     "sha256": "538e5db262e7c237cff2bac191480f81688b8679167740af7405fcda1340511e",
+     "license": "MIT"
+    },
+    {
+     "name": "qutip",
+     "path": "skills/qutip/SKILL.md",
+     "sha256": "6b93a95eb586147b2f1639f7e669dece3182ab4ddd70b1200291073cfd533902",
+     "license": "MIT"
+    },
+    {
+     "name": "rdkit",
+     "path": "skills/rdkit/SKILL.md",
+     "sha256": "9f32d5d229bc1a5bac3e57de5fb87895cdb85dcc99132c57373905db0e1a941e",
+     "license": "MIT"
+    },
+    {
+     "name": "relion",
+     "path": "skills/relion/SKILL.md",
+     "sha256": "3f80369ef73ccb8c20e2e49ad2b9bd71da3ffa4a819c035691ca4a5b26cb8399",
+     "license": "MIT"
+    },
+    {
+     "name": "relsa-severity-assessment",
+     "path": "skills/relsa-severity-assessment/SKILL.md",
+     "sha256": "10ee1a904565f5e9c9d432b3af136db42927d0811f07f646355600fec6633f8a",
+     "license": "MIT"
+    },
+    {
+     "name": "research-grants",
+     "path": "skills/research-grants/SKILL.md",
+     "sha256": "3ca7ea8075bbe8008389660cc4a5769d66ac9ec638f3f61a955a5d7b20aeba85",
+     "license": "MIT"
+    },
+    {
+     "name": "research-lookup",
+     "path": "skills/research-lookup/SKILL.md",
+     "sha256": "8da1618350bf3434e4569a180a15b7241a50118ee9b79bccc514fa1bf3b4a102",
+     "license": "MIT"
+    },
+    {
+     "name": "rowan",
+     "path": "skills/rowan/SKILL.md",
+     "sha256": "d631f00ae0f9325aa58912bb571b7eb43bc42c553498e4c97f4d65a1683c8599",
+     "license": "MIT"
+    },
+    {
+     "name": "scanpy",
+     "path": "skills/scanpy/SKILL.md",
+     "sha256": "4a59f87933a1e9ed49eac603719af1b0c606dd99050fe59ffa1c1bf807900cb8",
+     "license": "MIT"
+    },
+    {
+     "name": "scholar-evaluation",
+     "path": "skills/scholar-evaluation/SKILL.md",
+     "sha256": "9abc66a9ba13f6cf0f61614ddfff17822b5be2cc7118f52ef2631323dac8c94e",
+     "license": "MIT"
+    },
+    {
+     "name": "scientific-brainstorming",
+     "path": "skills/scientific-brainstorming/SKILL.md",
+     "sha256": "06f73b71556356a7f488c369b9445d7943543a3f14d159b2168fd3f621d6f8a9",
+     "license": "MIT"
+    },
+    {
+     "name": "scientific-critical-thinking",
+     "path": "skills/scientific-critical-thinking/SKILL.md",
+     "sha256": "563af70571b7dcd6a96bf2e303bedfdcba623b4e9f082d58f04aacbc961fdae4",
+     "license": "MIT"
+    },
+    {
+     "name": "scientific-schematics",
+     "path": "skills/scientific-schematics/SKILL.md",
+     "sha256": "e15d761ef88013c98fd5b19cc144aba7336e20dbadf340db17bd1ba2227d1d69",
+     "license": "MIT"
+    },
+    {
+     "name": "scientific-slides",
+     "path": "skills/scientific-slides/SKILL.md",
+     "sha256": "b1d34b81d30789f561bd4ee3ddb373c9fb84bed25086794bebd842af46afbad6",
+     "license": "MIT"
+    },
+    {
+     "name": "scientific-visualization",
+     "path": "skills/scientific-visualization/SKILL.md",
+     "sha256": "8cbde7cdc10d959cf72cfd08335cc8ce996247eee6ebdb900eb64a4cb0ff34a3",
+     "license": "MIT"
+    },
+    {
+     "name": "scientific-writing",
+     "path": "skills/scientific-writing/SKILL.md",
+     "sha256": "511a2096bebecd8cf0f8212b9d262d37154ae1ba566eb385d93ac968682edbd1",
+     "license": "MIT"
+    },
+    {
+     "name": "scikit-bio",
+     "path": "skills/scikit-bio/SKILL.md",
+     "sha256": "4a7a5760adadf32782dc4694028371df13b25472ff8ffe4cef2b2fc564226f6c",
+     "license": "MIT"
+    },
+    {
+     "name": "scikit-learn",
+     "path": "skills/scikit-learn/SKILL.md",
+     "sha256": "a1765797d072ab40094522abe68fb04505d0881f66b7dfceeb8582422dbe488d",
+     "license": "MIT"
+    },
+    {
+     "name": "scikit-survival",
+     "path": "skills/scikit-survival/SKILL.md",
+     "sha256": "8f99860440f23312d9803d3ac65ae9eb65274597d59499f1021d59378adef2fb",
+     "license": "MIT"
+    },
+    {
+     "name": "scvelo",
+     "path": "skills/scvelo/SKILL.md",
+     "sha256": "c43258bccdbaa5772fd1aeac8d12d6107dd9c9b19c6a3a81fde7d421c0d2609e",
+     "license": "MIT"
+    },
+    {
+     "name": "scvi-tools",
+     "path": "skills/scvi-tools/SKILL.md",
+     "sha256": "b22633470d40ddaf31451fbbf811941fc89c3174c404ca359f25378691267e73",
+     "license": "MIT"
+    },
+    {
+     "name": "seaborn",
+     "path": "skills/seaborn/SKILL.md",
+     "sha256": "d1500d1e3d9db1db4c72cd272861378d1b98b0b5a5a98e8a3fca5a45bc0c6b2e",
+     "license": "MIT"
+    },
+    {
+     "name": "shap",
+     "path": "skills/shap/SKILL.md",
+     "sha256": "9c395662e608accd60acb62158f1d25299b12ec0e40f9f94b70a46ec527d52c1",
+     "license": "MIT"
+    },
+    {
+     "name": "simpy",
+     "path": "skills/simpy/SKILL.md",
+     "sha256": "027244a3587e70c3e2f1aed4bfb5d737cb24fdc6b2ad276302ed81c02e38a7fc",
+     "license": "MIT"
+    },
+    {
+     "name": "stable-baselines3",
+     "path": "skills/stable-baselines3/SKILL.md",
+     "sha256": "8383ae480e27163b9dbe1d9af822e05f0e85dd05b5bab1f6444588d57f569837",
+     "license": "MIT"
+    },
+    {
+     "name": "statistical-analysis",
+     "path": "skills/statistical-analysis/SKILL.md",
+     "sha256": "e112848726b3713267cac65e4e2c15491a0a26ee1ed628db01195f7e43f97997",
+     "license": "MIT"
+    },
+    {
+     "name": "statistical-power",
+     "path": "skills/statistical-power/SKILL.md",
+     "sha256": "a969660eafdc3504ac36e49bd7ded00e18b00fe5cef5699940d5d8281e24dd3d",
+     "license": "MIT"
+    },
+    {
+     "name": "statsmodels",
+     "path": "skills/statsmodels/SKILL.md",
+     "sha256": "9e6c034bb4acbf0972fda18892d2feea907885ac5ad7194d220182d8810295a3",
+     "license": "MIT"
+    },
+    {
+     "name": "sympy",
+     "path": "skills/sympy/SKILL.md",
+     "sha256": "bb97087bdddccc845401737ddc7f7a8da1c14ced5e8d40da01271c991ac46e23",
+     "license": "MIT"
+    },
+    {
+     "name": "tamarind",
+     "path": "skills/tamarind/SKILL.md",
+     "sha256": "aa9bb0aa10acefa52621acd9ba06604997ed2f3d20533359f47d4b24dfdc9494",
+     "license": "MIT"
+    },
+    {
+     "name": "tellurium",
+     "path": "skills/tellurium/SKILL.md",
+     "sha256": "69faa97aa45e7ad46515acd3e6497b044b7b44624ffd28c74fb40d97c74513a7",
+     "license": "MIT"
+    },
+    {
+     "name": "tiledbvcf",
+     "path": "skills/tiledbvcf/SKILL.md",
+     "sha256": "38e55a6962e14637e82f60be8e53e6d87c78f1a7874b9f832f442a038942f7d5",
+     "license": "MIT"
+    },
+    {
+     "name": "timesfm-forecasting",
+     "path": "skills/timesfm-forecasting/SKILL.md",
+     "sha256": "6f785fe73b133e9af7720fa46cf9013645198950155624889ef611b7b0dc74b8",
+     "license": "MIT"
+    },
+    {
+     "name": "torch-geometric",
+     "path": "skills/torch-geometric/SKILL.md",
+     "sha256": "89805e17cdbc64ed01426548442b3aa1bda8bcfdd4f9528f5c8dd6e0ea813c96",
+     "license": "MIT"
+    },
+    {
+     "name": "torchdrug",
+     "path": "skills/torchdrug/SKILL.md",
+     "sha256": "03538274e00aad262d159ca5ebed55fe6519d605171569feff44afeb781088fd",
+     "license": "MIT"
+    },
+    {
+     "name": "transformers",
+     "path": "skills/transformers/SKILL.md",
+     "sha256": "584d1c35d513f87616df9bcf7ddc8c48ab38cfbfad18d55c8481578d1c0d6f1a",
+     "license": "MIT"
+    },
+    {
+     "name": "treatment-plans",
+     "path": "skills/treatment-plans/SKILL.md",
+     "sha256": "ebb509854e12d016475ee6d45834a2a72c16815d1b9d940a9d156e7f024cbed6",
+     "license": "MIT"
+    },
+    {
+     "name": "umap-learn",
+     "path": "skills/umap-learn/SKILL.md",
+     "sha256": "0cfef32ae0e1d52eec6513bafc0ab4387cf38e43121fba715762b2b2c11b6930",
+     "license": "MIT"
+    },
+    {
+     "name": "uncertainty-and-units",
+     "path": "skills/uncertainty-and-units/SKILL.md",
+     "sha256": "caaafa079a4eaac6012717bcf705dec0417b5434f5dbd1af934a3a36ad375722",
+     "license": "MIT"
+    },
+    {
+     "name": "usfiscaldata",
+     "path": "skills/usfiscaldata/SKILL.md",
+     "sha256": "7cdcb756489ae8e94a73df1eebfb9abef554e912af6559ebd28dffa021ab63d5",
+     "license": "MIT"
+    },
+    {
+     "name": "vaex",
+     "path": "skills/vaex/SKILL.md",
+     "sha256": "a8ab5bcb0ab9c8d372b987e584b5c589a15b1e2b2f73457546d2888988d40b4f",
+     "license": "MIT"
+    },
+    {
+     "name": "venue-templates",
+     "path": "skills/venue-templates/SKILL.md",
+     "sha256": "8607993327f451cc6b9d7ca7502c0e7d5f5060954fec12e2ea779d96841e78b5",
+     "license": "MIT"
+    },
+    {
+     "name": "waypoint-bio",
+     "path": "skills/waypoint-bio/SKILL.md",
+     "sha256": "132d1f33d5d99bd6288a4cb432b277fcbc0f8bc4315e333dcecb840e7adc87a5",
+     "license": "MIT"
+    },
+    {
+     "name": "what-if-oracle",
+     "path": "skills/what-if-oracle/SKILL.md",
+     "sha256": "509af149c8cfc8f17dd15608d6337eb8a7ff3f4056fcadeda573c5e527c68a97",
+     "license": "MIT"
+    },
+    {
+     "name": "zarr-python",
+     "path": "skills/zarr-python/SKILL.md",
+     "sha256": "1edaabfc3fc618d4c3a16bd70c589c039a3cb3a26683f02bca0ccc140d3c9c4d",
+     "license": "MIT"
+    }
+   ]
+  },
+  {
+   "repo": "alirezarezvani/claude-skills",
+   "commit": "19392f7a08264ed00486a251f5b2098321771f94",
+   "license": "MIT",
+   "skills": [
+    {
+     "name": "agent-launcher-orchestrator",
+     "path": "agent-launcher/skills/agent-launcher-orchestrator/SKILL.md",
+     "sha256": "f16d36be3d672caf32bb67e9d556743a78dc41badf7a480349f51e32f2189d8f",
+     "license": "MIT"
+    },
+    {
+     "name": "grade-iterate",
+     "path": "agent-launcher/skills/grade-iterate/SKILL.md",
+     "sha256": "ebab2fb7024c0f68bd3a46d632e41036626f22aa55348c135be7d8e1cd1f9912",
+     "license": "MIT"
+    },
+    {
+     "name": "interview",
+     "path": "agent-launcher/skills/interview/SKILL.md",
+     "sha256": "45040d96a04f4731aca5d7d1e8b9fbca79fd731ea1ac02593b439a16fc018d0a",
+     "license": "MIT"
+    },
+    {
+     "name": "run-without-you",
+     "path": "agent-launcher/skills/run-without-you/SKILL.md",
+     "sha256": "6c517aeb5155801dc36ed6be0d7f0fe72b7c91671782435eb572de715acb5fb7",
+     "license": "MIT"
+    },
+    {
+     "name": "stage-launch",
+     "path": "agent-launcher/skills/stage-launch/SKILL.md",
+     "sha256": "466f59676c36c423ddb7ce2cfc23466407083627b91d764a52410d9a793db12e",
+     "license": "MIT"
+    },
+    {
+     "name": "wrap-up",
+     "path": "agent-launcher/skills/wrap-up/SKILL.md",
+     "sha256": "6e83891b547fcf7680d512e07f64cc68221c45ffa7ba3f8078035dd9fe54d5a5",
+     "license": "MIT"
+    },
+    {
+     "name": "business-growth-skills",
+     "path": "business-growth/skills/business-growth-skills/SKILL.md",
+     "sha256": "de3297ff9829a4c1360e9f01cc726a1e1c60547a2b9034a91ddd5ef9f7f800eb",
+     "license": "MIT"
+    },
+    {
+     "name": "contract-and-proposal-writer",
+     "path": "business-growth/skills/contract-and-proposal-writer/SKILL.md",
+     "sha256": "a92cdbb79c691731dc017b5cbc18370a88f081cb6e54872282678c00cae4a097",
+     "license": "MIT"
+    },
+    {
+     "name": "customer-success-manager",
+     "path": "business-growth/skills/customer-success-manager/SKILL.md",
+     "sha256": "ea53629ec26895fc84229d817f91512879be54331122521b180df3a568826546",
+     "license": "MIT"
+    },
+    {
+     "name": "revenue-operations",
+     "path": "business-growth/skills/revenue-operations/SKILL.md",
+     "sha256": "9ba340d0b1f3ff05eef9b8beef9de35a9f9082fef6cbc8cedd09022e4735c9b0",
+     "license": "MIT"
+    },
+    {
+     "name": "sales-engineer",
+     "path": "business-growth/skills/sales-engineer/SKILL.md",
+     "sha256": "7081cae4383df30c2e4908b522ae5bbf54497bc9e7a3f4472d81c5343ea8f93e",
+     "license": "MIT"
+    },
+    {
+     "name": "business-operations-skills",
+     "path": "business-operations/skills/business-operations-skills/SKILL.md",
+     "sha256": "c4ee20e1550a604c30e7351bb48d82b4d5212f26568e7b4e588f11cd67149f52",
+     "license": "MIT"
+    },
+    {
+     "name": "knowledge-ops",
+     "path": "business-operations/skills/knowledge-ops/SKILL.md",
+     "sha256": "980ee103958c7a209e7598da975cd1962e83a8deede181fd20f2a6a230afdb45",
+     "license": "MIT"
+    },
+    {
+     "name": "process-mapper",
+     "path": "business-operations/skills/process-mapper/SKILL.md",
+     "sha256": "e71210a50f9d3771a64892200ed454aa3e1a6b53eaef0d2cdcd1625cede7a57c",
+     "license": "MIT"
+    },
+    {
+     "name": "procurement-optimizer",
+     "path": "business-operations/skills/procurement-optimizer/SKILL.md",
+     "sha256": "308e0858ae3fd62fb1f0fdb03a9b16264897099aa48e397b152528ceec4edeea",
+     "license": "MIT"
+    },
+    {
+     "name": "vendor-management",
+     "path": "business-operations/skills/vendor-management/SKILL.md",
+     "sha256": "57fb2f47bfef9f3475703d05c9734a4840d68c1197923d90d68fd88ad95cb6b4",
+     "license": "MIT"
+    },
+    {
+     "name": "arquiteto-de-empresa",
+     "path": "c-level-advisor/arquiteto-de-empresa/skills/arquiteto-de-empresa/SKILL.md",
+     "sha256": "a04aeacb1b74531e84569aa01b947185d106f567a8a550817e61fcf6e642a322",
+     "license": "MIT"
+    },
+    {
+     "name": "chief-ai-officer-advisor",
+     "path": "c-level-advisor/chief-ai-officer-advisor/skills/chief-ai-officer-advisor/SKILL.md",
+     "sha256": "f578a33ea16493c2c981ead3215d9428f76d7770e3fb779518ca510c4f524c26",
+     "license": "MIT"
+    },
+    {
+     "name": "chief-customer-officer-advisor",
+     "path": "c-level-advisor/chief-customer-officer-advisor/skills/chief-customer-officer-advisor/SKILL.md",
+     "sha256": "8a985a538ffdf5a31325ea757fe25fc35aba2af187763f6f6d7dd50932fc7465",
+     "license": "MIT"
+    },
+    {
+     "name": "chief-data-officer-advisor",
+     "path": "c-level-advisor/chief-data-officer-advisor/skills/chief-data-officer-advisor/SKILL.md",
+     "sha256": "bb519c5ce49415e37300d5e9d36e202a9eb25680c1fa9d9449137e67ad2b996e",
+     "license": "MIT"
+    },
+    {
+     "name": "board-prep",
+     "path": "c-level-advisor/executive-mentor/skills/board-prep/SKILL.md",
+     "sha256": "7c1d19e1114b41fee8a27b8a575c5744e613484a3067a396c743245f21ed3352",
+     "license": "MIT"
+    },
+    {
+     "name": "challenge",
+     "path": "c-level-advisor/executive-mentor/skills/challenge/SKILL.md",
+     "sha256": "eb04f1e49bae8a81681ad5b84c262a15798637b67aeff686f3a6da5a98f86904",
+     "license": "MIT"
+    },
+    {
+     "name": "executive-mentor",
+     "path": "c-level-advisor/executive-mentor/skills/executive-mentor/SKILL.md",
+     "sha256": "8c4f6b85b37e348f0e969cf03fad1c0b7b6afaf66a2331e384e9f0d34119542a",
+     "license": "MIT"
+    },
+    {
+     "name": "hard-call",
+     "path": "c-level-advisor/executive-mentor/skills/hard-call/SKILL.md",
+     "sha256": "39aaad9cd0c148de43890ac71532a39df8139beeed191b7fe261fe948670e232",
+     "license": "MIT"
+    },
+    {
+     "name": "postmortem",
+     "path": "c-level-advisor/executive-mentor/skills/postmortem/SKILL.md",
+     "sha256": "ca1b7ab332c72f523beefdf5d2be7399f475582a09fee4e36daffab51394a78e",
+     "license": "MIT"
+    },
+    {
+     "name": "stress-test",
+     "path": "c-level-advisor/executive-mentor/skills/stress-test/SKILL.md",
+     "sha256": "bfa5b78f085c2b7b6f72f6993b4dde409e0fd2f2b0d4183a304326c0b01646c6",
+     "license": "MIT"
+    },
+    {
+     "name": "general-counsel-advisor",
+     "path": "c-level-advisor/general-counsel-advisor/skills/general-counsel-advisor/SKILL.md",
+     "sha256": "57f3c7afd76e8a7babbf81d2f70c03346987cc0de3db6a7d1c8a6e6a4d6291a3",
+     "license": "MIT"
+    },
+    {
+     "name": "agent-protocol",
+     "path": "c-level-advisor/skills/agent-protocol/SKILL.md",
+     "sha256": "fda98bece66a8903d95c79fa6dab49eb4e636014626ee119264e2c0e4224154e",
+     "license": "MIT"
+    },
+    {
+     "name": "board-deck-builder",
+     "path": "c-level-advisor/skills/board-deck-builder/SKILL.md",
+     "sha256": "73ca16546887edd28fe97e9c40647034f4b09dae692530d738d24b7d5bfc60a0",
+     "license": "MIT"
+    },
+    {
+     "name": "board-meeting",
+     "path": "c-level-advisor/skills/board-meeting/SKILL.md",
+     "sha256": "cb9bca1b04867a7e11e4aa716e0776bc787053de397ef2dacbcbf51638460e05",
+     "license": "MIT"
+    },
+    {
+     "name": "c-level-skills",
+     "path": "c-level-advisor/skills/c-level-skills/SKILL.md",
+     "sha256": "dcb4929a38868316b83d22098cf6d2a32fb590aed9c07a06e2ed7b8339197083",
+     "license": "MIT"
+    },
+    {
+     "name": "ceo-advisor",
+     "path": "c-level-advisor/skills/ceo-advisor/SKILL.md",
+     "sha256": "df3063c65e85400d2aa877f74aedecf561a5e3b78e8b6dd316860f2c31337c4c",
+     "license": "MIT"
+    },
+    {
+     "name": "cfo-advisor",
+     "path": "c-level-advisor/skills/cfo-advisor/SKILL.md",
+     "sha256": "9fcae3f3683725337b96fae510ef0c659ffc3551fca5838c2e94c576696f91f2",
+     "license": "MIT"
+    },
+    {
+     "name": "change-management",
+     "path": "c-level-advisor/skills/change-management/SKILL.md",
+     "sha256": "309d1563533a38d84bc13c0e32c46dcda4c9fade3ee1fad22997ed3ff0af30f6",
+     "license": "MIT"
+    },
+    {
+     "name": "chief-of-staff",
+     "path": "c-level-advisor/skills/chief-of-staff/SKILL.md",
+     "sha256": "bc217ed8a294363fb61c895c54fcc70f55221f92aab16841df25c8ed8a05e9a5",
+     "license": "MIT"
+    },
+    {
+     "name": "chro-advisor",
+     "path": "c-level-advisor/skills/chro-advisor/SKILL.md",
+     "sha256": "efd98eaba78e41b3399006a48536df2e146c1638dd758155f46886f07070d70d",
+     "license": "MIT"
+    },
+    {
+     "name": "ciso-advisor",
+     "path": "c-level-advisor/skills/ciso-advisor/SKILL.md",
+     "sha256": "ca2c14e65ff74b576e2d40ac39d0b26b00cca206488254ba525b78cbdb7c2b37",
+     "license": "MIT"
+    },
+    {
+     "name": "cmo-advisor",
+     "path": "c-level-advisor/skills/cmo-advisor/SKILL.md",
+     "sha256": "aa76f8740b2384e18066e4f02950bec552e0a8b5ff17a526a51b724163592cc7",
+     "license": "MIT"
+    },
+    {
+     "name": "company-os",
+     "path": "c-level-advisor/skills/company-os/SKILL.md",
+     "sha256": "beb4f6dac3dc1380548230bd278664e850af7bd8930142be2e2051f97bd85b6f",
+     "license": "MIT"
+    },
+    {
+     "name": "competitive-intel",
+     "path": "c-level-advisor/skills/competitive-intel/SKILL.md",
+     "sha256": "647c53414f51372dabe8323f98e65be06db5fb900d3dd30ffb783f2a977b9831",
+     "license": "MIT"
+    },
+    {
+     "name": "coo-advisor",
+     "path": "c-level-advisor/skills/coo-advisor/SKILL.md",
+     "sha256": "f7f47376610ef7a280be4af34a3816adb9225a24d6af52e148a4808b13c6df64",
+     "license": "MIT"
+    },
+    {
+     "name": "cpo-advisor",
+     "path": "c-level-advisor/skills/cpo-advisor/SKILL.md",
+     "sha256": "aa60b2c210f1b0ae1b6668f285ee1dd85b21c607f236f57a7b9bb0e9417a4225",
+     "license": "MIT"
+    },
+    {
+     "name": "cro-advisor",
+     "path": "c-level-advisor/skills/cro-advisor/SKILL.md",
+     "sha256": "cd712605d907badd29df29bd8c9cd8cb638bb845be285f3c5ecbd03c51a6bbd0",
+     "license": "MIT"
+    },
+    {
+     "name": "cs-onboard",
+     "path": "c-level-advisor/skills/cs-onboard/SKILL.md",
+     "sha256": "8867e51eb0fcdfd054039aa139a55db8565a4ed14f5e14fea976b504aa33c643",
+     "license": "MIT"
+    },
+    {
+     "name": "cto-advisor",
+     "path": "c-level-advisor/skills/cto-advisor/SKILL.md",
+     "sha256": "163188fbfa003cfe593f460f814aadcfa4228c85d6de96fe7589442afbee8adb",
+     "license": "MIT"
+    },
+    {
+     "name": "culture-architect",
+     "path": "c-level-advisor/skills/culture-architect/SKILL.md",
+     "sha256": "7d057648e470951de883cc00c8078640fadc0dfc38cdaaac4e26435d2caec2a0",
+     "license": "MIT"
+    },
+    {
+     "name": "decision-logger",
+     "path": "c-level-advisor/skills/decision-logger/SKILL.md",
+     "sha256": "f7f5902cd4970015389e52e0196274146a9d334a32e90137e6f480032414697d",
+     "license": "MIT"
+    },
+    {
+     "name": "founder-coach",
+     "path": "c-level-advisor/skills/founder-coach/SKILL.md",
+     "sha256": "5dddb18187c7bbbcb91bcbed07eff1bf739ffa20b91668e09f89743c4255a230",
+     "license": "MIT"
+    },
+    {
+     "name": "internal-narrative",
+     "path": "c-level-advisor/skills/internal-narrative/SKILL.md",
+     "sha256": "1c3558eddccc7547fea27a6f25875c9861e32d5899db5f027b71d3c2036d922e",
+     "license": "MIT"
+    },
+    {
+     "name": "intl-expansion",
+     "path": "c-level-advisor/skills/intl-expansion/SKILL.md",
+     "sha256": "4ff404139d02174ca6151c3e0ee7f65b199fce7cf2afb16fe567709381ad390c",
+     "license": "MIT"
+    },
+    {
+     "name": "ma-playbook",
+     "path": "c-level-advisor/skills/ma-playbook/SKILL.md",
+     "sha256": "e27101055e873209979459047b94f2228e82a46240fb1da59735d54752e7f7c5",
+     "license": "MIT"
+    },
+    {
+     "name": "org-health-diagnostic",
+     "path": "c-level-advisor/skills/org-health-diagnostic/SKILL.md",
+     "sha256": "935fbe7470247d6740dccb1619bbd6c1365a8e9ff3d7b5d5239f92933da0f84c",
+     "license": "MIT"
+    },
+    {
+     "name": "scenario-war-room",
+     "path": "c-level-advisor/skills/scenario-war-room/SKILL.md",
+     "sha256": "bbc259eb11e8ba20e3eee2c5a531ef43994685c7274514a4e3709dba2dd6bf3a",
+     "license": "MIT"
+    },
+    {
+     "name": "strategic-alignment",
+     "path": "c-level-advisor/skills/strategic-alignment/SKILL.md",
+     "sha256": "b6c7a58907851b103de7c46c2b9063362fc61d7d1e450fc612710f4fc04ea6ab",
+     "license": "MIT"
+    },
+    {
+     "name": "vpe-advisor",
+     "path": "c-level-advisor/skills/vpe-advisor/SKILL.md",
+     "sha256": "a351ad1eb48f779a5ab63c9d3a29cea39de64997006bfdd3df2c88b2353ce7dd",
+     "license": "MIT"
+    },
+    {
+     "name": "c-level-agents",
+     "path": "c-level-agents/skills/c-level-agents/SKILL.md",
+     "sha256": "87a4193b3ad7445c0a8421c32e60be9237104a559570e01b35eff2b540e89252",
+     "license": "MIT"
+    },
+    {
+     "name": "onboard",
+     "path": "c-level-agents/skills/onboard/SKILL.md",
+     "sha256": "b34d69709fb6f8b11c8911715187a53eecf60df3afdd13a5edabf063c9cb9393",
+     "license": "MIT"
+    },
+    {
+     "name": "channel-economics",
+     "path": "commercial/skills/channel-economics/SKILL.md",
+     "sha256": "fb1b193f7efcfe36189cdfcb660294e1ed95413d92cab9dd084c0b417aaab3e0",
+     "license": "MIT"
+    },
+    {
+     "name": "commercial-forecaster",
+     "path": "commercial/skills/commercial-forecaster/SKILL.md",
+     "sha256": "ad604e6d0e26b42a446029160e24097af88992c3d4b4a63a528bbc6f835de40d",
+     "license": "MIT"
+    },
+    {
+     "name": "commercial-policy",
+     "path": "commercial/skills/commercial-policy/SKILL.md",
+     "sha256": "6e812240f2b99e369cb1053dfe8b70567629696be1e10c6a87e076cdfb19fd73",
+     "license": "MIT"
+    },
+    {
+     "name": "commercial-skills",
+     "path": "commercial/skills/commercial-skills/SKILL.md",
+     "sha256": "58983bd3e32e38d711be4ece7630f08b69caf87fc8004bcf70c92d491c9a6a7a",
+     "license": "MIT"
+    },
+    {
+     "name": "deal-desk",
+     "path": "commercial/skills/deal-desk/SKILL.md",
+     "sha256": "39dcfb0d50983bbfaf2b25876ce5fe4fb23b2cf5b3d5469191de9c349743af20",
+     "license": "MIT"
+    },
+    {
+     "name": "partnerships-architect",
+     "path": "commercial/skills/partnerships-architect/SKILL.md",
+     "sha256": "224a929d13179997de1e8092d385e8683a4891fb34173f379678a6cf6602bb10",
+     "license": "MIT"
+    },
+    {
+     "name": "pricing-strategist",
+     "path": "commercial/skills/pricing-strategist/SKILL.md",
+     "sha256": "0dcefcdeb60a2c319a0c12119290d1f812919ef7fe98aed9748aee2f9e79c9e6",
+     "license": "MIT"
+    },
+    {
+     "name": "rfp-responder",
+     "path": "commercial/skills/rfp-responder/SKILL.md",
+     "sha256": "7d70369c5fe2f512c7bf7b92ce286cb078cfdeabe15fdb76902d72244d9ccf7c",
+     "license": "MIT"
+    },
+    {
+     "name": "compliance-os",
+     "path": "compliance-os/skills/compliance-os/SKILL.md",
+     "sha256": "0d05747013572dbcf093c05f3fd536f96b56e5bdd92bf780f0dfed9aaeb191bd",
+     "license": "MIT"
+    },
+    {
+     "name": "a11y-audit",
+     "path": "engineering-team/a11y-audit/skills/a11y-audit/SKILL.md",
+     "sha256": "e1cbabce8168ea0cb18d44b49c754c7de2e2dc29f8560cb9c4631a89e8652e4e",
+     "license": "MIT"
+    },
+    {
+     "name": "google-workspace-cli",
+     "path": "engineering-team/google-workspace-cli/skills/google-workspace-cli/SKILL.md",
+     "sha256": "c44cc6e4492dc42358482045c22516910cd30637818d582f9bdb68575c113fe1",
+     "license": "MIT"
+    },
+    {
+     "name": "browserstack",
+     "path": "engineering-team/playwright-pro/skills/browserstack/SKILL.md",
+     "sha256": "f3240872b87c93e8757707c6c1ebaf9d8117ba17b05c70c7c3664e89e575deff",
+     "license": "MIT"
+    },
+    {
+     "name": "coverage",
+     "path": "engineering-team/playwright-pro/skills/coverage/SKILL.md",
+     "sha256": "a3a5c9728f6df53f0eb13038f73a0ae0ee507d96a088eb396c443ed9251a4221",
+     "license": "MIT"
+    },
+    {
+     "name": "fix",
+     "path": "engineering-team/playwright-pro/skills/fix/SKILL.md",
+     "sha256": "1374297e8c327505bc7df63dd2e7390c6e205d1e1a613a0b7f4f07035bf373ff",
+     "license": "MIT"
+    },
+    {
+     "name": "generate",
+     "path": "engineering-team/playwright-pro/skills/generate/SKILL.md",
+     "sha256": "995f6cf365634ab96d9124203e8f9d9a05997dbbd89786f217cd7cade884d367",
+     "license": "MIT"
+    },
+    {
+     "name": "migrate",
+     "path": "engineering-team/playwright-pro/skills/migrate/SKILL.md",
+     "sha256": "fe9cd99c045f095a4c1e9da88c835afdf00a4b4961c3c13cd7096c4687f2c059",
+     "license": "MIT"
+    },
+    {
+     "name": "pw-init",
+     "path": "engineering-team/playwright-pro/skills/pw-init/SKILL.md",
+     "sha256": "91975ef9bd3c00c9fe4f16e69b64b15183cc7f7d0576b5eda88821a381bc7d39",
+     "license": "MIT"
+    },
+    {
+     "name": "pw-review",
+     "path": "engineering-team/playwright-pro/skills/pw-review/SKILL.md",
+     "sha256": "442833f0bcde3221a7afaef58c19f87e345a8dbb247bc4357537aa458bbdb69a",
+     "license": "MIT"
+    },
+    {
+     "name": "playwright-pro",
+     "path": "engineering-team/playwright-pro/skills/pw/SKILL.md",
+     "sha256": "7267483b06508dff86259a42054ca658e03dd62e628b8158f1564dd35536bef2",
+     "license": "MIT"
+    },
+    {
+     "name": "report",
+     "path": "engineering-team/playwright-pro/skills/report/SKILL.md",
+     "sha256": "d1ba6caafa62ec1f117cce2ad9abd132c7f54a702acba6fee581d9318a83bc3c",
+     "license": "MIT"
+    },
+    {
+     "name": "testrail",
+     "path": "engineering-team/playwright-pro/skills/testrail/SKILL.md",
+     "sha256": "61be7f48b674e7058f490c7f59d8ab9dc98a375f74fdcb6934a6435a58ad1842",
+     "license": "MIT"
+    },
+    {
+     "name": "extract",
+     "path": "engineering-team/self-improving-agent/skills/extract/SKILL.md",
+     "sha256": "eabdb4c6ffd2624a51108649623b29ccdc02d2b390305e65e2b7a981dc4d72dd",
+     "license": "MIT"
+    },
+    {
+     "name": "memory-review",
+     "path": "engineering-team/self-improving-agent/skills/memory-review/SKILL.md",
+     "sha256": "51caa5e982dff97a33b0c20ee63061425aca01e70e21bbfd41fa9915c183c6fd",
+     "license": "MIT"
+    },
+    {
+     "name": "memory-status",
+     "path": "engineering-team/self-improving-agent/skills/memory-status/SKILL.md",
+     "sha256": "76a903945568faba3146a5523654d1a606f297bb704dc3d283e00a2780e87bc0",
+     "license": "MIT"
+    },
+    {
+     "name": "promote",
+     "path": "engineering-team/self-improving-agent/skills/promote/SKILL.md",
+     "sha256": "ac90d59f83c7fcb4a3e63376d6546aa17f5d134f204bc08881a0f7fff4777ade",
+     "license": "MIT"
+    },
+    {
+     "name": "remember",
+     "path": "engineering-team/self-improving-agent/skills/remember/SKILL.md",
+     "sha256": "7d596b07a8791019c54bd9c32e4ac8116604971aecef3e3084ff4b78b54e9a3f",
+     "license": "MIT"
+    },
+    {
+     "name": "self-improving-agent",
+     "path": "engineering-team/self-improving-agent/skills/self-improving-agent/SKILL.md",
+     "sha256": "c259260503478672ee829b7dcc1ef5d1937875db3e286e9bfda7013d235e7d60",
+     "license": "MIT"
+    },
+    {
+     "name": "adversarial-reviewer",
+     "path": "engineering-team/skills/adversarial-reviewer/SKILL.md",
+     "sha256": "d69e917a7c84405a18b40bd6e41d5fae9aba966db903171028f86bb5c25f6f94",
+     "license": "MIT"
+    },
+    {
+     "name": "ai-security",
+     "path": "engineering-team/skills/ai-security/SKILL.md",
+     "sha256": "dac7c1312e5433e02fb287ca476979468d9a21901ed0d0fd67a64a8239ac6287",
+     "license": "MIT"
+    },
+    {
+     "name": "aws-solution-architect",
+     "path": "engineering-team/skills/aws-solution-architect/SKILL.md",
+     "sha256": "4d5f067b82f3ea77d3ed6356eb18e6cda86126a2b36f9e53b7614bbc149e973c",
+     "license": "MIT"
+    },
+    {
+     "name": "azure-cloud-architect",
+     "path": "engineering-team/skills/azure-cloud-architect/SKILL.md",
+     "sha256": "d92c2d096b11cc10d2525f79bcaff3f75727968b84c24a629ef589082ad2a825",
+     "license": "MIT"
+    },
+    {
+     "name": "cloud-security",
+     "path": "engineering-team/skills/cloud-security/SKILL.md",
+     "sha256": "b21c8b13654e421a65784430df2c6bba90bddfdae87fe5000d4bae0c3cd1a7c5",
+     "license": "MIT"
+    },
+    {
+     "name": "code-reviewer",
+     "path": "engineering-team/skills/code-reviewer/SKILL.md",
+     "sha256": "28d80f6710369919e751679e588ba67db3fe5d11461a8f59c53fead2e119978a",
+     "license": "MIT"
+    },
+    {
+     "name": "email-template-builder",
+     "path": "engineering-team/skills/email-template-builder/SKILL.md",
+     "sha256": "e01efa4b96637071fede0bfbf3c3d178e5da7a1ee6ee35ab33cf1cfcb4589e69",
+     "license": "MIT"
+    },
+    {
+     "name": "embedded-iot-mentor",
+     "path": "engineering-team/skills/embedded-iot-mentor/SKILL.md",
+     "sha256": "5f9a3c5d1b4ec322b36f0f2e9f01a5978935c669e416753309fec1dc2811c55e",
+     "license": "MIT"
+    },
+    {
+     "name": "engineering-skills",
+     "path": "engineering-team/skills/engineering-skills/SKILL.md",
+     "sha256": "99c775af2aa507257a7dce7e3cb2b13c7976a20b04c8655f12d70cad40eaa132",
+     "license": "MIT"
+    },
+    {
+     "name": "epic-design",
+     "path": "engineering-team/skills/epic-design/SKILL.md",
+     "sha256": "f5f7c9f9edd5d6b469dbfff28cece10202588c69def3fe5be3c797ebfda37142",
+     "license": "MIT"
+    },
+    {
+     "name": "gcp-cloud-architect",
+     "path": "engineering-team/skills/gcp-cloud-architect/SKILL.md",
+     "sha256": "5ea03c02ce083de1a846a843213bf18da03e2bd335af71e50a7807fb05e84c7d",
+     "license": "MIT"
+    },
+    {
+     "name": "incident-commander",
+     "path": "engineering-team/skills/incident-commander/SKILL.md",
+     "sha256": "b7f8d0442f1c7379f67dc3089b105a3f7b668eed76beff623bc59f795d2642a4",
+     "license": "MIT"
+    },
+    {
+     "name": "incident-response",
+     "path": "engineering-team/skills/incident-response/SKILL.md",
+     "sha256": "6ae60c0ff441d76e1621c41fc1bee320728cc9e852df37c12d7468abc840abb7",
+     "license": "MIT"
+    },
+    {
+     "name": "ms365-tenant-manager",
+     "path": "engineering-team/skills/ms365-tenant-manager/SKILL.md",
+     "sha256": "4a2ac8effcaa94b5d610232c1b57e9c2d2f89a6e339a21f5885bcbc14da9948f",
+     "license": "MIT"
+    },
+    {
+     "name": "named-persona-adversarial-review",
+     "path": "engineering-team/skills/named-persona-adversarial-review/SKILL.md",
+     "sha256": "192af7fe0359f52fc2a02b7f3b829e425a4ae16bf4e0c256fda3b792de5843a6",
+     "license": "MIT"
+    },
+    {
+     "name": "red-team",
+     "path": "engineering-team/skills/red-team/SKILL.md",
+     "sha256": "86c488d786387de64bb99036ba6091a1179c73258997093e2fede45abd5bb292",
+     "license": "MIT"
+    },
+    {
+     "name": "security-pen-testing",
+     "path": "engineering-team/skills/security-pen-testing/SKILL.md",
+     "sha256": "7fa4287746fd751ad144750817181efe55062963d778947d4b27bac1666efff7",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-architect",
+     "path": "engineering-team/skills/senior-architect/SKILL.md",
+     "sha256": "559d402c361591423b22de37485ad3900b3aba8c437bed1ebf70aa4e828e0e22",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-backend",
+     "path": "engineering-team/skills/senior-backend/SKILL.md",
+     "sha256": "4f1ae6929b9cb723bdf63c27aa2147ca36c7b028a8ab1d6d622f09c0a061f672",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-computer-vision",
+     "path": "engineering-team/skills/senior-computer-vision/SKILL.md",
+     "sha256": "af273171f5e786e0d80a306fdb039e60d264f47633fb61a6cce2ca14ac5bf531",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-data-engineer",
+     "path": "engineering-team/skills/senior-data-engineer/SKILL.md",
+     "sha256": "20495d2ee96a7b5a6d7026713f254f274682438997dd44933b7bca1882a1dae2",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-data-scientist",
+     "path": "engineering-team/skills/senior-data-scientist/SKILL.md",
+     "sha256": "6d0418ae7e9f28d14b31b7850375e831355ab6275eff556afeccf06633a3299c",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-devops",
+     "path": "engineering-team/skills/senior-devops/SKILL.md",
+     "sha256": "6eaeee798f2ffc82496c5d8dffb9a111a98e911284daa6886be3107a41917979",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-frontend",
+     "path": "engineering-team/skills/senior-frontend/SKILL.md",
+     "sha256": "886e83d1713b473f01091954683d7f008cefd1100d32114ccaf85368fb67a9a5",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-fullstack",
+     "path": "engineering-team/skills/senior-fullstack/SKILL.md",
+     "sha256": "fa3567f3bd96e76803a0125d8e949937a0a477f292c675920d43abcb7c2a84c5",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-ml-engineer",
+     "path": "engineering-team/skills/senior-ml-engineer/SKILL.md",
+     "sha256": "78756b7e74b3e024d56c8d631ca40d6cbfd655ec5d98a9cbe19afff2617fc856",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-prompt-engineer",
+     "path": "engineering-team/skills/senior-prompt-engineer/SKILL.md",
+     "sha256": "bbf9324400a094eef1a92b076d3e2bd2303bc2962db4dd59157adcc827f7e7ef",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-qa",
+     "path": "engineering-team/skills/senior-qa/SKILL.md",
+     "sha256": "a67b326aa3dccd186b2d076f7e01a2ce5775537c643bba819f759743d2b6678c",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-secops",
+     "path": "engineering-team/skills/senior-secops/SKILL.md",
+     "sha256": "49e933139a7ce3fe02e7ae1e6d59f2fdf947afeabcee125a8e2c4cda7b575bd9",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-security",
+     "path": "engineering-team/skills/senior-security/SKILL.md",
+     "sha256": "454188e4f0188d3e0219f58c70dc666e0a9e98383d53a7437a027b13db68643a",
+     "license": "MIT"
+    },
+    {
+     "name": "stripe-integration-expert",
+     "path": "engineering-team/skills/stripe-integration-expert/SKILL.md",
+     "sha256": "a2466d6e1d3d08a1da1ab558e93747758ec5d1ecba1730fb0c41aa65adaafacb",
+     "license": "MIT"
+    },
+    {
+     "name": "tdd-guide",
+     "path": "engineering-team/skills/tdd-guide/SKILL.md",
+     "sha256": "b12e75f376db6a72d0f5a9971c720c04546d02f0ecf68f40fd0efde22e46aa6d",
+     "license": "MIT"
+    },
+    {
+     "name": "tech-stack-evaluator",
+     "path": "engineering-team/skills/tech-stack-evaluator/SKILL.md",
+     "sha256": "4bc1f2b465bc3bd4a41137a366f597b467c139c553c15965da84232c62ab9790",
+     "license": "MIT"
+    },
+    {
+     "name": "threat-detection",
+     "path": "engineering-team/skills/threat-detection/SKILL.md",
+     "sha256": "55d4170de0e6732f8c2a9cd62ab66753ad3f466550a3952830d9782fed081ab3",
+     "license": "MIT"
+    },
+    {
+     "name": "snowflake-development",
+     "path": "engineering-team/snowflake-development/skills/snowflake-development/SKILL.md",
+     "sha256": "5269d44cdc1e4589cde886eb592dc6c37873a6e41acff494ed8bf8e695a31a0d",
+     "license": "MIT"
+    },
+    {
+     "name": "agent-harness",
+     "path": "engineering/agent-harness/skills/agent-harness/SKILL.md",
+     "sha256": "cc31a8a9507264465de02bfa239935506ed0b7091f78e051a8992b6064a31829",
+     "license": "MIT"
+    },
+    {
+     "name": "agent-memory",
+     "path": "engineering/agent-memory/skills/agent-memory/SKILL.md",
+     "sha256": "9c95ad2d18a41b1ca4d575377868c84ff5d294fd0e96a83aafd67fe404aec078",
+     "license": "MIT"
+    },
+    {
+     "name": "agenthub",
+     "path": "engineering/agenthub/skills/agenthub/SKILL.md",
+     "sha256": "c350408074e38f852253e30c0c2eab059b1f53fbf812a2316b23faea6d527571",
+     "license": "MIT"
+    },
+    {
+     "name": "board",
+     "path": "engineering/agenthub/skills/board/SKILL.md",
+     "sha256": "07580733dc58eac8c0e32dd160ddd13cfd61a706f7def2382dbee1c5396bc4f9",
+     "license": "MIT"
+    },
+    {
+     "name": "eval",
+     "path": "engineering/agenthub/skills/eval/SKILL.md",
+     "sha256": "270d7d054f0f8755b91acfe5095e900c053f8959404f9ce25f7cd3884b6ce5e1",
+     "license": "MIT"
+    },
+    {
+     "name": "hub-init",
+     "path": "engineering/agenthub/skills/hub-init/SKILL.md",
+     "sha256": "42e791364f562593c5dfd8ca20116f0257c35992fd709c9da696312e21db256c",
+     "license": "MIT"
+    },
+    {
+     "name": "hub-status",
+     "path": "engineering/agenthub/skills/hub-status/SKILL.md",
+     "sha256": "86a244c0367d945976c91b7040222ee428deb5b748dc97d25fef349422711d60",
+     "license": "MIT"
+    },
+    {
+     "name": "merge",
+     "path": "engineering/agenthub/skills/merge/SKILL.md",
+     "sha256": "3d002340c3ac079ee3f235165c7e9d44d9524c21e06515abba9e26e330166b66",
+     "license": "MIT"
+    },
+    {
+     "name": "spawn",
+     "path": "engineering/agenthub/skills/spawn/SKILL.md",
+     "sha256": "9b3cadeba61806ae9ec4abb4828fddcfb2230b1d7ec30df3b894a21ff78b1059",
+     "license": "MIT"
+    },
+    {
+     "name": "ar-resume",
+     "path": "engineering/autoresearch-agent/skills/ar-resume/SKILL.md",
+     "sha256": "ed0d88126b8535c1a37c52f5e80e09845b03ad9000c6060defe0760dbd4f6ee5",
+     "license": "MIT"
+    },
+    {
+     "name": "ar-status",
+     "path": "engineering/autoresearch-agent/skills/ar-status/SKILL.md",
+     "sha256": "bbe6b290690b680ff96a3d8ce958f6dec77e6645b0a91f1e6626daceb07fcb98",
+     "license": "MIT"
+    },
+    {
+     "name": "autoresearch-agent",
+     "path": "engineering/autoresearch-agent/skills/autoresearch-agent/SKILL.md",
+     "sha256": "4ed65a361470d1c31bdcd269e1847a8751b0f7e4b938fe2fa54fc13f8a069e3e",
+     "license": "MIT"
+    },
+    {
+     "name": "setup",
+     "path": "engineering/autoresearch-agent/skills/setup/SKILL.md",
+     "sha256": "e0d053a89ea12e9d86f963416348c6d0b6bfc72fd7a9e6c1586ee574f741552d",
+     "license": "MIT"
+    },
+    {
+     "name": "behuman",
+     "path": "engineering/behuman/skills/behuman/SKILL.md",
+     "sha256": "689947e18e7841dd8293f9084a5225940a5c51932d96118f80c13d038b4962dc",
+     "license": "MIT"
+    },
+    {
+     "name": "book-to-skill",
+     "path": "engineering/book-to-skill/skills/book-to-skill/SKILL.md",
+     "sha256": "ea8195653ada2575833cc2622f2b88d8717fb60d7e056aabcb183f5da0ab2e5d",
+     "license": "MIT"
+    },
+    {
+     "name": "boost-asio-pro",
+     "path": "engineering/boost-asio-pro/SKILL.md",
+     "sha256": "1447d9c7dd75532b0cbb94f1e8781bfdf3cf0562be520f5f7084068ae4c0ddf0",
+     "license": "MIT"
+    },
+    {
+     "name": "caveman",
+     "path": "engineering/caveman/skills/caveman/SKILL.md",
+     "sha256": "410f63421118bf740f66d3c8fff5f7c4c4c945edc5e673c3675239de50795e86",
+     "license": "MIT"
+    },
+    {
+     "name": "chaos-engineering",
+     "path": "engineering/chaos-engineering/skills/chaos-engineering/SKILL.md",
+     "sha256": "fde41aeb8b9977e85e33a69140c9d5aac099698f480bac6c89a9a5ef8baca8bc",
+     "license": "MIT"
+    },
+    {
+     "name": "claude-coach",
+     "path": "engineering/claude-coach/skills/claude-coach/SKILL.md",
+     "sha256": "f4faf08c2042a5ec0649b4a3e75a6941ff9d3704beb53231e248ea0119c5ea0e",
+     "license": "MIT"
+    },
+    {
+     "name": "code-tour",
+     "path": "engineering/code-tour/skills/code-tour/SKILL.md",
+     "sha256": "3497bd672c185df19a2205190f897fddf64f9b55a599ad3c24443b87241139e6",
+     "license": "MIT"
+    },
+    {
+     "name": "collab-proof",
+     "path": "engineering/collab-proof/skills/collab-proof/SKILL.md",
+     "sha256": "0a06dd8a7db057c9bf3c3bcf054927e1e39f0e837fcb7867df4f2d6ac95c5f8d",
+     "license": "MIT"
+    },
+    {
+     "name": "data-quality-auditor",
+     "path": "engineering/data-quality-auditor/skills/data-quality-auditor/SKILL.md",
+     "sha256": "9de27d68f5f8402c81a708f36033139471ee07079af3ac557f6b74ccacb7eedc",
+     "license": "MIT"
+    },
+    {
+     "name": "deep-learning-book",
+     "path": "engineering/deep-learning-book/skills/deep-learning-book/SKILL.md",
+     "sha256": "d08dbf58db06299310321316fa40228e88adaf27356c1c38c5a79bfc3fca28b3",
+     "license": "MIT"
+    },
+    {
+     "name": "demo-video",
+     "path": "engineering/demo-video/skills/demo-video/SKILL.md",
+     "sha256": "1fd0bed0afa9965a6422005de8d930bdf17e1823d5319ca911a621be9e2c6d6d",
+     "license": "MIT"
+    },
+    {
+     "name": "docker-development",
+     "path": "engineering/docker-development/skills/docker-development/SKILL.md",
+     "sha256": "6471aa331d8a13d1b451dfcf5f1603b585d65b5fa70f99078604e778a7ab9f1c",
+     "license": "MIT"
+    },
+    {
+     "name": "feature-flags-architect",
+     "path": "engineering/feature-flags-architect/skills/feature-flags-architect/SKILL.md",
+     "sha256": "8beb229d269bf25c1a94f6683c3d731662c7d53b774ed5d3e7b65fe23a9234b6",
+     "license": "MIT"
+    },
+    {
+     "name": "grill-me",
+     "path": "engineering/grill-me/skills/grill-me/SKILL.md",
+     "sha256": "37d338a1d58c5f1b77b2ef3c9fe8212450b0d391c24dd0eeffe4b9a30a5ccb73",
+     "license": "MIT"
+    },
+    {
+     "name": "grill-with-docs",
+     "path": "engineering/grill-with-docs/skills/grill-with-docs/SKILL.md",
+     "sha256": "1f319168e7cf1f65dc77c4a566f067880a297eb8da0242e02120c95a9ae75a14",
+     "license": "MIT"
+    },
+    {
+     "name": "handoff",
+     "path": "engineering/handoff/skills/handoff/SKILL.md",
+     "sha256": "0727c9b53ea976a412fc52d0cec769e056b2c9b0a96069eeb98bd7fd757df476",
+     "license": "MIT"
+    },
+    {
+     "name": "helm-chart-builder",
+     "path": "engineering/helm-chart-builder/skills/helm-chart-builder/SKILL.md",
+     "sha256": "a4a2a63c2dec21e9b795b50f7a315c4af2e2b204a3ecc37dff39e1ace1c59e57",
+     "license": "MIT"
+    },
+    {
+     "name": "hivemind",
+     "path": "engineering/hivemind/SKILL.md",
+     "sha256": "fe5816a83b2c82e2cb575b681536ef18e0388955b9f88ff3851fcd1f6ddd7e8c",
+     "license": "MIT"
+    },
+    {
+     "name": "human-gate",
+     "path": "engineering/human-gate/skills/human-gate/SKILL.md",
+     "sha256": "60bccda7c5c3845e69a232c0db5b8bb319307a871347e6ac1356ede7925a78b4",
+     "license": "MIT"
+    },
+    {
+     "name": "karpathy-coder",
+     "path": "engineering/karpathy-coder/skills/karpathy-coder/SKILL.md",
+     "sha256": "79a886c5beef75ed948b0e7bf1c6babbb0ee8566fdea7cf021b894cda3b87588",
+     "license": "MIT"
+    },
+    {
+     "name": "kubernetes-operator",
+     "path": "engineering/kubernetes-operator/skills/kubernetes-operator/SKILL.md",
+     "sha256": "b621796329b70f36d382319415cd837e1aa022937560cb7b8c7d7a0121ed31fc",
+     "license": "MIT"
+    },
+    {
+     "name": "llm-cost-optimizer",
+     "path": "engineering/llm-cost-optimizer/skills/llm-cost-optimizer/SKILL.md",
+     "sha256": "31c8c3048115168f6e968c164fb661a260370ff9989557f502688f81b4fed3b3",
+     "license": "MIT"
+    },
+    {
+     "name": "llm-wiki",
+     "path": "engineering/llm-wiki/skills/llm-wiki/SKILL.md",
+     "sha256": "e7893d31b5e32271d2e3399d5ff8686236812827ab10f6b6d575396915d9b368",
+     "license": "MIT"
+    },
+    {
+     "name": "memory-engineering",
+     "path": "engineering/memory-engineering/skills/memory-engineering/SKILL.md",
+     "sha256": "77b420549bc6bcd1e871c62481d0f0183e9d1eb0b8aa88801c471002cf8453e5",
+     "license": "MIT"
+    },
+    {
+     "name": "minimalist",
+     "path": "engineering/minimalist/SKILL.md",
+     "sha256": "a5202194563aeb30dabea5852b14ef0ed53b99fe8c6c3fecf496a5e5a35dad23",
+     "license": "MIT"
+    },
+    {
+     "name": "prompt-governance",
+     "path": "engineering/prompt-governance/skills/prompt-governance/SKILL.md",
+     "sha256": "a269ce5a289573ee82d3316824ba56e4faf5a40c599fb356fed8ab4054d82dcd",
+     "license": "MIT"
+    },
+    {
+     "name": "security-guidance",
+     "path": "engineering/security-guidance/skills/security-guidance/SKILL.md",
+     "sha256": "7a0449eb90d09f37fe5050d888b8f2b220ac8d93c16e8557815598fe53e1b198",
+     "license": "MIT"
+    },
+    {
+     "name": "skill-doctor",
+     "path": "engineering/skill-doctor/skills/skill-doctor/SKILL.md",
+     "sha256": "068bb9078ec1313072bb91b285d8c4ed5ef3d5af3d27aba5162aa788a5877a1f",
+     "license": "MIT"
+    },
+    {
+     "name": "agent-designer",
+     "path": "engineering/skills/agent-designer/SKILL.md",
+     "sha256": "47aac56bacc6ec6fcb94cab8ecad0b4d1d7287e6c80d46383fe892488982202a",
+     "license": "MIT"
+    },
+    {
+     "name": "agent-workflow-designer",
+     "path": "engineering/skills/agent-workflow-designer/SKILL.md",
+     "sha256": "f1133218f4bc98e1aed526f2e2a60b30c02b6dac18c717a04eac45551242a9dd",
+     "license": "MIT"
+    },
+    {
+     "name": "api-design-reviewer",
+     "path": "engineering/skills/api-design-reviewer/SKILL.md",
+     "sha256": "a4e61a67981d7cab02f479f959b9e83d032e705c17b72e763d07ef9a3247bf54",
+     "license": "MIT"
+    },
+    {
+     "name": "api-test-suite-builder",
+     "path": "engineering/skills/api-test-suite-builder/SKILL.md",
+     "sha256": "a0db3fd9004317097c1c9c7ef7da6276a98d205a1c2af79fbbddd72fab976d42",
+     "license": "MIT"
+    },
+    {
+     "name": "browser-automation",
+     "path": "engineering/skills/browser-automation/SKILL.md",
+     "sha256": "f4211364d10e3a28eb2051b201889be89b589f4613b822a3c1dd2ce6a30f8b59",
+     "license": "MIT"
+    },
+    {
+     "name": "changelog-generator",
+     "path": "engineering/skills/changelog-generator/SKILL.md",
+     "sha256": "0866b458e0eff49b95328452a32e326a866b661bbdd3b2f4ac2d3f9b9f3ddc25",
+     "license": "MIT"
+    },
+    {
+     "name": "ci-cd-pipeline-builder",
+     "path": "engineering/skills/ci-cd-pipeline-builder/SKILL.md",
+     "sha256": "b9628224a9fe77caca4aedda49a72938147000ab275da92ebccf190c3ba8f161",
+     "license": "MIT"
+    },
+    {
+     "name": "codebase-onboarding",
+     "path": "engineering/skills/codebase-onboarding/SKILL.md",
+     "sha256": "70261b95a8855d422b0d7538e138ef7434f032a953bd646507ac09a8379e6b7c",
+     "license": "MIT"
+    },
+    {
+     "name": "database-designer",
+     "path": "engineering/skills/database-designer/SKILL.md",
+     "sha256": "3729790a4e29e45ea0e9cb0bbb220d2162fea0e954d32f2abf8728aa8ef41ad1",
+     "license": "MIT"
+    },
+    {
+     "name": "database-schema-designer",
+     "path": "engineering/skills/database-schema-designer/SKILL.md",
+     "sha256": "0a964937e39dc65462ad5b3e36e30ebd08f17eea6503e0f7d0b2dbe86fbe35fc",
+     "license": "MIT"
+    },
+    {
+     "name": "dependency-auditor",
+     "path": "engineering/skills/dependency-auditor/SKILL.md",
+     "sha256": "4bde5bd43d14b39a9c282f1ab74b202d102b070b99a5083724e84526bc5e2f0a",
+     "license": "MIT"
+    },
+    {
+     "name": "engineering-advanced-skills",
+     "path": "engineering/skills/engineering-advanced-skills/SKILL.md",
+     "sha256": "687a25384ff9944b04ced15d12dfff07b15c566957859753ead63ffe9fac6785",
+     "license": "MIT"
+    },
+    {
+     "name": "env-secrets-manager",
+     "path": "engineering/skills/env-secrets-manager/SKILL.md",
+     "sha256": "6724d5bd32506212977fe6e78be754d97458e16ae164fbc6adb69e30d31caaee",
+     "license": "MIT"
+    },
+    {
+     "name": "focused-fix",
+     "path": "engineering/skills/focused-fix/SKILL.md",
+     "sha256": "84f2c465a23aa02c2b57269628254d8c35858ba0d5bd113daed38c7446bfe016",
+     "license": "MIT"
+    },
+    {
+     "name": "full-page-screenshot",
+     "path": "engineering/skills/full-page-screenshot/SKILL.md",
+     "sha256": "6cc0bebc9d5b772b778f4b63ca15f7735aa24593826a2edc93e02ae826f7b374",
+     "license": "MIT"
+    },
+    {
+     "name": "git-worktree-manager",
+     "path": "engineering/skills/git-worktree-manager/SKILL.md",
+     "sha256": "c972e7576a18df4180b92f83af3d5e375814a8d6133267acce44ec89709f4dac",
+     "license": "MIT"
+    },
+    {
+     "name": "interview-system-designer",
+     "path": "engineering/skills/interview-system-designer/SKILL.md",
+     "sha256": "957a7aba436105471ae84cb2e4cb22668dc11bbf77c292bc06d66bc22adedfd1",
+     "license": "MIT"
+    },
+    {
+     "name": "mcp-server-builder",
+     "path": "engineering/skills/mcp-server-builder/SKILL.md",
+     "sha256": "363e0984c512f16b1b45635fc7197ca259435ca75a13d3b4f6b28dc2b25fe9d0",
+     "license": "MIT"
+    },
+    {
+     "name": "migration-architect",
+     "path": "engineering/skills/migration-architect/SKILL.md",
+     "sha256": "b262c3b4eea8389b4fb65016734a092a99e096a226662c37efc89bc93c69a77a",
+     "license": "MIT"
+    },
+    {
+     "name": "monorepo-navigator",
+     "path": "engineering/skills/monorepo-navigator/SKILL.md",
+     "sha256": "19184d57f8eea27ed974b0e7eac2033b366b9cdacb6454bb9a1977314b182335",
+     "license": "MIT"
+    },
+    {
+     "name": "observability-designer",
+     "path": "engineering/skills/observability-designer/SKILL.md",
+     "sha256": "70ab54164e3cb58f30f4f4e1500bd54361c67f6ecbde954b13596dc2902fe2ac",
+     "license": "MIT"
+    },
+    {
+     "name": "performance-profiler",
+     "path": "engineering/skills/performance-profiler/SKILL.md",
+     "sha256": "953948b591db0afc4dac8ff4e84d65a2c34fa62b7b579e3ba6cf3398e79ec18b",
+     "license": "MIT"
+    },
+    {
+     "name": "pr-review-expert",
+     "path": "engineering/skills/pr-review-expert/SKILL.md",
+     "sha256": "548a4d03c274203d803abb07a7a318a484ccad8191594480374de658592c6b49",
+     "license": "MIT"
+    },
+    {
+     "name": "rag-architect",
+     "path": "engineering/skills/rag-architect/SKILL.md",
+     "sha256": "5cdf05a3ea5645f04a9e9eb08a5a1d1dd332c280b3ddd2eb5624e348f7a0bb27",
+     "license": "MIT"
+    },
+    {
+     "name": "runbook-generator",
+     "path": "engineering/skills/runbook-generator/SKILL.md",
+     "sha256": "ef426a9b8a04cb766ac002efeaf4907083aff817887c7652c3fbd4258661fa53",
+     "license": "MIT"
+    },
+    {
+     "name": "secrets-vault-manager",
+     "path": "engineering/skills/secrets-vault-manager/SKILL.md",
+     "sha256": "208077ec32ddf526cc4aa8cfb71ac9318ae71e6127b787fd63e32d867f6066fc",
+     "license": "MIT"
+    },
+    {
+     "name": "self-eval",
+     "path": "engineering/skills/self-eval/SKILL.md",
+     "sha256": "0396394941477744e8a46f7653d2af20d4ea8ba325469f039244bba986c72642",
+     "license": "MIT"
+    },
+    {
+     "name": "ship-gate",
+     "path": "engineering/skills/ship-gate/SKILL.md",
+     "sha256": "05f7eee0d78735f3076fc02c732e4c660f55e2f058922e1ef46280a414294fa5",
+     "license": "MIT"
+    },
+    {
+     "name": "skill-security-auditor",
+     "path": "engineering/skills/skill-security-auditor/SKILL.md",
+     "sha256": "8281b2a45e2ab66d21d45910fa47e02158113e319391d51c60215d39090db686",
+     "license": "MIT"
+    },
+    {
+     "name": "skill-tester",
+     "path": "engineering/skills/skill-tester/SKILL.md",
+     "sha256": "a62efa4e6d596e442083543f86a6bfc5724b0d06a4921d9a31bbc1c5d12e23e0",
+     "license": "MIT"
+    },
+    {
+     "name": "sample-text-processor",
+     "path": "engineering/skills/skill-tester/assets/sample-skill/SKILL.md",
+     "sha256": "b2a71a1fcc551957cab451e51fcc963485cb605ec9647416b4c2fa2f78ef2671",
+     "license": "MIT"
+    },
+    {
+     "name": "slo-architect",
+     "path": "engineering/skills/slo-architect/SKILL.md",
+     "sha256": "63917f3e02caa905a9b81a5526f4d750780aa7049436f1cc56bfe43450c29afa",
+     "license": "MIT"
+    },
+    {
+     "name": "spec-driven-workflow",
+     "path": "engineering/skills/spec-driven-workflow/SKILL.md",
+     "sha256": "f4eab8a81a5b908fc7d182994f6bb1076512ed1129da7c00440a3af6ba3ab176",
+     "license": "MIT"
+    },
+    {
+     "name": "sql-database-assistant",
+     "path": "engineering/skills/sql-database-assistant/SKILL.md",
+     "sha256": "f767c7f1296e54877d1bf4fb71a7887931e65e4d374e43a2f578e3ee2bec1641",
+     "license": "MIT"
+    },
+    {
+     "name": "tc-tracker",
+     "path": "engineering/skills/tc-tracker/SKILL.md",
+     "sha256": "988e40e73758bbaed5dc553dc80656448fd32ba9715c016ef414d67f7912b047",
+     "license": "MIT"
+    },
+    {
+     "name": "tech-debt-tracker",
+     "path": "engineering/skills/tech-debt-tracker/SKILL.md",
+     "sha256": "8e7492db76ae8bc2827f3e265a2061a8e656c4eac155a37340d13da077f6687e",
+     "license": "MIT"
+    },
+    {
+     "name": "spinning-up-deep-rl",
+     "path": "engineering/spinning-up-deep-rl/skills/spinning-up-deep-rl/SKILL.md",
+     "sha256": "cc260f900e2caa1fa06bc5319a89649cc41cf7e6fa0aa21a91c621b63e25c14f",
+     "license": "MIT"
+    },
+    {
+     "name": "statistical-analyst",
+     "path": "engineering/statistical-analyst/skills/statistical-analyst/SKILL.md",
+     "sha256": "2cb58384cdbb19e175093de2cad0891156e60aad03a047153e57ca5ec607fd9d",
+     "license": "MIT"
+    },
+    {
+     "name": "strict-api",
+     "path": "engineering/strict-api/SKILL.md",
+     "sha256": "3f49d2767c4db846d60aa555f370e1cfe61175ec4bae5fa3b1bf0d81bbe40c15",
+     "license": "MIT"
+    },
+    {
+     "name": "terraform-patterns",
+     "path": "engineering/terraform-patterns/skills/terraform-patterns/SKILL.md",
+     "sha256": "e32b34b04f6f8ad33fd2105f3f4d2b304960a6a41ccc6e5465a2db7c0f2d1596",
+     "license": "MIT"
+    },
+    {
+     "name": "universal-scraping-architect",
+     "path": "engineering/universal-scraping-architect/skills/universal-scraping-architect/SKILL.md",
+     "sha256": "35b7fc88661ea8a919a4f1d94f7e01057c8de10170bf165e3de50f67eb5f0548",
+     "license": "MIT"
+    },
+    {
+     "name": "workflow-builder",
+     "path": "engineering/workflow-builder/skills/workflow-builder/SKILL.md",
+     "sha256": "a1eb48404e9342ce5fea24a2e819ce23f83a46138a8766acbc4e9c59bc126bd0",
+     "license": "MIT"
+    },
+    {
+     "name": "write-a-skill",
+     "path": "engineering/write-a-skill/skills/write-a-skill/SKILL.md",
+     "sha256": "446a0235f2ef8b4ea6d394a1a4209d36ba6d8e6960958cd54095cd3393c83692",
+     "license": "MIT"
+    },
+    {
+     "name": "business-investment-advisor",
+     "path": "finance/business-investment-advisor/skills/business-investment-advisor/SKILL.md",
+     "sha256": "8d3c386f999900cdce3c9f28f8639c6365b659b01ebdeca9ee06c58cdb1b0745",
+     "license": "MIT"
+    },
+    {
+     "name": "finance-skills",
+     "path": "finance/skills/finance-skills/SKILL.md",
+     "sha256": "7482aca0118302cdaa5f55c3a2742a6af8abe87f36e6369a5ed284ab3054a16f",
+     "license": "MIT"
+    },
+    {
+     "name": "financial-analyst",
+     "path": "finance/skills/financial-analyst/SKILL.md",
+     "sha256": "96e7844b15c0e6f4edefa9f6d3fbce8943e9e89187b26d11bc7cef7544ba80df",
+     "license": "MIT"
+    },
+    {
+     "name": "saas-metrics-coach",
+     "path": "finance/skills/saas-metrics-coach/SKILL.md",
+     "sha256": "bc6fcf0302ee0e2cf88bb05a61a2dbd3301051e1f99155fbd664f14e9aab4291",
+     "license": "MIT"
+    },
+    {
+     "name": "stock-analysis",
+     "path": "finance/skills/stock-analysis/SKILL.md",
+     "sha256": "f46e5d7da41013ea5fc6837e92d5ab3b7691db572bc2b81ef0fd42b641e71e90",
+     "license": "MIT"
+    },
+    {
+     "name": "loop-library",
+     "path": "loop-library/SKILL.md",
+     "sha256": "0a976cfc29e86c7eaa56e761d9e68bc55284b50fce05b4bdddaf78e2bde38425",
+     "license": "MIT"
+    },
+    {
+     "name": "markdown-html-orchestrator",
+     "path": "markdown-html/skills/markdown-html-orchestrator/SKILL.md",
+     "sha256": "a7e7c18f92b03927d52e89f05a0ae52ae8d595681baab80dbcf9d58ddd3006fb",
+     "license": "MIT"
+    },
+    {
+     "name": "md-document",
+     "path": "markdown-html/skills/md-document/SKILL.md",
+     "sha256": "1b008228609e23dad425ddf8c9351fec427a94126abc9c7f80f16cbd79a7f336",
+     "license": "MIT"
+    },
+    {
+     "name": "ab-test-setup",
+     "path": "marketing-skill/skills/ab-test-setup/SKILL.md",
+     "sha256": "7d451f2c296c8ccabdc1441d73a5ed7bfb993b61bdacd6f569ddc6fa0c032f8d",
+     "license": "MIT"
+    },
+    {
+     "name": "ad-creative",
+     "path": "marketing-skill/skills/ad-creative/SKILL.md",
+     "sha256": "598054b269d2ad4b8d509cc97e0b1a7a14489154a6fc4752916f42a5aff2ef07",
+     "license": "MIT"
+    },
+    {
+     "name": "aeo",
+     "path": "marketing-skill/skills/aeo/SKILL.md",
+     "sha256": "c2b1fe51416b7e4e951ce55072d937c4c5783b92573c88714c58e27cefa862fe",
+     "license": "MIT"
+    },
+    {
+     "name": "analytics-tracking",
+     "path": "marketing-skill/skills/analytics-tracking/SKILL.md",
+     "sha256": "e5ac8c8f9826ff62727966e94231c3737de73bf12781d76ea92adc517d67b339",
+     "license": "MIT"
+    },
+    {
+     "name": "app-store-optimization",
+     "path": "marketing-skill/skills/app-store-optimization/SKILL.md",
+     "sha256": "05e10346aa393379a2b790e6c56568f2d24e8c56d271e728ff242c726e50f41a",
+     "license": "MIT"
+    },
+    {
+     "name": "business-name-fit",
+     "path": "marketing-skill/skills/business-name-fit/SKILL.md",
+     "sha256": "5024e239fcccfd5cd32b2278aaee87731c57a48cb820d00a0917e99f2cfbc703",
+     "license": "MIT"
+    },
+    {
+     "name": "campaign-analytics",
+     "path": "marketing-skill/skills/campaign-analytics/SKILL.md",
+     "sha256": "c2a7431cbe7e92b08802597f6c02bbd0f173aebe508a1fc7b067f082764c67c1",
+     "license": "MIT"
+    },
+    {
+     "name": "churn-prevention",
+     "path": "marketing-skill/skills/churn-prevention/SKILL.md",
+     "sha256": "92c0132bdc156c0cd856d278e0c06fca162f0e474473c5f6c699bab50047b611",
+     "license": "MIT"
+    },
+    {
+     "name": "cold-email",
+     "path": "marketing-skill/skills/cold-email/SKILL.md",
+     "sha256": "edb7c11d193300c871365f489fd9688906c076a40df0735c593d53985a8f9ba6",
+     "license": "MIT"
+    },
+    {
+     "name": "competitor-alternatives",
+     "path": "marketing-skill/skills/competitor-alternatives/SKILL.md",
+     "sha256": "4fb425b9e5e61298447c78ec944ceac74287849efb95c7aa046ada53f3d0e365",
+     "license": "MIT"
+    },
+    {
+     "name": "content-creator",
+     "path": "marketing-skill/skills/content-creator/SKILL.md",
+     "sha256": "0f548f6236783d8cf0dcc3d4f793ea6072e67bfd4eba36f773137fcd810e4a00",
+     "license": "MIT"
+    },
+    {
+     "name": "content-humanizer",
+     "path": "marketing-skill/skills/content-humanizer/SKILL.md",
+     "sha256": "394c104c21992e984d1d14e0de40f0b244a59407e7d16232d6ea8c55ee892cdb",
+     "license": "MIT"
+    },
+    {
+     "name": "content-production",
+     "path": "marketing-skill/skills/content-production/SKILL.md",
+     "sha256": "8e893a54ee044459e6dc8f3c901aa6617cfa6f66d940f60881b9957fd7c1aed3",
+     "license": "MIT"
+    },
+    {
+     "name": "content-strategy",
+     "path": "marketing-skill/skills/content-strategy/SKILL.md",
+     "sha256": "eddbe5788b8bf6806dabe308c0f8babdd7d0e79a04e848d112c016cccd05bc83",
+     "license": "MIT"
+    },
+    {
+     "name": "copy-editing",
+     "path": "marketing-skill/skills/copy-editing/SKILL.md",
+     "sha256": "ecdbe7a6ff18422470eb277f5e9a307e76601c2fb54d4b6bf7ba7cb76caabeb1",
+     "license": "MIT"
+    },
+    {
+     "name": "copywriting",
+     "path": "marketing-skill/skills/copywriting/SKILL.md",
+     "sha256": "f6415e5e3f1a2e0e62b112bb29566e8050c087f5aa6b674e5712805f2633c9b8",
+     "license": "MIT"
+    },
+    {
+     "name": "email-sequence",
+     "path": "marketing-skill/skills/email-sequence/SKILL.md",
+     "sha256": "bd291de8f67291efcf61e24abb904f8d8db0455ee08bb2b51e08b5e1ca779f4c",
+     "license": "MIT"
+    },
+    {
+     "name": "form-cro",
+     "path": "marketing-skill/skills/form-cro/SKILL.md",
+     "sha256": "613b78af57e61291c106c34115b6f0da1618a644c1918d158bc66320a90c62d4",
+     "license": "MIT"
+    },
+    {
+     "name": "free-tool-strategy",
+     "path": "marketing-skill/skills/free-tool-strategy/SKILL.md",
+     "sha256": "1deb39b71ff522db9c678f90f06e62e1d7d4bf5030f2f1b75bc664aa81f8256d",
+     "license": "MIT"
+    },
+    {
+     "name": "launch-strategy",
+     "path": "marketing-skill/skills/launch-strategy/SKILL.md",
+     "sha256": "8c28d7ad81b510088e42030e8f282f75773efe6a48a684532022083f5cc8338b",
+     "license": "MIT"
+    },
+    {
+     "name": "local-seo-manager",
+     "path": "marketing-skill/skills/local-seo-manager/SKILL.md",
+     "sha256": "6d93fc13f7e0bd4907722c5950aa0e7803e186d941405cec9bdccc553e027ecc",
+     "license": "MIT"
+    },
+    {
+     "name": "marketing-context",
+     "path": "marketing-skill/skills/marketing-context/SKILL.md",
+     "sha256": "c023b0105f1d6177effe6f6af01b40eadb4619667bedf4a04e9954af2608c93f",
+     "license": "MIT"
+    },
+    {
+     "name": "marketing-demand-acquisition",
+     "path": "marketing-skill/skills/marketing-demand-acquisition/SKILL.md",
+     "sha256": "dae4f8b4275322d86d5bcdb3ce37d36a275d4b8507be93af7cf33b583f1c1d48",
+     "license": "MIT"
+    },
+    {
+     "name": "marketing-ideas",
+     "path": "marketing-skill/skills/marketing-ideas/SKILL.md",
+     "sha256": "1bdb8c3e96c115633d8b0269b48c5805870ad8e37f579f072eba782d813df26c",
+     "license": "MIT"
+    },
+    {
+     "name": "marketing-ops",
+     "path": "marketing-skill/skills/marketing-ops/SKILL.md",
+     "sha256": "5161ad6ef1fccb690362d3519f3f3a9f6f1a11c1b01f831af12723eb3d565dee",
+     "license": "MIT"
+    },
+    {
+     "name": "marketing-psychology",
+     "path": "marketing-skill/skills/marketing-psychology/SKILL.md",
+     "sha256": "32716116e6756d57592f3e7c02e25673075bcbedb64f86f4bc2268a655881ac7",
+     "license": "MIT"
+    },
+    {
+     "name": "marketing-skills",
+     "path": "marketing-skill/skills/marketing-skills/SKILL.md",
+     "sha256": "b4bbb03864bc0c098b37a676afaaf40420aafca470f3b95597544b078dd9218a",
+     "license": "MIT"
+    },
+    {
+     "name": "marketing-strategy-pmm",
+     "path": "marketing-skill/skills/marketing-strategy-pmm/SKILL.md",
+     "sha256": "da0d88832df6a10b675596e1def74732613b083eafbf6b6f350f671bab440f5d",
+     "license": "MIT"
+    },
+    {
+     "name": "onboarding-cro",
+     "path": "marketing-skill/skills/onboarding-cro/SKILL.md",
+     "sha256": "9fecfb3fbe9770408063d419c8a3336940ea5f86df9130495ab461f28745280b",
+     "license": "MIT"
+    },
+    {
+     "name": "page-cro",
+     "path": "marketing-skill/skills/page-cro/SKILL.md",
+     "sha256": "5017f078d779365a6f6b7326804270857475a24535f278eb1b1dc436ef5a343a",
+     "license": "MIT"
+    },
+    {
+     "name": "paid-ads",
+     "path": "marketing-skill/skills/paid-ads/SKILL.md",
+     "sha256": "87351be1779ec4f02c72543afc620ce1543865cfceaaf857d7488302eb5f0d45",
+     "license": "MIT"
+    },
+    {
+     "name": "paywall-upgrade-cro",
+     "path": "marketing-skill/skills/paywall-upgrade-cro/SKILL.md",
+     "sha256": "4f6f3916b9fcdee631fe898f3970e91a6a27e387868919e7feb33c8a0edae002",
+     "license": "MIT"
+    },
+    {
+     "name": "popup-cro",
+     "path": "marketing-skill/skills/popup-cro/SKILL.md",
+     "sha256": "c8af49f0c29b87c80b9e2d2f266f410d989a21ecee29b584e59e5e89a0d2f65f",
+     "license": "MIT"
+    },
+    {
+     "name": "pricing-strategy",
+     "path": "marketing-skill/skills/pricing-strategy/SKILL.md",
+     "sha256": "7b92d0f653fb30784c1317cd60fb58a7a15220debd1ea6884ee5893098acc15a",
+     "license": "MIT"
+    },
+    {
+     "name": "programmatic-seo",
+     "path": "marketing-skill/skills/programmatic-seo/SKILL.md",
+     "sha256": "0851f7c8ab34a21d52a27ee1c7993ea0b37e670b7a51293939c6ad82b6102e22",
+     "license": "MIT"
+    },
+    {
+     "name": "prompt-engineer-toolkit",
+     "path": "marketing-skill/skills/prompt-engineer-toolkit/SKILL.md",
+     "sha256": "619516d20520a7a84b54aaad8f35d35d42317a1b633e173bb2595f575b2ac4df",
+     "license": "MIT"
+    },
+    {
+     "name": "referral-program",
+     "path": "marketing-skill/skills/referral-program/SKILL.md",
+     "sha256": "24e4624f1374f6fbe86b678f27d0ec0c06002a826f143cfc57796572621fd905",
+     "license": "MIT"
+    },
+    {
+     "name": "schema-markup",
+     "path": "marketing-skill/skills/schema-markup/SKILL.md",
+     "sha256": "949186b826c714ae173d8d2e9dd73c705dbd4ee5fe33645e9583a5b451e1dfcc",
+     "license": "MIT"
+    },
+    {
+     "name": "seo-audit",
+     "path": "marketing-skill/skills/seo-audit/SKILL.md",
+     "sha256": "e91739cc21461f4b92979fc79bd11d606e1e10f5a50911b1ef02b2ce46dd25a6",
+     "license": "MIT"
+    },
+    {
+     "name": "signup-flow-cro",
+     "path": "marketing-skill/skills/signup-flow-cro/SKILL.md",
+     "sha256": "d9927eb3fc91c33bcab0b3c615536066c51fde4de87966d06559ca2426fca615",
+     "license": "MIT"
+    },
+    {
+     "name": "site-architecture",
+     "path": "marketing-skill/skills/site-architecture/SKILL.md",
+     "sha256": "cc087247b41768403428424a0aee891bbebc548e189e5e4032014f24ebb8e119",
+     "license": "MIT"
+    },
+    {
+     "name": "social-content",
+     "path": "marketing-skill/skills/social-content/SKILL.md",
+     "sha256": "02008f95432fd0c9088bccd71a3358b3ead1f06ac6115f3fe3fe5f562fc2da37",
+     "license": "MIT"
+    },
+    {
+     "name": "social-media-analyzer",
+     "path": "marketing-skill/skills/social-media-analyzer/SKILL.md",
+     "sha256": "68cc6de8b9fa26b7543f37a197d6b8c7035b91caf1aa203911640621a9b7b86e",
+     "license": "MIT"
+    },
+    {
+     "name": "social-media-manager",
+     "path": "marketing-skill/skills/social-media-manager/SKILL.md",
+     "sha256": "a72fbb003a99607ad370ec791fbd42c832348c6e766f6ffc1d45b465e6adab08",
+     "license": "MIT"
+    },
+    {
+     "name": "webinar-marketing",
+     "path": "marketing-skill/skills/webinar-marketing/SKILL.md",
+     "sha256": "b0f422e8578708221dc7cd8ee3504701a80c8458182cff72444258ae5cbc2ac1",
+     "license": "MIT"
+    },
+    {
+     "name": "x-twitter-growth",
+     "path": "marketing-skill/skills/x-twitter-growth/SKILL.md",
+     "sha256": "f25b551a88fee2c5654e315e7113182d6fd956260ae170b2503a459e3d9d23db",
+     "license": "MIT"
+    },
+    {
+     "name": "youtube-full",
+     "path": "marketing-skill/skills/youtube-full/SKILL.md",
+     "sha256": "0035de6d16bb11384365276fd88ee84be5fa0bb590aae5f7c0542084ad07933f",
+     "license": "MIT"
+    },
+    {
+     "name": "video-content-strategist",
+     "path": "marketing-skill/video-content-strategist/skills/video-content-strategist/SKILL.md",
+     "sha256": "0788d327bc4deec2fa6adf78813b78d8fb54f91e595fb42b9b928f44e5ca301b",
+     "license": "MIT"
+    },
+    {
+     "name": "landing",
+     "path": "marketing/landing/skills/landing/SKILL.md",
+     "sha256": "74e1d9266012254c6481c8702e9cc43662d037d05161772f06e39b4883436b47",
+     "license": "MIT"
+    },
+    {
+     "name": "linkedin-analytics",
+     "path": "marketing/linkedin/skills/linkedin-analytics/SKILL.md",
+     "sha256": "fd5c6cbb99c1215a4c5b87555208477494732fb4c0f46b62156162399596caa3",
+     "license": "MIT"
+    },
+    {
+     "name": "linkedin-content",
+     "path": "marketing/linkedin/skills/linkedin-content/SKILL.md",
+     "sha256": "7e78b602667dcf4f75499dedb440d380f93765589981073da6291fb432b0f20e",
+     "license": "MIT"
+    },
+    {
+     "name": "linkedin-engagement",
+     "path": "marketing/linkedin/skills/linkedin-engagement/SKILL.md",
+     "sha256": "6203dedcb7d1f594e5f3d836aa38062caf48c09d31487c814d2cb7c0ad0622d3",
+     "license": "MIT"
+    },
+    {
+     "name": "linkedin-profile",
+     "path": "marketing/linkedin/skills/linkedin-profile/SKILL.md",
+     "sha256": "c390751661ca290893bac1994926c4739322f192167015cbd0e20fa26c74da96",
+     "license": "MIT"
+    },
+    {
+     "name": "linkedin-skills",
+     "path": "marketing/linkedin/skills/linkedin-skills/SKILL.md",
+     "sha256": "9b162dfd610689c9e046a1734ca0f905a86cd777f1856f8b2cb753480097c86b",
+     "license": "MIT"
+    },
+    {
+     "name": "linkedin-strategy",
+     "path": "marketing/linkedin/skills/linkedin-strategy/SKILL.md",
+     "sha256": "9e1c5c934a85142ed6b791f5bfb55ee0d2ad9852fe31f7fd83a36215ab15e72e",
+     "license": "MIT"
+    },
+    {
+     "name": "agile-product-owner",
+     "path": "product-team/agile-product-owner/skills/agile-product-owner/SKILL.md",
+     "sha256": "b378f4d66707ac272f1840aed944b93b263183b8314b096028e0c9968b1b5cbd",
+     "license": "MIT"
+    },
+    {
+     "name": "apple-hig-expert",
+     "path": "product-team/apple-hig-expert/skills/apple-hig-expert/SKILL.md",
+     "sha256": "85c5aaa9653aeb9671b7047a9ea64063bdaee81955a918bc627aa38b307eb68c",
+     "license": "MIT"
+    },
+    {
+     "name": "code-to-prd",
+     "path": "product-team/code-to-prd/skills/code-to-prd/SKILL.md",
+     "sha256": "7a11ba564076b882d8d67f26bdd1ed115b3bb2281f029581c384357b82425305",
+     "license": "MIT"
+    },
+    {
+     "name": "research-summarizer",
+     "path": "product-team/research-summarizer/skills/research-summarizer/SKILL.md",
+     "sha256": "057b410fd89b3a0dc982c61eae22db89da3480e2e738f1333b8001d20ada3eb0",
+     "license": "MIT"
+    },
+    {
+     "name": "competitive-teardown",
+     "path": "product-team/skills/competitive-teardown/SKILL.md",
+     "sha256": "e7df2e7aa6afdbdf7fcdd0b755364a21b7ff726d64a57af1dd153e0e8a35134a",
+     "license": "MIT"
+    },
+    {
+     "name": "experiment-designer",
+     "path": "product-team/skills/experiment-designer/SKILL.md",
+     "sha256": "c686e366cd57d0c8e7458a10e9e5ad9348dd3132b7176af6d25015d9842b1793",
+     "license": "MIT"
+    },
+    {
+     "name": "product-analytics",
+     "path": "product-team/skills/product-analytics/SKILL.md",
+     "sha256": "1c459548d5209d83b97a19bdfbf1add985284a39a806d9c5ed471d01e811a250",
+     "license": "MIT"
+    },
+    {
+     "name": "product-discovery",
+     "path": "product-team/skills/product-discovery/SKILL.md",
+     "sha256": "52d492cb9eefe2136b21a295a9041bc60e11d7261f3f8ce84f3b58d83c8e75e4",
+     "license": "MIT"
+    },
+    {
+     "name": "product-manager-toolkit",
+     "path": "product-team/skills/product-manager-toolkit/SKILL.md",
+     "sha256": "cb8e692dc9f0c51a64ed592e093af4aeabd999751ff0012d6d4beee59b74df77",
+     "license": "MIT"
+    },
+    {
+     "name": "product-skills",
+     "path": "product-team/skills/product-skills/SKILL.md",
+     "sha256": "50493409784ab8d70c66a7823ffce61b0758efd72a479a0273d41c2d88c9e6cb",
+     "license": "MIT"
+    },
+    {
+     "name": "product-strategist",
+     "path": "product-team/skills/product-strategist/SKILL.md",
+     "sha256": "96762613353ca78815f60b316dbd63eca0a4269e36d2e611bb9d3c9a351953e5",
+     "license": "MIT"
+    },
+    {
+     "name": "roadmap-communicator",
+     "path": "product-team/skills/roadmap-communicator/SKILL.md",
+     "sha256": "d54b8192051b329d60d8258b1367f39c50c91c725ac326742c3932b91834ac64",
+     "license": "MIT"
+    },
+    {
+     "name": "saas-scaffolder",
+     "path": "product-team/skills/saas-scaffolder/SKILL.md",
+     "sha256": "7ac2dc5e06b9c7a7dfc79e4a3845109bfb18e45a20183872667e334d99ebd642",
+     "license": "MIT"
+    },
+    {
+     "name": "spec-to-repo",
+     "path": "product-team/skills/spec-to-repo/SKILL.md",
+     "sha256": "c33ffb417e85f415bec825c623eedaac65ed7b04ba090eb035fed93c77d16067",
+     "license": "MIT"
+    },
+    {
+     "name": "ui-design-system",
+     "path": "product-team/skills/ui-design-system/SKILL.md",
+     "sha256": "7f8c1714af2602bcd2b3b49b6aaf0f53351fb739b26062d548f6a9c8c1b10e8d",
+     "license": "MIT"
+    },
+    {
+     "name": "ux-researcher-designer",
+     "path": "product-team/skills/ux-researcher-designer/SKILL.md",
+     "sha256": "e19ce820e246bf34834e99ea361afcf93fb780ffbb2a4248b32a9947ae4a43ca",
+     "license": "MIT"
+    },
+    {
+     "name": "andreessen",
+     "path": "productivity/andreessen/skills/andreessen/SKILL.md",
+     "sha256": "fa4dec4ebe56d407e8ef794ab96a86336718bf3e92517aec5de87e35e0a0e65e",
+     "license": "MIT"
+    },
+    {
+     "name": "capture",
+     "path": "productivity/capture/skills/capture/SKILL.md",
+     "sha256": "ee14662627bf466c9a92cff8eb68dec4b57f208948f9a67b4d186ddb36200c6a",
+     "license": "MIT"
+    },
+    {
+     "name": "deep-work",
+     "path": "productivity/deep-work/skills/deep-work/SKILL.md",
+     "sha256": "ed801572d6e8c24b795383950b2b20139a455d4d9f157d8a5d2383863ae2f499",
+     "license": "MIT"
+    },
+    {
+     "name": "inbox-setup",
+     "path": "productivity/email/skills/inbox-setup/SKILL.md",
+     "sha256": "fe623288107aa3e719584ef857663347a9f2ec4e7259e5911a58692ecd0aa4e8",
+     "license": "MIT"
+    },
+    {
+     "name": "inbox-triage",
+     "path": "productivity/email/skills/inbox-triage/SKILL.md",
+     "sha256": "b09d1fbafd3dbd484238c05855de85141ed5cc0ee55abd44a810cc08f4436e7e",
+     "license": "MIT"
+    },
+    {
+     "name": "fable-goal",
+     "path": "productivity/fable-goal/skills/fable-goal/SKILL.md",
+     "sha256": "3764113250bad205848a2b68f15c6d577b249eb3a7a491b365acf362b8e4df48",
+     "license": "MIT"
+    },
+    {
+     "name": "meetings",
+     "path": "productivity/meetings/skills/meetings/SKILL.md",
+     "sha256": "c990f9c02f47da992739d68773ce9d6a33ca7d4cdcc462d0adf9ca962a674c5d",
+     "license": "MIT"
+    },
+    {
+     "name": "reflect",
+     "path": "productivity/reflect/skills/reflect/SKILL.md",
+     "sha256": "0a5133831e855d958978767cc808585196840c5d488abe684946c521de6a3ed5",
+     "license": "MIT"
+    },
+    {
+     "name": "roast",
+     "path": "productivity/roast/skills/roast/SKILL.md",
+     "sha256": "aa9e60b4e107cc0fccdd2b534a7caf6a9c837d3ac424b1d9b0cd48e1f7e0004c",
+     "license": "MIT"
+    },
+    {
+     "name": "swedish-mentor",
+     "path": "productivity/swedish-mentor/SKILL.md",
+     "sha256": "6d4c86d25f013148818d09910b813428cf54d81d68ecc53d7e4f958eb2bdf438",
+     "license": "MIT"
+    },
+    {
+     "name": "weekly-review",
+     "path": "productivity/weekly-review/skills/weekly-review/SKILL.md",
+     "sha256": "3df151a1102d44eb45f131637119a02e03e4e9719f23e7130327a299e7a18f17",
+     "license": "MIT"
+    },
+    {
+     "name": "atlassian-admin",
+     "path": "project-management/skills/atlassian-admin/SKILL.md",
+     "sha256": "44933862df5559357f9220abf560788f75c515cd22ed0bfe349b166fa28018de",
+     "license": "MIT"
+    },
+    {
+     "name": "atlassian-templates",
+     "path": "project-management/skills/atlassian-templates/SKILL.md",
+     "sha256": "7182d75bf85ce85e5c435dc7966ec3828e5e06eec167d55c3b8197c0c4b9357a",
+     "license": "MIT"
+    },
+    {
+     "name": "confluence-expert",
+     "path": "project-management/skills/confluence-expert/SKILL.md",
+     "sha256": "f0d5062618eaf048f5215fc6b41d19c9549132c021a504f789c8689352f37be2",
+     "license": "MIT"
+    },
+    {
+     "name": "jira-expert",
+     "path": "project-management/skills/jira-expert/SKILL.md",
+     "sha256": "36d647d487ccad59c871d38b7b799a92a27683455909ad07b05f89a898ac608f",
+     "license": "MIT"
+    },
+    {
+     "name": "meeting-analyzer",
+     "path": "project-management/skills/meeting-analyzer/SKILL.md",
+     "sha256": "c44d4af0e91f46105dde6fbf5b63fb624872e69232344bfe64d5c84a5cc92530",
+     "license": "MIT"
+    },
+    {
+     "name": "pm-skills",
+     "path": "project-management/skills/pm-skills/SKILL.md",
+     "sha256": "92318bad0543a35c1d6f8330783e7d751f0f478707b19ae259616e4589065059",
+     "license": "MIT"
+    },
+    {
+     "name": "scrum-master",
+     "path": "project-management/skills/scrum-master/SKILL.md",
+     "sha256": "aa2f4ffcec2439e2e8df877b7fb7b158dadfdb3ab46b95726ea78bbd0f7a280c",
+     "license": "MIT"
+    },
+    {
+     "name": "senior-pm",
+     "path": "project-management/skills/senior-pm/SKILL.md",
+     "sha256": "60ae71507d3752a1c7504ae92e0a503a2c00cb57c1d1a025fcacdd6b9cb02a8f",
+     "license": "MIT"
+    },
+    {
+     "name": "team-communications",
+     "path": "project-management/skills/team-communications/SKILL.md",
+     "sha256": "b6b7e1ce17fb86f735e9d99bdb9692f321d2a22a8a987f7821fb09c0a1f983fe",
+     "license": "MIT"
+    },
+    {
+     "name": "eu-ai-act-specialist",
+     "path": "ra-qm-team/compliance-team-eu-ai-act/skills/eu-ai-act-specialist/SKILL.md",
+     "sha256": "fe5d4ea4f5c03bc49302f06b7a09b9ff263fe4a3ae5d9434f3bfa081b6c414fd",
+     "license": "MIT"
+    },
+    {
+     "name": "iso42001-specialist",
+     "path": "ra-qm-team/compliance-team-iso42001/skills/iso42001-specialist/SKILL.md",
+     "sha256": "96b964d4bbae3f94c9dd48c5a3decc467bb07e8ce5b4c1765c2214d48c76933a",
+     "license": "MIT"
+    },
+    {
+     "name": "agent-decision-receipts",
+     "path": "ra-qm-team/skills/agent-decision-receipts/SKILL.md",
+     "sha256": "61834517519a01472bf729b9e5c5b5ba9d3f434b306299746cb6378afb47ce70",
+     "license": "MIT"
+    },
+    {
+     "name": "capa-officer",
+     "path": "ra-qm-team/skills/capa-officer/SKILL.md",
+     "sha256": "6c6ca18e86128fcfbffbe5b216b500984f94ef156c8183d518afab606c7eb74e",
+     "license": "MIT"
+    },
+    {
+     "name": "fda-consultant-specialist",
+     "path": "ra-qm-team/skills/fda-consultant-specialist/SKILL.md",
+     "sha256": "eabacba02030144b65ca466aa7f7e91571a1275431a166f0083100153363f6e0",
+     "license": "MIT"
+    },
+    {
+     "name": "gdpr-dsgvo-expert",
+     "path": "ra-qm-team/skills/gdpr-dsgvo-expert/SKILL.md",
+     "sha256": "e38fb1b48caa820bb00a8d978d59c6b38d38e150590795f4a662ce0ed4604f50",
+     "license": "MIT"
+    },
+    {
+     "name": "information-security-manager-iso27001",
+     "path": "ra-qm-team/skills/information-security-manager-iso27001/SKILL.md",
+     "sha256": "ea00ebeff008acc2b94359ac15912823417d0784f4132acfa02002128da7d101",
+     "license": "MIT"
+    },
+    {
+     "name": "isms-audit-expert",
+     "path": "ra-qm-team/skills/isms-audit-expert/SKILL.md",
+     "sha256": "99fddd2db9f85167eeb47474bf3b30eea28062377c8e14dc2f188c2607062e8e",
+     "license": "MIT"
+    },
+    {
+     "name": "mdr-745-specialist",
+     "path": "ra-qm-team/skills/mdr-745-specialist/SKILL.md",
+     "sha256": "054682d1d6cd2eeb0f783845589ba498c3fc8770d4edd23792e2b2cf616aad1d",
+     "license": "MIT"
+    },
+    {
+     "name": "qms-audit-expert",
+     "path": "ra-qm-team/skills/qms-audit-expert/SKILL.md",
+     "sha256": "118f50d21ef29b6945fd3b6a5e1edbe5b3c7966fa6c995b94b2a3b97e00bbd92",
+     "license": "MIT"
+    },
+    {
+     "name": "quality-documentation-manager",
+     "path": "ra-qm-team/skills/quality-documentation-manager/SKILL.md",
+     "sha256": "8b677b83f5f9ad0c1f4a1dbe0691a1193c41a531fb20381872a8be5f5f0fd355",
+     "license": "MIT"
+    },
+    {
+     "name": "quality-manager-qmr",
+     "path": "ra-qm-team/skills/quality-manager-qmr/SKILL.md",
+     "sha256": "8ff6dfdfdbe2361c5a1f4a37a9d1a635cc42c010693dcad4ffd697845bb4afe1",
+     "license": "MIT"
+    },
+    {
+     "name": "quality-manager-qms-iso13485",
+     "path": "ra-qm-team/skills/quality-manager-qms-iso13485/SKILL.md",
+     "sha256": "be426a7fa7c7b64988e836dcb388adcc8399beba86769aad71b4103c034f8833",
+     "license": "MIT"
+    },
+    {
+     "name": "ra-qm-skills",
+     "path": "ra-qm-team/skills/ra-qm-skills/SKILL.md",
+     "sha256": "0567bc2c021733109eb87b227069bdf1070c4311470ab92fbf7c4375edebb308",
+     "license": "MIT"
+    },
+    {
+     "name": "regulatory-affairs-head",
+     "path": "ra-qm-team/skills/regulatory-affairs-head/SKILL.md",
+     "sha256": "e2e4fa920a82cbc24f437fc5e2a8a1b1a219c61b81dbc5a5d9f7c86e56b08b4c",
+     "license": "MIT"
+    },
+    {
+     "name": "risk-management-specialist",
+     "path": "ra-qm-team/skills/risk-management-specialist/SKILL.md",
+     "sha256": "8d46b54a8d7c896a921f1df4a9976b8921560b44602891deb3553b4012d6b72f",
+     "license": "MIT"
+    },
+    {
+     "name": "soc2-compliance",
+     "path": "ra-qm-team/skills/soc2-compliance/SKILL.md",
+     "sha256": "10f4ff429805eef06e53a4f72c94001481c2c0ac2c4bd98c463d46e5351af6c9",
+     "license": "MIT"
+    },
+    {
+     "name": "clinical-research",
+     "path": "research-ops/skills/clinical-research/SKILL.md",
+     "sha256": "2ee6764353ca5dd7b2366557be898e4aea17c7223e0f9ac6799c9b21a0ef8041",
+     "license": "MIT"
+    },
+    {
+     "name": "market-research",
+     "path": "research-ops/skills/market-research/SKILL.md",
+     "sha256": "0e4037294f8e6bea1cb53de035eaa97bd2d74349d06f9b61d85f4420d7c084c9",
+     "license": "MIT"
+    },
+    {
+     "name": "product-research",
+     "path": "research-ops/skills/product-research/SKILL.md",
+     "sha256": "a483e2e81808dc8cb55996a1ec8a120ef60c37c4585435a2fdba9c438fc37f84",
+     "license": "MIT"
+    },
+    {
+     "name": "research-finance",
+     "path": "research-ops/skills/research-finance/SKILL.md",
+     "sha256": "a40e86d877bcab0a8c9018dca2b63e69fe1b2d9cf3d41c0f852abda699794ff4",
+     "license": "MIT"
+    },
+    {
+     "name": "research-ops-skills",
+     "path": "research-ops/skills/research-ops-skills/SKILL.md",
+     "sha256": "58b58e51a1fc39d58efe284fd2e95bfdf7d0cc341ff2c3da982238c5bc803e75",
+     "license": "MIT"
+    },
+    {
+     "name": "deep-research",
+     "path": "research/deep-research/skills/deep-research/SKILL.md",
+     "sha256": "0c3f02d1ba581a2368c5e8a3b99a2428f42e78081136621359cfecef2fabca25",
+     "license": "MIT"
+    },
+    {
+     "name": "deepread",
+     "path": "research/deepread/SKILL.md",
+     "sha256": "d36bb7b98610b4cfe0b11547cc63bf146b4d2b63f6456af31160c6c197cfdd34",
+     "license": "MIT"
+    },
+    {
+     "name": "dossier",
+     "path": "research/dossier/skills/dossier/SKILL.md",
+     "sha256": "a39c2d91f58cc61117dcb9304997985ac42425884ab1e217ba6c6111a69eda2b",
+     "license": "MIT"
+    },
+    {
+     "name": "grants",
+     "path": "research/grants/skills/grants/SKILL.md",
+     "sha256": "3ada40fc2c17bd031f9baaa956414523cf00315ec1c61c9cdb7054356ef15cd5",
+     "license": "MIT"
+    },
+    {
+     "name": "notebooklm",
+     "path": "research/notebooklm/skills/notebooklm/SKILL.md",
+     "sha256": "1f15ad8dbdd865f26002c270142776248b54b7f64352f9167134b371c8be23a0",
+     "license": "MIT"
+    },
+    {
+     "name": "patent",
+     "path": "research/patent/skills/patent/SKILL.md",
+     "sha256": "7cf68646b2572da081b0769e001f1379665c4f33de43c9651317112c147e84ba",
+     "license": "MIT"
+    },
+    {
+     "name": "pulse",
+     "path": "research/pulse/skills/pulse/SKILL.md",
+     "sha256": "28a04eb629ea8701b595332ca31be50568d81f44a321ff78faadcc04c5574ad9",
+     "license": "MIT"
+    },
+    {
+     "name": "research",
+     "path": "research/research/skills/research/SKILL.md",
+     "sha256": "a2ca342e71adcc21800b20a423bc166f1f4a2edbec426dd889bfb7fcb82bb3ff",
+     "license": "MIT"
+    },
+    {
+     "name": "syllabus",
+     "path": "research/syllabus/skills/syllabus/SKILL.md",
+     "sha256": "77b6a8841c62f78ea5bb785da2cbea88d720a95b05ac7ec5d3e63f930d1b70fc",
+     "license": "MIT"
+    }
+   ]
+  }
+ ]
+}

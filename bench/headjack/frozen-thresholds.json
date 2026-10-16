@@ -1,0 +1,58 @@
+{
+  "strong": 0.4,
+  "suggestMax": 4,
+  "tunedOn": "dev split (78 prompts), offline retrieval with the hook's own suggest() (src/tune.mjs), sizes 5,25,100,500",
+  "objective": "maximize recall - false-suggest (Youden J); ties to the higher threshold",
+  "grid": [
+    {
+      "strong": 0.2,
+      "recall": 0.53,
+      "falseSuggest": 0.632,
+      "J": -0.102
+    },
+    {
+      "strong": 0.25,
+      "recall": 0.449,
+      "falseSuggest": 0.355,
+      "J": 0.094
+    },
+    {
+      "strong": 0.3,
+      "recall": 0.407,
+      "falseSuggest": 0.25,
+      "J": 0.157
+    },
+    {
+      "strong": 0.35,
+      "recall": 0.347,
+      "falseSuggest": 0.132,
+      "J": 0.215
+    },
+    {
+      "strong": 0.4,
+      "recall": 0.288,
+      "falseSuggest": 0.066,
+      "J": 0.222
+    },
+    {
+      "strong": 0.45,
+      "recall": 0.208,
+      "falseSuggest": 0.066,
+      "J": 0.142
+    },
+    {
+      "strong": 0.5,
+      "recall": 0.169,
+      "falseSuggest": 0.053,
+      "J": 0.116
+    },
+    {
+      "strong": 0.55,
+      "recall": 0.136,
+      "falseSuggest": 0.026,
+      "J": 0.11
+    }
+  ],
+  "frozenAt": "2026-10-16T11:36:58.930Z",
+  "note": "frozen before any test-split run"
+}

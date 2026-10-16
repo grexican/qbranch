@@ -13,7 +13,7 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "test": "node --test \"packages/*/test/*.test.mjs\"",
+    "test": "node --test \"packages/*/test/*.test.mjs\" \"bench/headjack/test/*.test.mjs\"",
     "sync": "node scripts/sync.mjs",
     "sync:check": "node scripts/sync.mjs --check",
     "install-tools": "node scripts/install.mjs",
@@ -22,7 +22,10 @@
     "release:hotfix": "node scripts/release.mjs patch",
     "release:minor": "node scripts/release.mjs minor",
     "release:major": "node scripts/release.mjs major",
-    "release:dry": "node scripts/release.mjs patch --dry-run"
+    "release:dry": "node scripts/release.mjs patch --dry-run",
+    "bench:headjack": "node bench/headjack/src/run.mjs",
+    "bench:headjack:generate": "node bench/headjack/src/generate.mjs",
+    "bench:headjack:cutoff": "node bench/headjack/src/cutoff.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"
