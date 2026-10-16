@@ -1,6 +1,6 @@
 {
   "name": "@qbranch/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared plumbing for the Q Branch agent tools: project root, stats upserts, frontmatter, local embeddings, transcript readers, portable hook runtime.",
   "type": "module",
   "private": true,

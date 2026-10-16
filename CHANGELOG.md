@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.1 (2026-10-16)
+
+**core**
+- core: hooks parse BOM-prefixed input (PowerShell pipes add one; hooks silently did nothing); release script runs node directly
+
 ## v0.1.0 (2026-10-16)
 
 **other**
