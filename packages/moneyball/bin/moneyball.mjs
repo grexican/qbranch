@@ -24,7 +24,7 @@ const HELP = `moneyball: pay for the model each job needs, not the one you defau
   moneyball overhead [--days N] [--json]                 the startup tax: fixed prompt per session/subagent, apart from the work
            [--probe --budget USD [--model haiku]]        ...and attribute it to components with one-turn probes (spends)
   moneyball experiments [--condense --budget USD]        derive startup-context variants into .moneyball/experiments/
-  moneyball tune --budget USD [--limit N] [--repeats N] [--only a,b] [--concurrency N] [--per-run USD]
+  moneyball tune --budget USD [--limit N] [--repeats N] [--only a,b] [--concurrency N] [--per-run USD] [--timeout SEC] [--judge MODEL | --no-judge]
                                                         replay recurring tasks under each variant; recommend safe trims
   moneyball hook pre|session [--platform P]              PreToolUse (subagent dispatch) / SessionStart hooks
 
@@ -123,7 +123,8 @@ async function main() {
     case 'tune': {
       const budget = budgetOpt();
       const r = await tune(cfg, { budget, replay: await loadReplay(), days: Number(opt('--days', cfg.days)), limit: Number(opt('--limit', 20)), repeats: Number(opt('--repeats', 1)),
-        only: opt('--only') ? opt('--only').split(',') : null, concurrency: Number(opt('--concurrency', 1)), perRunUsd: opt('--per-run') ? Number(opt('--per-run')) : undefined });
+        only: opt('--only') ? opt('--only').split(',') : null, concurrency: Number(opt('--concurrency', 1)), perRunUsd: opt('--per-run') ? Number(opt('--per-run')) : undefined,
+        timeoutMs: opt('--timeout') ? Number(opt('--timeout')) * 1000 : undefined, judgeModel: flag('--no-judge') ? null : opt('--judge', 'sonnet') });
       upsert(cfg, (s) => { s.last_experiment = { at: r.at, tasks: r.tasks, variants: r.variants.length, recommended: r.variants.filter(v => v.recommend).map(v => v.id), spent: r.spent }; });
       if (flag('--json')) return console.log(JSON.stringify(r, null, 2));
       console.log(`replayed ${r.tasks} tasks x ${r.repeats} under baseline + ${r.variants.length} variants, ${money(r.spent)} spent; baseline pass ${r.baseline.runs ? Math.round(r.baseline.passRate * 100) + '%' : 'n/a (no scored runs)'}`

@@ -1981,7 +1981,7 @@ async function condense(root, { budget, model = "sonnet", run = claudeProbe }) {
   }
 }
 var CONDENSE = "The text on stdin is a CLAUDE.md instruction file. Rewrite it as short as possible for a current frontier coding model. Keep every rule, path, command, name and fact the model could not infer from the repository itself. Drop restatements, motivation, and generic advice a strong model already follows. Keep markdown headings. Output only the new file, with no commentary and no code fence.";
-async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats = 1, only = null, concurrency = 1, perRunUsd }) {
+async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats = 1, only = null, concurrency = 1, perRunUsd, timeoutMs, judgeModel = "sonnet" }) {
   if (!(budget > 0)) throw new Error("tune spends money: pass --budget <usd>");
   const variants = loadVariants(cfg).filter((v) => !only || only.includes(v.id));
   if (!variants.length) throw new Error("no experiments yet: run `moneyball experiments` first");
@@ -1990,7 +1990,8 @@ async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats 
   const setups = { baseline: async () => {
   } };
   for (const v of variants) setups[v.id] = async (dir) => applyVariant(dir, v);
-  const report = await replay.compareVariants({ tasks, variants: setups, repeats, budgetUsd: budget, concurrency, perRunUsd });
+  const judge = judgeModel && replay.claudeJudge ? replay.claudeJudge({ model: judgeModel, budgetUsd: 0.5 }) : void 0;
+  const report = await replay.compareVariants({ tasks, variants: setups, repeats, budgetUsd: budget, concurrency, perRunUsd, timeoutMs, judge });
   const base = report.perVariant.baseline || {};
   const rows = variants.map((v) => {
     const r = report.perVariant[v.id];
@@ -2044,7 +2045,7 @@ var HELP = `moneyball: pay for the model each job needs, not the one you default
   moneyball overhead [--days N] [--json]                 the startup tax: fixed prompt per session/subagent, apart from the work
            [--probe --budget USD [--model haiku]]        ...and attribute it to components with one-turn probes (spends)
   moneyball experiments [--condense --budget USD]        derive startup-context variants into .moneyball/experiments/
-  moneyball tune --budget USD [--limit N] [--repeats N] [--only a,b] [--concurrency N] [--per-run USD]
+  moneyball tune --budget USD [--limit N] [--repeats N] [--only a,b] [--concurrency N] [--per-run USD] [--timeout SEC] [--judge MODEL | --no-judge]
                                                         replay recurring tasks under each variant; recommend safe trims
   moneyball hook pre|session [--platform P]              PreToolUse (subagent dispatch) / SessionStart hooks
 
@@ -2174,7 +2175,9 @@ ${"".padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${c.saving ? ` (est. ${money(c.
         repeats: Number(opt("--repeats", 1)),
         only: opt("--only") ? opt("--only").split(",") : null,
         concurrency: Number(opt("--concurrency", 1)),
-        perRunUsd: opt("--per-run") ? Number(opt("--per-run")) : void 0
+        perRunUsd: opt("--per-run") ? Number(opt("--per-run")) : void 0,
+        timeoutMs: opt("--timeout") ? Number(opt("--timeout")) * 1e3 : void 0,
+        judgeModel: flag("--no-judge") ? null : opt("--judge", "sonnet")
       });
       upsert(cfg, (s) => {
         s.last_experiment = { at: r.at, tasks: r.tasks, variants: r.variants.length, recommended: r.variants.filter((v) => v.recommend).map((v) => v.id), spent: r.spent };
