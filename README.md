@@ -112,6 +112,10 @@ The transcript readers (`packages/core/src/transcripts.mjs`) and the replay harn
 >
 > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+## License
+
+[MIT](LICENSE). Each gadget folder carries its own copy, so any gadget can be lifted out on its own.
+
 ---
 
 *Q Branch is an original project, named in tribute to the gadget department of the James Bond films. It is not affiliated with or endorsed by Eon Productions, Danjaq, MGM or Ian Fleming Publications. All artwork is original.*

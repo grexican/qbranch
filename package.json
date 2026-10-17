@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "private": true,
   "description": "Q Branch: where the gadgets for AI agents get built and proven. headjack (skills just in time), middleout (API calls, compressed), moneyball (right-sized models), groundhog (lessons that stick).",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "author": "Eli Gassert",
   "type": "module",
   "workspaces": [

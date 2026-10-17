@@ -7,7 +7,7 @@
   "platformNotes": {},
   "type": "module",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "author": "Eli Gassert",
   "bin": {
     "middleout": "bin/middleout.mjs"

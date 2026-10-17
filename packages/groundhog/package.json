@@ -13,7 +13,7 @@
   },
   "type": "module",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "bin": {
     "groundhog": "bin/groundhog.mjs"
   },

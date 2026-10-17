@@ -11,5 +11,6 @@
     "subagents",
     "hooks",
     "measurement"
-  ]
+  ],
+  "license": "MIT"
 }

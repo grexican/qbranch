@@ -11,5 +11,6 @@
     "hooks",
     "process-mining",
     "transcripts"
-  ]
+  ],
+  "license": "MIT"
 }
