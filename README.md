@@ -1,7 +1,5 @@
 <p align="center"><img src="docs/qbranch.svg" alt="Q Branch: equipment for agents. On the workbench: headjack, middleout, moneyball, groundhog" width="100%"></p>
 
-<p align="center"><a href="https://m8ven.ai/mcp/grexican-qbranch-14pk2l?s=readme"><img src="https://m8ven.ai/badge/mcp/grexican-qbranch-14pk2l?v=612dfe4e2fb4ee670302767fec0a7480" alt="M8ven Score"></a></p>
-
 In the James Bond films, **Q Branch** is the workshop behind the field agents. Q and his staff invent the gadgets, test them until they work, and brief the agent on how to use each one before the mission.
 
 This repository is that workshop for **AI agents**. Every gadget here makes coding agents cheaper, more reliable or less forgetful, and each one measures itself, so you can see whether it is earning its place. They share one idea: **guarantee steps with hooks instead of longer prompts.** A hook costs nothing until the moment it applies, and then it fires every time.
@@ -121,3 +119,5 @@ The transcript readers (`packages/core/src/transcripts.mjs`) and the replay harn
 ---
 
 *Q Branch is an original project, named in tribute to the gadget department of the James Bond films. It is not affiliated with or endorsed by Eon Productions, Danjaq, MGM or Ian Fleming Publications. All artwork is original.*
+
+[![M8ven Score](https://m8ven.ai/badge/mcp/grexican-qbranch-14pk2l?v=612dfe4e2fb4ee670302767fec0a7480)](https://m8ven.ai/mcp/grexican-qbranch-14pk2l?s=readme)
