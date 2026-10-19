@@ -10,3 +10,4 @@ build/
 .groundhog-stats.json
 *.log
 .env
+marketplace/*/*.zip
