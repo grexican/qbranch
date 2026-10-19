@@ -17,7 +17,7 @@ const CURSOR_KEYS = ['next_cursor', 'nextCursor', 'next_page_token', 'nextPageTo
 const PARAM_FOR = { next_cursor: 'cursor', nextCursor: 'cursor', next_page_token: 'page_token', nextPageToken: 'pageToken' };
 
 /** createEngine({servers, readonly, allow, concurrency}) -> { tools(), shape(tool,args), run(plan), close() } */
-export function createEngine({ servers = {}, readonly = true, allow = null, concurrency = 8 } = {}) {
+export function createEngine({ servers = {}, readonly = false, allow = null, concurrency = 8 } = {}) {
   const clients = {}; const readOnly = {};
   const allowRe = allow ? new RegExp(allow) : null;
   const allowed = (srv, tool) => (!allowRe || allowRe.test(`${srv}.${tool}`)) && (!readonly || readOnly[`${srv}.${tool}`] === true);

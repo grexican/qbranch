@@ -50,9 +50,14 @@ It handles the API mechanics that small models get wrong:
 - **Fan-out runs in parallel** with a concurrency cap.
 - **Errors name the node that failed** (`at plan[0].deals[3].calls: ...`), so the agent can fix the plan.
 
-## Safe by default
+## What it will call, and what that means
 
-middleout is for *fetching*. In read-only mode (the default) it exposes only the tools a server itself annotates `readOnlyHint`. Anything else is invisible and refused. Writes stay on the raw tools, where your normal permission prompts apply. Add `allow` (a regex on `server.tool`) to narrow it further.
+middleout wraps **every** tool your servers expose. It is a pass-through: a plan can call anything a raw MCP call could, including a POST that is really a search, which is common and which a read-only filter would wrongly exclude.
+
+Two consequences worth knowing:
+
+- **A plan runs under one approval.** Your agent is prompted once for `middleout_run`, and the plan may then make many calls. A fan-out over 100 items is 100 calls. That is the point of the tool, and it is why middleout's own annotations do not claim to be read-only: it is exactly as safe as the tools the plan names.
+- **Narrow it when you want to.** `allow` (a regex on `server.tool`) limits middleout to the tools you list. `"readonly": true` restricts it to tools their own server annotates `readOnlyHint` — accurate when servers set that hint, but most do not, so it is off by default.
 
 ## Install
 
@@ -90,7 +95,7 @@ In a project with a `.mcp.json`, that is all: middleout wraps its stdio servers.
 ```json
 {
   "servers": { "tickets": { "command": "node", "args": ["./mcp/tickets-server.mjs"] } },
-  "readonly": true,
+  "readonly": false,
   "allow": null,
   "mode": "nudge",
   "nudgeBytes": 8000,

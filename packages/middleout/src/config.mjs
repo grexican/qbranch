@@ -8,7 +8,7 @@ export const projectRoot = (start) => coreRoot(['middleout.config.json'], start)
 
 export const DEFAULTS = {
   servers: null,      // { name: {command, args, env} }; null = the stdio servers in .mcp.json
-  readonly: true,     // expose only tools the server itself annotates readOnlyHint
+  readonly: false,    // true = expose only tools the server itself annotates readOnlyHint (few servers do; see README)
   allow: null,        // optional regex on "server.tool"
   concurrency: 8,     // parallel calls inside an "each"
   mode: 'nudge',      // hook behavior on raw MCP calls to wrapped servers: off | nudge | gate

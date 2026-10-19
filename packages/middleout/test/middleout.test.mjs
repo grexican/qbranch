@@ -13,11 +13,29 @@ const servers = { crm: { command: 'node', args: [FIXTURE] } };
 const engine = createEngine({ servers });
 after(() => engine.close());
 
-test('read-only mode hides and refuses write tools', async () => {
+test('by default every tool is wrapped: most servers never set readOnlyHint, and a POST is often a search', async () => {
   const refs = (await engine.tools()).map(t => t.ref);
   assert.ok(refs.includes('crm.list_deals'));
-  assert.ok(!refs.includes('crm.delete_deal'));
-  await assert.rejects(engine.run({ tool: 'crm.delete_deal', args: { id: 'deal_1' } }), /not available through middleout/);
+  assert.ok(refs.includes('crm.delete_deal'));
+});
+
+test('readonly: true still restricts to tools their own server annotates readOnlyHint', async () => {
+  const ro = createEngine({ servers, readonly: true });
+  try {
+    const refs = (await ro.tools()).map(t => t.ref);
+    assert.ok(refs.includes('crm.list_deals'));
+    assert.ok(!refs.includes('crm.delete_deal'));
+    await assert.rejects(ro.run({ tool: 'crm.delete_deal', args: { id: 'deal_1' } }), /not available through middleout/);
+  } finally { await ro.close(); }
+});
+
+test('allow narrows middleout to the tools you list, whatever their annotations', async () => {
+  const narrow = createEngine({ servers, allow: '^crm\\.list_' });
+  try {
+    const refs = (await narrow.tools()).map(t => t.ref);
+    assert.ok(refs.includes('crm.list_deals'));
+    assert.ok(!refs.includes('crm.delete_deal'));
+  } finally { await narrow.close(); }
 });
 
 test('automatic pagination returns every page in the normal shape', async () => {

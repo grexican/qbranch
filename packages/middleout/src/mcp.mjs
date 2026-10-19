@@ -21,11 +21,14 @@ const record = (st, ok) => upsert(cfg, (s, day) => {
 server.registerTool('middleout_tools', {
   description: 'List the API tools middleout can call for you (from this project\'s MCP servers), with their parameters.',
   inputSchema: {},
+  annotations: { title: 'List wrapped API tools', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async () => text((await engine.tools()).map(t => `- ${t.ref}(${t.params.join(', ')}): ${t.description.slice(0, 200)}`).join('\n') || 'no servers configured'));
 
 server.registerTool('middleout_shape', {
   description: 'Call one API tool and return only the SHAPE of its result (field names, types, one short example each), not the data. Use it to learn field names before writing a middleout_run plan.',
   inputSchema: { tool: z.string().describe('"server.tool"'), args: z.record(z.string(), z.any()).optional() },
+  // middleout is a pass-through: it is exactly as safe as the tool the plan names, so it claims nothing stronger
+  annotations: { title: 'Sample an API result shape', readOnlyHint: cfg.readonly === true, destructiveHint: cfg.readonly !== true, idempotentHint: false, openWorldHint: true },
 }, async ({ tool, args }) => {
   try { const { shape, stats } = await engine.shape(tool, args || {}); const out = JSON.stringify(shape, null, 1); record({ ...stats, returnedBytes: out.length }, true); return text(out); }
   catch (e) { return text(`middleout error: ${e.message}`); }
@@ -36,6 +39,7 @@ server.registerTool('middleout_run', {
     'automatic pagination, and JMESPath projection, so only the fields you select come back. Prefer this over calling API tools one by one, ' +
     'especially for lists, per-item details, and anything paginated.\n' + PLAN_DOC,
   inputSchema: { plan: z.any().describe('A node or an array of nodes (see description)') },
+  annotations: { title: 'Run a fetch plan', readOnlyHint: cfg.readonly === true, destructiveHint: cfg.readonly !== true, idempotentHint: false, openWorldHint: true },
 }, async ({ plan }) => {
   try {
     const { result, stats } = await engine.run(plan);

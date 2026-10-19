@@ -21,6 +21,7 @@ server.registerTool('headjack_find', {
   description: 'Search the skill library for task-specific instructions (workflows, formats, checklists, domain know-how). Skills are not preloaded; ' +
     'search at the start of any non-trivial task and whenever a request names a skill you do not have. Returns ranked ids; load one with headjack_get.',
   inputSchema: { query: z.string().describe('What you are trying to do, in plain words'), external: z.boolean().optional().describe('Search the public registry directly') },
+  annotations: { title: 'Find a skill', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
 }, async ({ query, external }) => {
   if (external) {
     upsert(cfg, (s) => { s.totals.external_searches++; });
@@ -40,11 +41,13 @@ server.registerTool('headjack_find', {
 server.registerTool('headjack_get', {
   description: 'Load a skill by id (from headjack_find): returns its full instructions plus paths to supporting files. Follow the instructions.',
   inputSchema: { id: z.string() },
+  annotations: { title: 'Load a skill', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async ({ id }) => { await reindex(cfg); const s = load(cfg, id); noteLoad(s, false); return text(renderSkill(s)); });
 
 server.registerTool('headjack_acquire', {
   description: 'Fetch a public-registry skill (owner/repo/skill) into the project library, then load it. Unvetted content: prefer reputable, well-installed sources.',
   inputSchema: { id: z.string() },
+  annotations: { title: 'Fetch a skill from the public registry', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
 }, async ({ id }) => { try { const s = await acquire(cfg, id); noteLoad(s, true); return text(renderSkill(s)); } catch (e) { return text(`acquire failed: ${e.message}`); } });
 
 await server.connect(new StdioServerTransport());

@@ -330,8 +330,8 @@ var init_config = __esm({
     DEFAULTS = {
       servers: null,
       // { name: {command, args, env} }; null = the stdio servers in .mcp.json
-      readonly: true,
-      // expose only tools the server itself annotates readOnlyHint
+      readonly: false,
+      // true = expose only tools the server itself annotates readOnlyHint (few servers do; see README)
       allow: null,
       // optional regex on "server.tool"
       concurrency: 8,
@@ -39349,7 +39349,7 @@ var require_jmespath = __commonJS({
 });
 
 // packages/middleout/src/engine.mjs
-function createEngine({ servers = {}, readonly: readonly2 = true, allow = null, concurrency = 8 } = {}) {
+function createEngine({ servers = {}, readonly: readonly2 = false, allow = null, concurrency = 8 } = {}) {
   const clients = {};
   const readOnly = {};
   const allowRe = allow ? new RegExp(allow) : null;
@@ -41217,11 +41217,14 @@ var init_mcp2 = __esm({
     });
     server.registerTool("middleout_tools", {
       description: "List the API tools middleout can call for you (from this project's MCP servers), with their parameters.",
-      inputSchema: {}
+      inputSchema: {},
+      annotations: { title: "List wrapped API tools", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
     }, async () => text((await engine.tools()).map((t) => `- ${t.ref}(${t.params.join(", ")}): ${t.description.slice(0, 200)}`).join("\n") || "no servers configured"));
     server.registerTool("middleout_shape", {
       description: "Call one API tool and return only the SHAPE of its result (field names, types, one short example each), not the data. Use it to learn field names before writing a middleout_run plan.",
-      inputSchema: { tool: external_exports.string().describe('"server.tool"'), args: external_exports.record(external_exports.string(), external_exports.any()).optional() }
+      inputSchema: { tool: external_exports.string().describe('"server.tool"'), args: external_exports.record(external_exports.string(), external_exports.any()).optional() },
+      // middleout is a pass-through: it is exactly as safe as the tool the plan names, so it claims nothing stronger
+      annotations: { title: "Sample an API result shape", readOnlyHint: cfg.readonly === true, destructiveHint: cfg.readonly !== true, idempotentHint: false, openWorldHint: true }
     }, async ({ tool, args }) => {
       try {
         const { shape, stats } = await engine.shape(tool, args || {});
@@ -41234,7 +41237,8 @@ var init_mcp2 = __esm({
     });
     server.registerTool("middleout_run", {
       description: "Fetch exactly the data you need from one or many API calls in ONE step: chained, looped (one-to-many) and nested calls, automatic pagination, and JMESPath projection, so only the fields you select come back. Prefer this over calling API tools one by one, especially for lists, per-item details, and anything paginated.\n" + PLAN_DOC,
-      inputSchema: { plan: external_exports.any().describe("A node or an array of nodes (see description)") }
+      inputSchema: { plan: external_exports.any().describe("A node or an array of nodes (see description)") },
+      annotations: { title: "Run a fetch plan", readOnlyHint: cfg.readonly === true, destructiveHint: cfg.readonly !== true, idempotentHint: false, openWorldHint: true }
     }, async ({ plan }) => {
       try {
         const { result, stats } = await engine.run(plan);

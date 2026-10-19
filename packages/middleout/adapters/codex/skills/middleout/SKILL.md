@@ -9,7 +9,7 @@ description: Fetch data from this project's MCP servers or JSON APIs without flo
 
 ## Workflow
 
-1. `middleout_tools` lists the tools you can reach (read-only by default).
+1. `middleout_tools` lists the tools you can reach (every tool the project's servers expose, unless the project narrows it).
 2. `middleout_shape` calls a tool once and returns field names and types, not data. Do this before you write a `select`, so you use real field names.
 3. `middleout_run` runs the plan. Select only what the answer needs. Keep ids if you will fetch more later.
 
