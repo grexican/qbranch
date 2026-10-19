@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.0 (2026-10-19)
+
+**middleout**
+- middleout: wrap every tool by default (readOnlyHint is rarely set, and a POST is often a search); readonly stays as an opt-in
+
+**other**
+- readme: move the M8ven badge to the footer
+- readme: M8ven score badge
+
 ## v0.1.2 (2026-10-17)
 
 **other**

@@ -5,32 +5,32 @@
   },
   "metadata": {
     "description": "Q Branch: where the gadgets for AI agents get built and proven. headjack (skills just in time), middleout (API calls, compressed), moneyball (right-sized models), groundhog (lessons that stick).",
-    "version": "0.1.2"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "headjack",
       "source": "./packages/headjack/adapters/cursor",
       "description": "Skills, loaded the moment you need them. Two root skills + a per-prompt retrieval hook replace a preloaded skill listing: the library stays indexed and out of context until a task needs it.",
-      "version": "0.1.2"
+      "version": "0.2.0"
     },
     {
       "name": "middleout",
       "source": "./packages/middleout/adapters/cursor",
       "description": "API calls, compressed. Wraps this project's MCP servers so agents fetch only the fields they need: hierarchical plans, one-to-many fan-out, automatic pagination, read-only by default. A hook measures raw MCP traffic and nudges toward middleout.",
-      "version": "0.1.2"
+      "version": "0.2.0"
     },
     {
       "name": "moneyball",
       "source": "./packages/moneyball/adapters/cursor",
       "description": "Right-size your agents on evidence: measure every subagent run's cost and success from transcripts, graduate repeatable jobs to cheaper models, and route dispatches with a hook.",
-      "version": "0.1.2"
+      "version": "0.2.0"
     },
     {
       "name": "groundhog",
       "source": "./packages/groundhog/adapters/cursor",
       "description": "Stop re-living the same session: mine transcripts for repeated procedures and re-learned lessons, keep them in a committed ledger, and enforce them with hooks instead of longer prompts.",
-      "version": "0.1.2"
+      "version": "0.2.0"
     }
   ]
 }
