@@ -77,6 +77,25 @@ qbranch install all --platform claude
 
 Where an agent cannot do something, that feature turns off rather than half-working. Each gadget's page lists exactly what works on each platform.
 
+## MCP servers
+
+Two gadgets also run as MCP servers, for clients that have no skills or hooks. The repo's own [`.mcp.json`](.mcp.json)
+declares both, so cloning it and opening it in an MCP client gives you all six tools.
+
+| Server | Tool | Does | Read-only | Reaches the network |
+|---|---|---|---|---|
+| **headjack** (`headjack mcp`) | `headjack_find` | search the skill library, falling through to the public registry | yes | yes |
+| | `headjack_get` | load a skill by id | yes | no |
+| | `headjack_acquire` | fetch a registry skill into the library, then load it | **no** (writes a skill) | yes |
+| **middleout** (`middleout mcp`) | `middleout_tools` | list the API tools middleout can reach | yes | no |
+| | `middleout_shape` | call one tool, return only the shape of its result | as safe as the tool named | yes |
+| | `middleout_run` | run a fetch plan: chaining, fan-out, pagination, projection | as safe as the tools named | yes |
+
+Every tool declares MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`).
+middleout's `shape` and `run` deliberately do **not** claim to be read-only: they are pass-throughs, so a plan is
+exactly as safe as the tools it names, and it runs under a single approval. See
+[middleout's README](packages/middleout/README.md#what-it-will-call-and-what-that-means).
+
 ## How the workshop is organized
 
 `packages/<gadget>` is canonical, in Claude Code plugin layout, and each one is a complete, standalone folder: it could be lifted out into its own repository unchanged. `npm run sync` generates everything that would otherwise drift, inside each package:

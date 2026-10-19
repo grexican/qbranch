@@ -10,7 +10,8 @@
     "jit",
     "context",
     "retrieval",
-    "hooks"
+    "hooks",
+    "mcp"
   ],
   "license": "MIT"
 }

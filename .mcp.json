@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "headjack": {
+      "command": "node",
+      "args": ["packages/headjack/dist/headjack.mjs", "mcp"]
+    },
+    "middleout": {
+      "command": "node",
+      "args": ["packages/middleout/dist/middleout.mjs", "mcp"]
+    }
+  }
+}
