@@ -2,6 +2,10 @@
 // server-side, and hand the model only what it selected. Usable as a library from any agent runtime.
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { runtimeProvider, isAuthError, signInMessage, markNoAuth } from './oauth.mjs';
+import { scrub } from './config.mjs';
 import jmespath from 'jmespath';
 
 export const PLAN_DOC = `A plan is a node, or an array of independent nodes (results come back as an array).
@@ -16,20 +20,63 @@ A node is {tool, args?, select?, each?, as?, then?, page?} (or {http: "GET https
 const CURSOR_KEYS = ['next_cursor', 'nextCursor', 'next_page_token', 'nextPageToken'];
 const PARAM_FOR = { next_cursor: 'cursor', nextCursor: 'cursor', next_page_token: 'page_token', nextPageToken: 'pageToken' };
 
-/** createEngine({servers, readonly, allow, concurrency}) -> { tools(), shape(tool,args), run(plan), close() } */
-export function createEngine({ servers = {}, readonly = false, allow = null, concurrency = 8 } = {}) {
+const hasAuthHeader = (h) => Object.keys(h || {}).some(k => k.toLowerCase() === 'authorization');
+
+/** Connect one HTTP server: Streamable HTTP first, SSE as the fallback for older servers. Auth failures never fall back. */
+async function connectHttp(name, spec) {
+  const requestInit = { headers: spec.headers || {} };
+  const authProvider = hasAuthHeader(spec.headers) ? undefined : runtimeProvider(name, spec) || undefined;
+  const authFail = (e) => new Error(hasAuthHeader(spec.headers)
+    ? `server "${name}" rejected its configured credentials (401): check the Authorization header in .mcp.json and the env var it reads`
+    : `${signInMessage(name)}${authProvider ? ' (the stored sign-in was rejected and could not be refreshed)' : ''}`, { cause: e });
+  const attempt = async (Transport) => {
+    const c = new Client({ name: 'middleout', version: '0.3.0' });
+    const t = new Transport(new URL(spec.url), { requestInit, authProvider });
+    // a failed connect must not leave the transport's retry timer behind: it would keep a CLI run from ever exiting
+    try { await c.connect(t); } catch (e) { try { await t.close(); } catch { /* already down */ } throw e; }
+    return c;
+  };
+  // remember a server that answers without any auth, so nudges stop suggesting a sign-in it does not need
+  const opened = (c) => { if (!authProvider && !hasAuthHeader(spec.headers)) markNoAuth(name, spec, true); return c; };
+  const denied = (e) => { markNoAuth(name, spec, false); return authFail(e); };
+  if (spec.type === 'sse') { try { return opened(await attempt(SSEClientTransport)); } catch (e) { throw isAuthError(e) ? denied(e) : e; } }
+  try { return opened(await attempt(StreamableHTTPClientTransport)); } catch (e) {
+    if (isAuthError(e)) throw denied(e);
+    try { return opened(await attempt(SSEClientTransport)); } catch (e2) {
+      if (isAuthError(e2)) throw denied(e2);
+      throw new Error(`server "${name}" (${spec.url}) did not connect: ${e.message}`, { cause: e });
+    }
+  }
+}
+
+/** createEngine({servers, skipped, readonly, allow, concurrency}) -> { tools(), toolsReport(), shape(tool,args), run(plan), close() } */
+export function createEngine({ servers = {}, skipped = {}, readonly = false, allow = null, concurrency = 8 } = {}) {
   const clients = {}; const readOnly = {};
+  // every message that leaves the engine is scrubbed: errors are shown to the model and kept in the stats file
+  const secrets = Object.values(servers).flatMap(s => s?.secrets || []);
+  const safe = (e) => new Error(scrub(e?.message ?? e, secrets), { cause: e });
   const allowRe = allow ? new RegExp(allow) : null;
   const allowed = (srv, tool) => (!allowRe || allowRe.test(`${srv}.${tool}`)) && (!readonly || readOnly[`${srv}.${tool}`] === true);
 
   async function client(name) {
-    if (!servers[name]) throw new Error(`unknown server "${name}" (have: ${Object.keys(servers).join(', ') || 'none'})`);
+    if (!servers[name]) {
+      const have = Object.keys(servers).join(', ') || 'none';
+      throw new Error(`unknown server "${name}" (wrapped: ${have}). ` + (skipped[name]
+        ? `"${name}" is in .mcp.json but was skipped: ${skipped[name]}.`
+        : `"${name}" is not in this project's .mcp.json (plugin and user-scope servers are not wrapped; add it under "servers" in middleout.config.json), so call its tools directly.`));
+    }
     clients[name] ??= (async () => {
-      const c = new Client({ name: 'middleout', version: '0.1.0' });
-      await c.connect(new StdioClientTransport({ ...servers[name], env: { ...process.env, ...(servers[name].env || {}) }, stderr: 'ignore' }));
+      const spec = servers[name];
+      let c;
+      if (spec.url) c = await connectHttp(name, spec);
+      else {
+        c = new Client({ name: 'middleout', version: '0.3.0' });
+        await c.connect(new StdioClientTransport({ ...spec, env: { ...process.env, ...(spec.env || {}) }, stderr: 'ignore' }));
+      }
       for (const t of (await c.listTools()).tools) readOnly[`${name}.${t.name}`] = t.annotations?.readOnlyHint === true;
       return c;
     })();
+    clients[name].catch(() => { delete clients[name]; }); // a failed connect is retried next time, not cached
     return clients[name];
   }
 
@@ -41,7 +88,8 @@ export function createEngine({ servers = {}, readonly = false, allow = null, con
     if (!allowed(srv, tool)) throw new Error(`${srv}.${tool} is not available through middleout${readonly ? ' (read-only mode)' : ''}`);
     const r = await c.callTool({ name: tool, arguments: args });
     const text = r.content?.map(x => x.text || '').join('') || '';
-    st.calls++; st.rawBytes += text.length; st.byTool[`${srv}.${tool}`] = (st.byTool[`${srv}.${tool}`] || 0) + 1;
+    st.calls++; st.rawBytes += text.length;
+    const bt = (st.byTool[`${srv}.${tool}`] ??= { calls: 0, rawBytes: 0 }); bt.calls++; bt.rawBytes += text.length;
     if (r.isError) throw new Error(`${srv}.${tool}: ${text.slice(0, 300)}`);
     try { return JSON.parse(text); } catch { return text; }
   }
@@ -50,6 +98,7 @@ export function createEngine({ servers = {}, readonly = false, allow = null, con
     const [method, url] = spec.includes(' ') ? spec.split(/\s+/, 2) : ['GET', spec];
     const r = await fetch(url, { method, headers: { 'User-Agent': 'middleout', Accept: 'application/json' } });
     const text = await r.text(); st.calls++; st.rawBytes += text.length;
+    const bt = (st.byTool[`http.${new URL(url).host}`] ??= { calls: 0, rawBytes: 0 }); bt.calls++; bt.rawBytes += text.length;
     if (!r.ok) throw new Error(`${method} ${url} -> ${r.status} ${text.slice(0, 200)}`);
     return JSON.parse(text);
   }
@@ -120,22 +169,36 @@ export function createEngine({ servers = {}, readonly = false, allow = null, con
   }
 
   return {
-    async tools() {
-      const out = [];
-      for (const name of Object.keys(servers)) for (const t of (await (await client(name)).listTools()).tools)
-        if (allowed(name, t.name)) out.push({ ref: `${name}.${t.name}`, params: Object.keys(t.inputSchema?.properties || {}), description: t.description || '' });
-      return out;
+    /** Every tool from every server that connects, plus the servers that did not and why. */
+    async toolsReport() {
+      const tools = [], failed = [];
+      await Promise.all(Object.keys(servers).map(async (name) => {
+        try {
+          for (const t of (await (await client(name)).listTools()).tools)
+            if (allowed(name, t.name)) tools.push({ ref: `${name}.${t.name}`, params: Object.keys(t.inputSchema?.properties || {}), description: t.description || '' });
+        } catch (e) { failed.push({ server: name, error: safe(e).message }); }
+      }));
+      const order = Object.keys(servers);
+      tools.sort((a, b) => order.indexOf(a.ref.split('.')[0]) - order.indexOf(b.ref.split('.')[0]));
+      return { tools, failed };
     },
+    async tools() { return (await this.toolsReport()).tools; },
     /** Shape (field names, types, one example) of a tool's result: learn field names before writing a plan. */
-    async shape(tool, args = {}) { const st = newStats(); const v = await callAuto(st, tool, args); return { shape: shapeOf(v), stats: st }; },
+    async shape(tool, args = {}) {
+      const st = newStats();
+      try { return { shape: shapeOf(await callAuto(st, tool, args)), stats: st }; } catch (e) { throw safe(e); }
+    },
     /** Run a plan. Returns { result, stats: {calls, rawBytes, autoPages, byTool, returnedBytes} }. */
     async run(plan) {
       const st = newStats();
-      const p = typeof plan === 'string' ? JSON.parse(plan) : plan;
-      const result = Array.isArray(p) ? await Promise.all(p.map((n, i) => runNode(st, n, {}, `plan[${i}]`))) : await runNode(st, p, {}, 'plan');
+      let result;
+      try {
+        const p = typeof plan === 'string' ? JSON.parse(plan) : plan;
+        result = Array.isArray(p) ? await Promise.all(p.map((n, i) => runNode(st, n, {}, `plan[${i}]`))) : await runNode(st, p, {}, 'plan');
+      } catch (e) { throw safe(e); }
       st.returnedBytes = JSON.stringify(result ?? null).length;
       return { result, stats: st };
     },
-    async close() { for (const c of Object.values(clients)) (await c).close(); },
+    async close() { for (const c of Object.values(clients)) { try { await (await c).close(); } catch { /* never connected */ } } },
   };
 }

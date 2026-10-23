@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createEngine } from '../src/engine.mjs';
 import { post, pre } from '../src/hook.mjs';
-import { upsert, summarize } from '../src/stats.mjs';
+import { upsert, summarize, recordRun } from '../src/stats.mjs';
 
 const FIXTURE = path.resolve(import.meta.dirname, 'fixtures/crm-server.mjs');
 const servers = { crm: { command: 'node', args: [FIXTURE] } };
@@ -91,6 +91,86 @@ test('post hook records raw MCP traffic and nudges on big results from wrapped s
   const s = JSON.parse(fs.readFileSync(path.join(cfg.root, cfg.stats), 'utf8'));
   assert.equal(s.totals.raw_calls_seen, 2);
   assert.equal(s.totals.nudges, 1);
+});
+
+test('bypass traffic is split: addressable, unwrapped, binary (images), write', () => {
+  const cfg = tmp();
+  post(cfg, { tool: 'mcp__crm__list_deals', response: 'x'.repeat(500) });
+  post(cfg, { tool: 'mcp__crm__delete_deal', response: '{"deleted":true}' });
+  post(cfg, { tool: 'mcp__other__list_things', response: 'x'.repeat(5000) });
+  post(cfg, { tool: 'mcp__browser__screenshot', response: [{ type: 'image', data: 'A'.repeat(9000), mimeType: 'image/png' }] });
+  const s = JSON.parse(fs.readFileSync(path.join(cfg.root, cfg.stats), 'utf8'));
+  assert.equal(s.bypass.addressable.calls, 1);
+  assert.equal(s.bypass.write.calls, 1);
+  assert.equal(s.bypass.unwrapped.calls, 1);
+  assert.equal(s.bypass.binary.calls, 1);
+  assert.equal(s.tools['crm.delete_deal'].class, 'write');
+  assert.equal(s.totals.nudges, 0); // the only big wrapped result was a screenshot from an unwrapped server
+  const text = summarize(s, cfg);
+  assert.match(text, /crm\.list_deals/);
+  assert.doesNotMatch(text.split('ignored')[0], /screenshot|delete_deal/);
+});
+
+test('hook matches wrapped servers whose names the host normalizes (dots, dashes)', () => {
+  const cfg = { ...tmp(), servers: { 'crm.io': servers.crm } };
+  assert.match(post(cfg, { tool: 'mcp__crm_io__list_deals', response: 'x'.repeat(5000) }).context, /middleout_run/);
+});
+
+test('a nudge for an HTTP server that was never signed in says how to sign in', () => {
+  process.env.MIDDLEOUT_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'middleout-home-'));
+  const cfg = { ...tmp(), servers: { web: { type: 'http', url: 'https://example.com/mcp' } } };
+  assert.match(post(cfg, { tool: 'mcp__web__search', response: 'x'.repeat(5000) }).context, /middleout login web/);
+  const keyed = { ...tmp(), servers: { web: { type: 'http', url: 'https://example.com/mcp', headers: { Authorization: 'Bearer k' } } } };
+  assert.doesNotMatch(post(keyed, { tool: 'mcp__web__search', response: 'x'.repeat(5000) }).context, /login/);
+});
+
+test('a nudge counts as converted when the same session next fetches that server through middleout', () => {
+  const cfg = tmp(); const sessionId = `conv${Date.now()}`;
+  post(cfg, { tool: 'mcp__crm__list_deals', sessionId, response: 'x'.repeat(5000) });
+  const run = { tool: 'mcp__plugin_middleout_middleout__middleout_run', sessionId, input: { plan: { tool: 'crm.list_deals', each: { tool: 'crm.get_contact' } } }, response: 'ok' };
+  assert.equal(post(cfg, run), null);
+  post(cfg, run); // converts once per nudge
+  post(cfg, { ...run, sessionId: 'someone-else' });
+  const s = JSON.parse(fs.readFileSync(path.join(cfg.root, cfg.stats), 'utf8'));
+  assert.equal(s.totals.nudges, 1);
+  assert.equal(s.totals.nudges_converted, 1);
+  assert.equal(s.totals.raw_calls_seen, 1);
+  assert.match(summarize(s, cfg), /1\/1 nudges converted \(100%\)/);
+});
+
+test('runs are attributed per tool (returned bytes in proportion to raw) and errors are kept', () => {
+  const cfg = tmp();
+  recordRun(cfg, { calls: 3, rawBytes: 1000, autoPages: 1, returnedBytes: 100, byTool: { 'a.x': { calls: 2, rawBytes: 750 }, 'b.y': { calls: 1, rawBytes: 250 } } }, { ok: true });
+  recordRun(cfg, { calls: 0, rawBytes: 0, autoPages: 0, returnedBytes: 0, byTool: {} }, { ok: false, error: 'at plan[0]: boom', tools: ['a.x'] });
+  const s = JSON.parse(fs.readFileSync(path.join(cfg.root, cfg.stats), 'utf8'));
+  assert.deepEqual({ ...s.tools['a.x'] }, { ...s.tools['a.x'], via_middleout: 2, runs: 1, raw_bytes: 750, returned_bytes: 75 });
+  assert.equal(s.tools['b.y'].returned_bytes, 25);
+  assert.equal(s.totals.errors, 1);
+  assert.equal(s.recent_errors[0].message, 'at plan[0]: boom');
+  assert.deepEqual(s.recent_errors[0].tools, ['a.x']);
+  const text = summarize(s, cfg);
+  assert.match(text, /a\.x\s+1 run, 2 API calls/);
+  assert.match(text, /boom/);
+});
+
+test('a stats file written by an older version still summarizes sensibly', () => {
+  const cfg = tmp();
+  const legacy = { tool: 'middleout', schema: 1, since: '2026-10-23T06:36:33.561Z', updated: '2026-10-23T06:59:32.373Z',
+    totals: { runs: 4, api_calls: 6, raw_bytes: 86681, returned_bytes: 34909, auto_pages: 3, errors: 1, raw_calls_seen: 5, raw_bytes_seen: 600000, nudges: 4, gated: 0 },
+    tools: {
+      'crm.list_deals': { via_middleout: 6, raw_calls: 2, raw_bytes_seen: 19239 },
+      'crm.delete_deal': { via_middleout: 0, raw_calls: 1, raw_bytes_seen: 122 },
+      'docs.search': { via_middleout: 0, raw_calls: 13, raw_bytes_seen: 318433 },
+      'browser.computer': { via_middleout: 0, raw_calls: 12, raw_bytes_seen: 491583 },
+    }, days: {}, weissman: 2.5, est_tokens_saved: 14792 };
+  fs.writeFileSync(path.join(cfg.root, cfg.stats), JSON.stringify(legacy));
+  upsert(cfg, () => {}); // any write upgrades the file in place
+  const s = JSON.parse(fs.readFileSync(path.join(cfg.root, cfg.stats), 'utf8'));
+  const text = summarize(s, cfg);
+  assert.match(text.split('\n')[0], /~14\.8k tokens kept out of context/);
+  assert.match(text, /4 runs, 6 API calls/);
+  assert.match(text, /not wrapped[^\n]*\n\s+docs\.search/);
+  assert.doesNotMatch(text.split('ignored')[0], /browser\.computer|delete_deal/);
 });
 
 test('gate mode denies the first raw call to a wrapped server, then allows', () => {

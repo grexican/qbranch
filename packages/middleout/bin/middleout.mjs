@@ -5,6 +5,7 @@ import path from 'node:path';
 import { loadConfig } from '../src/config.mjs';
 import { createEngine } from '../src/engine.mjs';
 import { summarize } from '../src/stats.mjs';
+import { login } from '../src/oauth.mjs';
 import { post, pre } from '../src/hook.mjs';
 import { runHook } from '@qbranch/core/hooks';
 
@@ -13,8 +14,9 @@ const cfg = loadConfig();
 
 const HELP = `middleout: API calls, compressed. Only the fields you asked for reach the model.
 
-  middleout init                 write middleout.config.json (wrapping this project's .mcp.json stdio servers)
-  middleout servers              list the wrapped servers and the tools exposed through middleout
+  middleout init                 write middleout.config.json (wrapping this project's .mcp.json servers: stdio, http, sse)
+  middleout servers              list the wrapped servers and the tools exposed through middleout (and any that failed)
+  middleout login <server>       sign in to an OAuth HTTP server once (opens a browser; tokens in ~/.qbranch/middleout)
   middleout run '<plan json>'    run a plan from the shell and print the result + compression
   middleout stats [--json]       usage + savings (Weissman score) from .middleout-stats.json
   middleout mcp                  run the MCP server (middleout_tools / middleout_shape / middleout_run)
@@ -30,7 +32,22 @@ async function main() {
     }
     case 'servers': {
       const e = createEngine(cfg);
-      try { for (const t of await e.tools()) console.log(`- ${t.ref}(${t.params.join(', ')})`); } finally { await e.close(); }
+      try {
+        const { tools, failed } = await e.toolsReport();
+        for (const t of tools) console.log(`- ${t.ref}(${t.params.join(', ')})`);
+        for (const f of failed) console.log(`! ${f.server}: ${f.error}`);
+        for (const [n, why] of Object.entries(cfg.skipped)) console.log(`  ${n}: not wrapped (${why})`);
+      } finally { await e.close(); }
+      return;
+    }
+    case 'login': {
+      const name = rest[0];
+      if (!name || !cfg.servers[name]) {
+        const http = Object.keys(cfg.servers).filter(n => cfg.servers[n].url);
+        throw new Error(`usage: middleout login <server>${http.length ? ` (HTTP servers here: ${http.join(', ')})` : ' (no HTTP servers in this project)'}`);
+      }
+      const r = await login(name, cfg.servers[name]);
+      if (!r.needed) console.log(`"${name}" answered without sign-in: nothing to do`);
       return;
     }
     case 'run': {
@@ -44,7 +61,7 @@ async function main() {
     }
     case 'stats': {
       let s; try { s = JSON.parse(fs.readFileSync(path.join(cfg.root, cfg.stats || '.middleout-stats.json'), 'utf8')); } catch { return console.log('no stats yet'); }
-      return console.log(rest.includes('--json') ? JSON.stringify(s, null, 2) : summarize(s));
+      return console.log(rest.includes('--json') ? JSON.stringify(s, null, 2) : summarize(s, cfg));
     }
     case 'hook': return runHook((h) => (rest[0] === 'pre' ? pre(cfg, h) : post(cfg, h)), rest.slice(1));
     case 'mcp': return import('../src/mcp.mjs');

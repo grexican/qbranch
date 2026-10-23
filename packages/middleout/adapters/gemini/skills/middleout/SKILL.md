@@ -56,4 +56,5 @@ Several independent fetches in one call: pass an array of nodes.
 - Pagination is automatic. Do not page by hand. `"page": false` returns only the first page.
 - In a child, `{{field}}` is the current element's field and `{{_parent.field}}` is the parent element's.
 - JMESPath string literals use single quotes (`'call'`). Number literals use backticks (`` `50000` ``).
+- If a server answers "needs sign-in", ask the user to run `middleout login <server>` once, and use the raw tool until then.
 - A status filter has to match every value that means what you mean. "Done" can be `done` or `complete`. Check the values with `middleout_shape` or a `select` of the distinct values.

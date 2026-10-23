@@ -106,6 +106,10 @@ function createStats({ tool, fresh, dayFresh, derive }) {
       } catch {
         s = { tool, schema: 1, since: (/* @__PURE__ */ new Date()).toISOString(), ...fresh() };
       }
+      for (const [k, v] of Object.entries(fresh())) {
+        if (!(k in s)) s[k] = v;
+        else if (v && typeof v === "object" && !Array.isArray(v) && s[k] && typeof s[k] === "object") s[k] = { ...v, ...s[k] };
+      }
       s.days ??= {};
       s.days[today()] ??= dayFresh();
       mutate(s, s.days[today()]);
@@ -311,25 +315,63 @@ function loadConfig(root = projectRoot2()) {
   const f = path4.join(root, "middleout.config.json");
   if (fs3.existsSync(f)) user = JSON.parse(fs3.readFileSync(f, "utf8"));
   const cfg3 = { ...DEFAULTS, ...user, root };
+  cfg3.skipped = {};
   if (!cfg3.servers) {
     cfg3.servers = {};
+    let m = {};
     try {
-      const m = JSON.parse(fs3.readFileSync(path4.join(root, ".mcp.json"), "utf8")).mcpServers || {};
-      for (const [name, s] of Object.entries(m)) if (s.command && name !== "middleout") cfg3.servers[name] = { command: s.command, args: s.args || [], env: s.env };
+      m = JSON.parse(fs3.readFileSync(path4.join(root, ".mcp.json"), "utf8")).mcpServers || {};
     } catch {
+    }
+    for (const [name, s] of Object.entries(m)) {
+      if (name === "middleout" || /middleout/.test(String(s.args || ""))) {
+        cfg3.skipped[name] = "it is middleout itself";
+        continue;
+      }
+      const r = toServer(s);
+      if (r.server) cfg3.servers[name] = r.server;
+      else cfg3.skipped[name] = r.why;
+    }
+  } else {
+    for (const [name, s] of Object.entries(cfg3.servers)) {
+      const r = toServer(s);
+      if (r.server) cfg3.servers[name] = r.server;
+      else {
+        delete cfg3.servers[name];
+        cfg3.skipped[name] = r.why;
+      }
     }
   }
   if (process.env.MIDDLEOUT_STATS === "0") cfg3.stats = false;
   return cfg3;
 }
-var projectRoot2, DEFAULTS;
+function toServer(s) {
+  if (!s || typeof s !== "object") return { why: "not an object" };
+  if (s.command) return { server: { command: expandEnv(s.command), args: (s.args || []).map(expandEnv), env: s.env && Object.fromEntries(Object.entries(s.env).map(([k, v]) => [k, expandEnv(v)])) } };
+  if (s.url) {
+    const type = s.type || "http";
+    if (!["http", "streamable-http", "sse"].includes(type)) return { why: `transport "${type}" is not supported (middleout speaks stdio, http and sse)` };
+    const server2 = { type: type === "sse" ? "sse" : "http", url: expandEnv(s.url) };
+    if (s.headers) server2.headers = Object.fromEntries(Object.entries(s.headers).map(([k, v]) => [k, expandEnv(v)]));
+    if (s.oauth) server2.oauth = s.oauth;
+    Object.defineProperty(server2, "secrets", { value: secretsOf(s.url, ...Object.values(s.headers || {})) });
+    return { server: server2 };
+  }
+  return { why: 'it has neither "command" nor "url"' };
+}
+function scrub(text2, secrets = []) {
+  let out = String(text2 ?? "");
+  for (const v of secrets) if (v) out = out.split(v).join("***");
+  return out.replace(/(https?:\/\/)(?:[^\s/@"'`<>]+@)?([^\s?#"'`<>]+)(\?[^\s#"'`<>)]*)?/gi, (_, scheme, rest2, q) => `${scheme}${rest2}${q ? "?\u2026" : ""}`);
+}
+var projectRoot2, DEFAULTS, expandEnv, secretsOf;
 var init_config = __esm({
   "packages/middleout/src/config.mjs"() {
     init_src();
     projectRoot2 = (start) => projectRoot(["middleout.config.json"], start);
     DEFAULTS = {
       servers: null,
-      // { name: {command, args, env} }; null = the stdio servers in .mcp.json
+      // { name: {command, args, env} | {type: 'http'|'sse', url, headers?, oauth?} }; null = the servers in .mcp.json
       readonly: false,
       // true = expose only tools the server itself annotates readOnlyHint (few servers do; see README)
       allow: null,
@@ -342,6 +384,8 @@ var init_config = __esm({
       // nudge when a raw result is bigger than this
       stats: ".middleout-stats.json"
     };
+    expandEnv = (v) => typeof v === "string" ? v.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g, (_, k, d) => process.env[k] ?? d ?? "") : v;
+    secretsOf = (...templates) => templates.flatMap((t) => typeof t === "string" ? [...t.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-[^}]*)?\}/g)] : []).map((m) => process.env[m[1]]).filter((v) => v && v.length >= 4);
   }
 });
 
@@ -765,8 +809,8 @@ var init_parseUtil = __esm({
     init_errors();
     init_en();
     makeIssue = (params) => {
-      const { data, path: path7, errorMaps, issueData } = params;
-      const fullPath = [...path7, ...issueData.path || []];
+      const { data, path: path8, errorMaps, issueData } = params;
+      const fullPath = [...path8, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -1050,11 +1094,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util();
     ParseInputLazyPath = class {
-      constructor(parent, value, path7, key) {
+      constructor(parent, value, path8, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path7;
+        this._path = path8;
         this._key = key;
       }
       get path() {
@@ -3547,8 +3591,8 @@ var init_types = __esm({
           maxSize: { value: maxSize, message: errorUtil.toString(message) }
         });
       }
-      size(size, message) {
-        return this.min(size, message).max(size, message);
+      size(size2, message) {
+        return this.min(size2, message).max(size2, message);
       }
       nonempty(message) {
         return this.min(1, message);
@@ -4528,10 +4572,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path7) {
-  if (!path7)
+function getElementAtPath(obj, path8) {
+  if (!path8)
     return obj;
-  return path7.reduce((acc, key) => acc?.[key], obj);
+  return path8.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -4790,11 +4834,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path7, issues) {
+function prefixIssues(path8, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path7);
+    iss.path.unshift(path8);
     return iss;
   });
 }
@@ -5327,16 +5371,16 @@ function flattenError(error62, mapper = (issue2) => issue2.message) {
 }
 function formatError(error62, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error63, path7 = []) => {
+  const processError = (error63, path8 = []) => {
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
       } else {
-        const fullpath = [...path7, ...issue2.path];
+        const fullpath = [...path8, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -5375,17 +5419,17 @@ function formatError(error62, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error62, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error63, path7 = []) => {
+  const processError = (error63, path8 = []) => {
     var _a3;
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
       } else {
-        const fullpath = [...path7, ...issue2.path];
+        const fullpath = [...path8, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -5424,8 +5468,8 @@ function treeifyError(error62, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path7 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path7) {
+  const path8 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path8) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -6033,8 +6077,8 @@ var init_checks = __esm({
       (_a3 = inst._zod.def).when ?? (_a3.when = _whenHasSize);
       inst._zod.check = (payload) => {
         const input2 = payload.value;
-        const size = input2.size;
-        if (size <= def.maximum)
+        const size2 = input2.size;
+        if (size2 <= def.maximum)
           return;
         payload.issues.push({
           origin: getSizableOrigin(input2),
@@ -6053,8 +6097,8 @@ var init_checks = __esm({
       (_a3 = inst._zod.def).when ?? (_a3.when = _whenHasSize);
       inst._zod.check = (payload) => {
         const input2 = payload.value;
-        const size = input2.size;
-        if (size >= def.minimum)
+        const size2 = input2.size;
+        if (size2 >= def.minimum)
           return;
         payload.issues.push({
           origin: getSizableOrigin(input2),
@@ -6073,10 +6117,10 @@ var init_checks = __esm({
       (_a3 = inst._zod.def).when ?? (_a3.when = _whenHasSize);
       inst._zod.check = (payload) => {
         const input2 = payload.value;
-        const size = input2.size;
-        if (size === def.size)
+        const size2 = input2.size;
+        if (size2 === def.size)
           return;
-        const tooBig = size > def.size;
+        const tooBig = size2 > def.size;
         payload.issues.push({
           origin: getSizableOrigin(input2),
           ...tooBig ? { code: "too_big", maximum: def.size } : { code: "too_small", minimum: def.size },
@@ -6538,14 +6582,14 @@ function isValidJWT2(token, algorithm = null) {
     return false;
   }
 }
-function capSize(inst, size) {
+function capSize(inst, size2) {
   const caps = sizeCaps(inst._zod.def.checks);
   if (!caps.length)
     return;
   const cap = Math.min(...caps.map((c) => c[0]));
   const parse4 = inst._zod.parse;
   inst._zod.parse = (payload, ctx) => {
-    const n = size(payload.value);
+    const n = size2(payload.value);
     if (n > cap && !ctx?.skipChecks && ctx?.direction !== "backward") {
       for (const [max, ch] of sizeCaps(inst._zod.def.checks)) {
         if (n > max && ch._zod.def.when(payload)) {
@@ -14702,8 +14746,8 @@ var init_pt = __esm({
           case "not_multiple_of":
             return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
           case "unrecognized_keys": {
-            const plural2 = issue2.keys.length > 1 ? "s" : "";
-            return `Chave${plural2} inv\xE1lida${plural2}: ${joinValues(issue2.keys, ", ")}`;
+            const plural3 = issue2.keys.length > 1 ? "s" : "";
+            return `Chave${plural3} inv\xE1lida${plural3}: ${joinValues(issue2.keys, ", ")}`;
           }
           case "invalid_key":
             return `Entrada inv\xE1lida n${translateOriginWithArticle(issue2.origin, "definite")}`;
@@ -14853,8 +14897,8 @@ var init_pt_BR = __esm({
           case "not_multiple_of":
             return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
           case "unrecognized_keys": {
-            const plural2 = issue2.keys.length > 1 ? "s" : "";
-            return `Chave${plural2} inv\xE1lida${plural2}: ${joinValues(issue2.keys, ", ")}`;
+            const plural3 = issue2.keys.length > 1 ? "s" : "";
+            return `Chave${plural3} inv\xE1lida${plural3}: ${joinValues(issue2.keys, ", ")}`;
           }
           case "invalid_key":
             return `Entrada inv\xE1lida n${translateOriginWithArticle(issue2.origin, "definite")}`;
@@ -18173,9 +18217,9 @@ function generateNullableCheck(doc, ctx, schema, accessor, buildsValue = true) {
   doc.write(`}`);
   return outputVar;
 }
-function generateSizeGate(doc, schema, size) {
+function generateSizeGate(doc, schema, size2) {
   for (const [max, check2] of sizeCaps(schema._zod.def.checks)) {
-    doc.write(`if (${size} > ${numericOperand(max, check2._zod.def.check)}) return INVALID;`);
+    doc.write(`if (${size2} > ${numericOperand(max, check2._zod.def.check)}) return INVALID;`);
   }
 }
 function generateArrayCheck(doc, ctx, schema, accessor, buildsValue = true) {
@@ -19364,11 +19408,11 @@ function _minSize(minimum, params) {
   });
 }
 // @__NO_SIDE_EFFECTS__
-function _size(size, params) {
+function _size(size2, params) {
   return new $ZodCheckSizeEquals({
     check: "size_equals",
     ...normalizeParams(params),
-    size
+    size: size2
   });
 }
 // @__NO_SIDE_EFFECTS__
@@ -19707,13 +19751,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm = normalizeParams(_params);
-  norm.abort ?? (norm.abort = true);
+  const norm2 = normalizeParams(_params);
+  norm2.abort ?? (norm2.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm
+    ...norm2
   });
   return schema;
 }
@@ -20490,8 +20534,8 @@ function rewriteKeyNames(ctx) {
       bySchema.set(entry.schema, entry);
   }
   const rewrites = /* @__PURE__ */ new Map();
-  for (const record3 of pendingRecords.get(ctx) ?? []) {
-    const seen = ctx.seen.get(record3);
+  for (const record2 of pendingRecords.get(ctx) ?? []) {
+    const seen = ctx.seen.get(record2);
     const names = (seen?.def ?? seen?.schema)?.propertyNames;
     if (!names || names === true || rewrites.has(names))
       continue;
@@ -21963,11 +22007,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path7) {
-  if (path7.length === 0) {
+function getDotPath(path8) {
+  if (path8.length === 0) {
     return "object root";
   }
-  return path7.reduce((acc, seg, index) => {
+  return path8.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -23660,8 +23704,8 @@ var init_schemas3 = __esm({
       $ZodFile.init(inst, def);
       ZodType2.init(inst, def);
       inst._zod.processJSONSchema = (ctx, json2, params) => fileProcessor(inst, ctx, json2, params);
-      inst.min = (size, params) => inst.check(_minSize(size, params));
-      inst.max = (size, params) => inst.check(_maxSize(size, params));
+      inst.min = (size2, params) => inst.check(_minSize(size2, params));
+      inst.max = (size2, params) => inst.check(_maxSize(size2, params));
       inst.mime = (types, params) => inst.check(_mime(Array.isArray(types) ? types : [types], params));
     });
     ZodTransform = /* @__PURE__ */ $constructor("ZodTransform", (inst, def) => {
@@ -23905,13 +23949,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path7 = ref.slice(1).split("/").filter(Boolean);
-  if (path7.length === 0) {
+  const path8 = ref.slice(1).split("/").filter(Boolean);
+  if (path8.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path7[0] === defsKey) {
-    const key = path7[1] === void 0 ? void 0 : decodeJSONPointerSegment(path7[1]);
+  if (path8[0] === defsKey) {
+    const key = path8[1] === void 0 ? void 0 : decodeJSONPointerSegment(path8[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -25019,7 +25063,7 @@ function assertCompleteRequestResourceTemplate(request) {
   }
   void request;
 }
-var LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS, RELATED_TASK_META_KEY, JSONRPC_VERSION, AssertObjectSchema, ProgressTokenSchema, CursorSchema, TaskCreationParamsSchema, TaskMetadataSchema, RelatedTaskMetadataSchema, RequestMetaSchema, BaseRequestParamsSchema, TaskAugmentedRequestParamsSchema, isTaskAugmentedRequestParams, RequestSchema, NotificationsParamsSchema, NotificationSchema, ResultSchema, RequestIdSchema, JSONRPCRequestSchema, isJSONRPCRequest, JSONRPCNotificationSchema, isJSONRPCNotification, JSONRPCResultResponseSchema, isJSONRPCResultResponse, ErrorCode, JSONRPCErrorResponseSchema, isJSONRPCErrorResponse, JSONRPCMessageSchema, JSONRPCResponseSchema, EmptyResultSchema, CancelledNotificationParamsSchema, CancelledNotificationSchema, IconSchema, IconsSchema, BaseMetadataSchema, ImplementationSchema, FormElicitationCapabilitySchema, ElicitationCapabilitySchema, ClientTasksCapabilitySchema, ServerTasksCapabilitySchema, ClientCapabilitiesSchema, InitializeRequestParamsSchema, InitializeRequestSchema, ServerCapabilitiesSchema, InitializeResultSchema, InitializedNotificationSchema, PingRequestSchema, ProgressSchema, ProgressNotificationParamsSchema, ProgressNotificationSchema, PaginatedRequestParamsSchema, PaginatedRequestSchema, PaginatedResultSchema, TaskStatusSchema, TaskSchema, CreateTaskResultSchema, TaskStatusNotificationParamsSchema, TaskStatusNotificationSchema, GetTaskRequestSchema, GetTaskResultSchema, GetTaskPayloadRequestSchema, GetTaskPayloadResultSchema, ListTasksRequestSchema, ListTasksResultSchema, CancelTaskRequestSchema, CancelTaskResultSchema, ResourceContentsSchema, TextResourceContentsSchema, Base64Schema, BlobResourceContentsSchema, RoleSchema, AnnotationsSchema, ResourceSchema, ResourceTemplateSchema, ListResourcesRequestSchema, ListResourcesResultSchema, ListResourceTemplatesRequestSchema, ListResourceTemplatesResultSchema, ResourceRequestParamsSchema, ReadResourceRequestParamsSchema, ReadResourceRequestSchema, ReadResourceResultSchema, ResourceListChangedNotificationSchema, SubscribeRequestParamsSchema, SubscribeRequestSchema, UnsubscribeRequestParamsSchema, UnsubscribeRequestSchema, ResourceUpdatedNotificationParamsSchema, ResourceUpdatedNotificationSchema, PromptArgumentSchema, PromptSchema, ListPromptsRequestSchema, ListPromptsResultSchema, GetPromptRequestParamsSchema, GetPromptRequestSchema, TextContentSchema, ImageContentSchema, AudioContentSchema, ToolUseContentSchema, EmbeddedResourceSchema, ResourceLinkSchema, ContentBlockSchema, PromptMessageSchema, GetPromptResultSchema, PromptListChangedNotificationSchema, ToolAnnotationsSchema, ToolExecutionSchema, ToolSchema, ListToolsRequestSchema, ListToolsResultSchema, CallToolResultSchema, CompatibilityCallToolResultSchema, CallToolRequestParamsSchema, CallToolRequestSchema, ToolListChangedNotificationSchema, ListChangedOptionsBaseSchema, LoggingLevelSchema, SetLevelRequestParamsSchema, SetLevelRequestSchema, LoggingMessageNotificationParamsSchema, LoggingMessageNotificationSchema, ModelHintSchema, ModelPreferencesSchema, ToolChoiceSchema, ToolResultContentSchema, SamplingContentSchema, SamplingMessageContentBlockSchema, SamplingMessageSchema, CreateMessageRequestParamsSchema, CreateMessageRequestSchema, CreateMessageResultSchema, CreateMessageResultWithToolsSchema, BooleanSchemaSchema, StringSchemaSchema, NumberSchemaSchema, UntitledSingleSelectEnumSchemaSchema, TitledSingleSelectEnumSchemaSchema, LegacyTitledEnumSchemaSchema, SingleSelectEnumSchemaSchema, UntitledMultiSelectEnumSchemaSchema, TitledMultiSelectEnumSchemaSchema, MultiSelectEnumSchemaSchema, EnumSchemaSchema, PrimitiveSchemaDefinitionSchema, ElicitRequestFormParamsSchema, ElicitRequestURLParamsSchema, ElicitRequestParamsSchema, ElicitRequestSchema, ElicitationCompleteNotificationParamsSchema, ElicitationCompleteNotificationSchema, ElicitResultSchema, ResourceTemplateReferenceSchema, PromptReferenceSchema, CompleteRequestParamsSchema, CompleteRequestSchema, CompleteResultSchema, RootSchema, ListRootsRequestSchema, ListRootsResultSchema, RootsListChangedNotificationSchema, ClientRequestSchema, ClientNotificationSchema, ClientResultSchema, ServerRequestSchema, ServerNotificationSchema, ServerResultSchema, McpError, UrlElicitationRequiredError;
+var LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS, RELATED_TASK_META_KEY, JSONRPC_VERSION, AssertObjectSchema, ProgressTokenSchema, CursorSchema, TaskCreationParamsSchema, TaskMetadataSchema, RelatedTaskMetadataSchema, RequestMetaSchema, BaseRequestParamsSchema, TaskAugmentedRequestParamsSchema, isTaskAugmentedRequestParams, RequestSchema, NotificationsParamsSchema, NotificationSchema, ResultSchema, RequestIdSchema, JSONRPCRequestSchema, isJSONRPCRequest, JSONRPCNotificationSchema, isJSONRPCNotification, JSONRPCResultResponseSchema, isJSONRPCResultResponse, ErrorCode, JSONRPCErrorResponseSchema, isJSONRPCErrorResponse, JSONRPCMessageSchema, JSONRPCResponseSchema, EmptyResultSchema, CancelledNotificationParamsSchema, CancelledNotificationSchema, IconSchema, IconsSchema, BaseMetadataSchema, ImplementationSchema, FormElicitationCapabilitySchema, ElicitationCapabilitySchema, ClientTasksCapabilitySchema, ServerTasksCapabilitySchema, ClientCapabilitiesSchema, InitializeRequestParamsSchema, InitializeRequestSchema, ServerCapabilitiesSchema, InitializeResultSchema, InitializedNotificationSchema, isInitializedNotification, PingRequestSchema, ProgressSchema, ProgressNotificationParamsSchema, ProgressNotificationSchema, PaginatedRequestParamsSchema, PaginatedRequestSchema, PaginatedResultSchema, TaskStatusSchema, TaskSchema, CreateTaskResultSchema, TaskStatusNotificationParamsSchema, TaskStatusNotificationSchema, GetTaskRequestSchema, GetTaskResultSchema, GetTaskPayloadRequestSchema, GetTaskPayloadResultSchema, ListTasksRequestSchema, ListTasksResultSchema, CancelTaskRequestSchema, CancelTaskResultSchema, ResourceContentsSchema, TextResourceContentsSchema, Base64Schema, BlobResourceContentsSchema, RoleSchema, AnnotationsSchema, ResourceSchema, ResourceTemplateSchema, ListResourcesRequestSchema, ListResourcesResultSchema, ListResourceTemplatesRequestSchema, ListResourceTemplatesResultSchema, ResourceRequestParamsSchema, ReadResourceRequestParamsSchema, ReadResourceRequestSchema, ReadResourceResultSchema, ResourceListChangedNotificationSchema, SubscribeRequestParamsSchema, SubscribeRequestSchema, UnsubscribeRequestParamsSchema, UnsubscribeRequestSchema, ResourceUpdatedNotificationParamsSchema, ResourceUpdatedNotificationSchema, PromptArgumentSchema, PromptSchema, ListPromptsRequestSchema, ListPromptsResultSchema, GetPromptRequestParamsSchema, GetPromptRequestSchema, TextContentSchema, ImageContentSchema, AudioContentSchema, ToolUseContentSchema, EmbeddedResourceSchema, ResourceLinkSchema, ContentBlockSchema, PromptMessageSchema, GetPromptResultSchema, PromptListChangedNotificationSchema, ToolAnnotationsSchema, ToolExecutionSchema, ToolSchema, ListToolsRequestSchema, ListToolsResultSchema, CallToolResultSchema, CompatibilityCallToolResultSchema, CallToolRequestParamsSchema, CallToolRequestSchema, ToolListChangedNotificationSchema, ListChangedOptionsBaseSchema, LoggingLevelSchema, SetLevelRequestParamsSchema, SetLevelRequestSchema, LoggingMessageNotificationParamsSchema, LoggingMessageNotificationSchema, ModelHintSchema, ModelPreferencesSchema, ToolChoiceSchema, ToolResultContentSchema, SamplingContentSchema, SamplingMessageContentBlockSchema, SamplingMessageSchema, CreateMessageRequestParamsSchema, CreateMessageRequestSchema, CreateMessageResultSchema, CreateMessageResultWithToolsSchema, BooleanSchemaSchema, StringSchemaSchema, NumberSchemaSchema, UntitledSingleSelectEnumSchemaSchema, TitledSingleSelectEnumSchemaSchema, LegacyTitledEnumSchemaSchema, SingleSelectEnumSchemaSchema, UntitledMultiSelectEnumSchemaSchema, TitledMultiSelectEnumSchemaSchema, MultiSelectEnumSchemaSchema, EnumSchemaSchema, PrimitiveSchemaDefinitionSchema, ElicitRequestFormParamsSchema, ElicitRequestURLParamsSchema, ElicitRequestParamsSchema, ElicitRequestSchema, ElicitationCompleteNotificationParamsSchema, ElicitationCompleteNotificationSchema, ElicitResultSchema, ResourceTemplateReferenceSchema, PromptReferenceSchema, CompleteRequestParamsSchema, CompleteRequestSchema, CompleteResultSchema, RootSchema, ListRootsRequestSchema, ListRootsResultSchema, RootsListChangedNotificationSchema, ClientRequestSchema, ClientNotificationSchema, ClientResultSchema, ServerRequestSchema, ServerNotificationSchema, ServerResultSchema, McpError, UrlElicitationRequiredError;
 var init_types2 = __esm({
   "node_modules/@modelcontextprotocol/sdk/dist/esm/types.js"() {
     init_v4();
@@ -25422,6 +25466,7 @@ var init_types2 = __esm({
       method: literal("notifications/initialized"),
       params: NotificationsParamsSchema.optional()
     });
+    isInitializedNotification = (value) => InitializedNotificationSchema.safeParse(value).success;
     PingRequestSchema = RequestSchema.extend({
       method: literal("ping"),
       params: BaseRequestParamsSchema.optional()
@@ -32388,8 +32433,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path7) {
-      let input2 = path7;
+    function removeDotSegments(path8) {
+      let input2 = path8;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -32798,8 +32843,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path7 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path7 && path7 !== "/" ? path7 : void 0;
+        const path8 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path8 && path8 !== "/" ? path8 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -32858,7 +32903,7 @@ var require_schemes = __commonJS({
       urnComponent.nss = (uuidComponent.uuid || "").toLowerCase();
       return urnComponent;
     }
-    var http = (
+    var http2 = (
       /** @type {SchemeHandler} */
       {
         scheme: "http",
@@ -32871,7 +32916,7 @@ var require_schemes = __commonJS({
       /** @type {SchemeHandler} */
       {
         scheme: "https",
-        domainHost: http.domainHost,
+        domainHost: http2.domainHost,
         parse: httpParse,
         serialize: httpSerialize
       }
@@ -32915,7 +32960,7 @@ var require_schemes = __commonJS({
     var SCHEMES = (
       /** @type {Record<SchemeName, SchemeHandler>} */
       {
-        http,
+        http: http2,
         https,
         ws,
         wss,
@@ -36312,12 +36357,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs6, exportName) {
+    function addFormats(ajv, list, fs7, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs6[f]);
+        ajv.addFormat(f, fs7[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -37124,8 +37169,8 @@ var require_windows = __commonJS({
   "node_modules/isexe/windows.js"(exports, module) {
     module.exports = isexe;
     isexe.sync = sync;
-    var fs6 = __require("fs");
-    function checkPathExt(path7, options) {
+    var fs7 = __require("fs");
+    function checkPathExt(path8, options) {
       var pathext = options.pathExt !== void 0 ? options.pathExt : process.env.PATHEXT;
       if (!pathext) {
         return true;
@@ -37136,25 +37181,25 @@ var require_windows = __commonJS({
       }
       for (var i = 0; i < pathext.length; i++) {
         var p = pathext[i].toLowerCase();
-        if (p && path7.substr(-p.length).toLowerCase() === p) {
+        if (p && path8.substr(-p.length).toLowerCase() === p) {
           return true;
         }
       }
       return false;
     }
-    function checkStat(stat, path7, options) {
+    function checkStat(stat, path8, options) {
       if (!stat.isSymbolicLink() && !stat.isFile()) {
         return false;
       }
-      return checkPathExt(path7, options);
+      return checkPathExt(path8, options);
     }
-    function isexe(path7, options, cb) {
-      fs6.stat(path7, function(er, stat) {
-        cb(er, er ? false : checkStat(stat, path7, options));
+    function isexe(path8, options, cb) {
+      fs7.stat(path8, function(er, stat) {
+        cb(er, er ? false : checkStat(stat, path8, options));
       });
     }
-    function sync(path7, options) {
-      return checkStat(fs6.statSync(path7), path7, options);
+    function sync(path8, options) {
+      return checkStat(fs7.statSync(path8), path8, options);
     }
   }
 });
@@ -37164,14 +37209,14 @@ var require_mode = __commonJS({
   "node_modules/isexe/mode.js"(exports, module) {
     module.exports = isexe;
     isexe.sync = sync;
-    var fs6 = __require("fs");
-    function isexe(path7, options, cb) {
-      fs6.stat(path7, function(er, stat) {
+    var fs7 = __require("fs");
+    function isexe(path8, options, cb) {
+      fs7.stat(path8, function(er, stat) {
         cb(er, er ? false : checkStat(stat, options));
       });
     }
-    function sync(path7, options) {
-      return checkStat(fs6.statSync(path7), options);
+    function sync(path8, options) {
+      return checkStat(fs7.statSync(path8), options);
     }
     function checkStat(stat, options) {
       return stat.isFile() && checkMode(stat, options);
@@ -37195,7 +37240,7 @@ var require_mode = __commonJS({
 // node_modules/isexe/index.js
 var require_isexe = __commonJS({
   "node_modules/isexe/index.js"(exports, module) {
-    var fs6 = __require("fs");
+    var fs7 = __require("fs");
     var core;
     if (process.platform === "win32" || global.TESTING_WINDOWS) {
       core = require_windows();
@@ -37204,7 +37249,7 @@ var require_isexe = __commonJS({
     }
     module.exports = isexe;
     isexe.sync = sync;
-    function isexe(path7, options, cb) {
+    function isexe(path8, options, cb) {
       if (typeof options === "function") {
         cb = options;
         options = {};
@@ -37214,7 +37259,7 @@ var require_isexe = __commonJS({
           throw new TypeError("callback not provided");
         }
         return new Promise(function(resolve, reject) {
-          isexe(path7, options || {}, function(er, is) {
+          isexe(path8, options || {}, function(er, is) {
             if (er) {
               reject(er);
             } else {
@@ -37223,7 +37268,7 @@ var require_isexe = __commonJS({
           });
         });
       }
-      core(path7, options || {}, function(er, is) {
+      core(path8, options || {}, function(er, is) {
         if (er) {
           if (er.code === "EACCES" || options && options.ignoreErrors) {
             er = null;
@@ -37233,9 +37278,9 @@ var require_isexe = __commonJS({
         cb(er, is);
       });
     }
-    function sync(path7, options) {
+    function sync(path8, options) {
       try {
-        return core.sync(path7, options || {});
+        return core.sync(path8, options || {});
       } catch (er) {
         if (options && options.ignoreErrors || er.code === "EACCES") {
           return false;
@@ -37251,7 +37296,7 @@ var require_isexe = __commonJS({
 var require_which = __commonJS({
   "node_modules/which/which.js"(exports, module) {
     var isWindows = process.platform === "win32" || process.env.OSTYPE === "cygwin" || process.env.OSTYPE === "msys";
-    var path7 = __require("path");
+    var path8 = __require("path");
     var COLON = isWindows ? ";" : ":";
     var isexe = require_isexe();
     var getNotFoundError = (cmd2) => Object.assign(new Error(`not found: ${cmd2}`), { code: "ENOENT" });
@@ -37289,7 +37334,7 @@ var require_which = __commonJS({
           return opt.all && found.length ? resolve(found) : reject(getNotFoundError(cmd2));
         const ppRaw = pathEnv[i];
         const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
-        const pCmd = path7.join(pathPart, cmd2);
+        const pCmd = path8.join(pathPart, cmd2);
         const p = !pathPart && /^\.[\\\/]/.test(cmd2) ? cmd2.slice(0, 2) + pCmd : pCmd;
         resolve(subStep(p, i, 0));
       });
@@ -37316,7 +37361,7 @@ var require_which = __commonJS({
       for (let i = 0; i < pathEnv.length; i++) {
         const ppRaw = pathEnv[i];
         const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
-        const pCmd = path7.join(pathPart, cmd2);
+        const pCmd = path8.join(pathPart, cmd2);
         const p = !pathPart && /^\.[\\\/]/.test(cmd2) ? cmd2.slice(0, 2) + pCmd : pCmd;
         for (let j = 0; j < pathExt.length; j++) {
           const cur = p + pathExt[j];
@@ -37364,7 +37409,7 @@ var require_path_key = __commonJS({
 var require_resolveCommand = __commonJS({
   "node_modules/cross-spawn/lib/util/resolveCommand.js"(exports, module) {
     "use strict";
-    var path7 = __require("path");
+    var path8 = __require("path");
     var which = require_which();
     var getPathKey = require_path_key();
     function resolveCommandAttempt(parsed, withoutPathExt) {
@@ -37382,7 +37427,7 @@ var require_resolveCommand = __commonJS({
       try {
         resolved = which.sync(parsed.command, {
           path: env[getPathKey({ env })],
-          pathExt: withoutPathExt ? path7.delimiter : void 0
+          pathExt: withoutPathExt ? path8.delimiter : void 0
         });
       } catch (e) {
       } finally {
@@ -37391,7 +37436,7 @@ var require_resolveCommand = __commonJS({
         }
       }
       if (resolved) {
-        resolved = path7.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
+        resolved = path8.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
       }
       return resolved;
     }
@@ -37445,8 +37490,8 @@ var require_shebang_command = __commonJS({
       if (!match) {
         return null;
       }
-      const [path7, argument] = match[0].replace(/#! ?/, "").split(" ");
-      const binary = path7.split("/").pop();
+      const [path8, argument] = match[0].replace(/#! ?/, "").split(" ");
+      const binary = path8.split("/").pop();
       if (binary === "env") {
         return argument;
       }
@@ -37459,16 +37504,16 @@ var require_shebang_command = __commonJS({
 var require_readShebang = __commonJS({
   "node_modules/cross-spawn/lib/util/readShebang.js"(exports, module) {
     "use strict";
-    var fs6 = __require("fs");
+    var fs7 = __require("fs");
     var shebangCommand = require_shebang_command();
     function readShebang(command) {
-      const size = 150;
-      const buffer = Buffer.alloc(size);
+      const size2 = 150;
+      const buffer = Buffer.alloc(size2);
       let fd;
       try {
-        fd = fs6.openSync(command, "r");
-        fs6.readSync(fd, buffer, 0, size, 0);
-        fs6.closeSync(fd);
+        fd = fs7.openSync(command, "r");
+        fs7.readSync(fd, buffer, 0, size2, 0);
+        fs7.closeSync(fd);
       } catch (e) {
       }
       return shebangCommand(buffer.toString());
@@ -37481,7 +37526,7 @@ var require_readShebang = __commonJS({
 var require_parse = __commonJS({
   "node_modules/cross-spawn/lib/parse.js"(exports, module) {
     "use strict";
-    var path7 = __require("path");
+    var path8 = __require("path");
     var resolveCommand = require_resolveCommand();
     var escape2 = require_escape();
     var readShebang = require_readShebang();
@@ -37506,7 +37551,7 @@ var require_parse = __commonJS({
       const needsShell = !isExecutableRegExp.test(commandFile);
       if (parsed.options.forceShell || needsShell) {
         const needsDoubleEscapeMetaChars = isCmdShimRegExp.test(commandFile);
-        parsed.command = path7.normalize(parsed.command);
+        parsed.command = path8.normalize(parsed.command);
         parsed.command = escape2.command(parsed.command);
         parsed.args = parsed.args.map((arg) => escape2.argument(arg, needsDoubleEscapeMetaChars));
         const shellCommand = [parsed.command].concat(parsed.args).join(" ");
@@ -37596,7 +37641,7 @@ var require_cross_spawn = __commonJS({
     var cp = __require("child_process");
     var parse4 = require_parse();
     var enoent = require_enoent();
-    function spawn2(command, args, options) {
+    function spawn3(command, args, options) {
       const parsed = parse4(command, args, options);
       const spawned = cp.spawn(parsed.command, parsed.args, parsed.options);
       enoent.hookChildProcess(spawned, parsed);
@@ -37608,8 +37653,8 @@ var require_cross_spawn = __commonJS({
       result.error = result.error || enoent.verifyENOENTSync(result.status, parsed);
       return result;
     }
-    module.exports = spawn2;
-    module.exports.spawn = spawn2;
+    module.exports = spawn3;
+    module.exports.spawn = spawn3;
     module.exports.sync = spawnSync;
     module.exports._parse = parse4;
     module.exports._enoent = enoent;
@@ -37836,6 +37881,2518 @@ var init_stdio2 = __esm({
         });
       }
     };
+  }
+});
+
+// node_modules/content-type/index.js
+var require_content_type = __commonJS({
+  "node_modules/content-type/index.js"(exports) {
+    "use strict";
+    var PARAM_REGEXP = /; *([!#$%&'*+.^_`|~0-9A-Za-z-]+) *= *("(?:[\u000b\u0020\u0021\u0023-\u005b\u005d-\u007e\u0080-\u00ff]|\\[\u000b\u0020-\u00ff])*"|[!#$%&'*+.^_`|~0-9A-Za-z-]+) */g;
+    var TEXT_REGEXP = /^[\u000b\u0020-\u007e\u0080-\u00ff]+$/;
+    var TOKEN_REGEXP = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+    var QESC_REGEXP = /\\([\u000b\u0020-\u00ff])/g;
+    var QUOTE_REGEXP = /([\\"])/g;
+    var TYPE_REGEXP = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+\/[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+    exports.format = format;
+    exports.parse = parse4;
+    function format(obj) {
+      if (!obj || typeof obj !== "object") {
+        throw new TypeError("argument obj is required");
+      }
+      var parameters = obj.parameters;
+      var type = obj.type;
+      if (!type || !TYPE_REGEXP.test(type)) {
+        throw new TypeError("invalid type");
+      }
+      var string4 = type;
+      if (parameters && typeof parameters === "object") {
+        var param;
+        var params = Object.keys(parameters).sort();
+        for (var i = 0; i < params.length; i++) {
+          param = params[i];
+          if (!TOKEN_REGEXP.test(param)) {
+            throw new TypeError("invalid parameter name");
+          }
+          string4 += "; " + param + "=" + qstring(parameters[param]);
+        }
+      }
+      return string4;
+    }
+    function parse4(string4) {
+      if (!string4) {
+        throw new TypeError("argument string is required");
+      }
+      var header = typeof string4 === "object" ? getcontenttype(string4) : string4;
+      if (typeof header !== "string") {
+        throw new TypeError("argument string is required to be a string");
+      }
+      var index = header.indexOf(";");
+      var type = index !== -1 ? header.slice(0, index).trim() : header.trim();
+      if (!TYPE_REGEXP.test(type)) {
+        throw new TypeError("invalid media type");
+      }
+      var obj = new ContentType(type.toLowerCase());
+      if (index !== -1) {
+        var key;
+        var match;
+        var value;
+        PARAM_REGEXP.lastIndex = index;
+        while (match = PARAM_REGEXP.exec(header)) {
+          if (match.index !== index) {
+            throw new TypeError("invalid parameter format");
+          }
+          index += match[0].length;
+          key = match[1].toLowerCase();
+          value = match[2];
+          if (value.charCodeAt(0) === 34) {
+            value = value.slice(1, -1);
+            if (value.indexOf("\\") !== -1) {
+              value = value.replace(QESC_REGEXP, "$1");
+            }
+          }
+          obj.parameters[key] = value;
+        }
+        if (index !== header.length) {
+          throw new TypeError("invalid parameter format");
+        }
+      }
+      return obj;
+    }
+    function getcontenttype(obj) {
+      var header;
+      if (typeof obj.getHeader === "function") {
+        header = obj.getHeader("content-type");
+      } else if (typeof obj.headers === "object") {
+        header = obj.headers && obj.headers["content-type"];
+      }
+      if (typeof header !== "string") {
+        throw new TypeError("content-type header is missing from object");
+      }
+      return header;
+    }
+    function qstring(val) {
+      var str = String(val);
+      if (TOKEN_REGEXP.test(str)) {
+        return str;
+      }
+      if (str.length > 0 && !TEXT_REGEXP.test(str)) {
+        throw new TypeError("invalid parameter value");
+      }
+      return '"' + str.replace(QUOTE_REGEXP, "\\$1") + '"';
+    }
+    function ContentType(type) {
+      this.parameters = /* @__PURE__ */ Object.create(null);
+      this.type = type;
+    }
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/mediaType.js
+function mediaTypeEssence(header) {
+  if (!header) {
+    return void 0;
+  }
+  try {
+    return import_content_type.default.parse(header).type;
+  } catch {
+    const essence = (header.split(";", 1)[0] ?? "").trim().toLowerCase();
+    if (essence === "" || header.slice(essence.length).includes(",")) {
+      return void 0;
+    }
+    return essence;
+  }
+}
+var import_content_type;
+var init_mediaType = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/shared/mediaType.js"() {
+    import_content_type = __toESM(require_content_type(), 1);
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/transport.js
+function normalizeHeaders(headers) {
+  if (!headers)
+    return {};
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+  return { ...headers };
+}
+function createFetchWithInit(baseFetch = fetch, baseInit) {
+  if (!baseInit) {
+    return baseFetch;
+  }
+  return async (url2, init) => {
+    const mergedInit = {
+      ...baseInit,
+      ...init,
+      // Headers need special handling - merge instead of replace
+      headers: init?.headers ? { ...normalizeHeaders(baseInit.headers), ...normalizeHeaders(init.headers) } : baseInit.headers
+    };
+    return baseFetch(url2, mergedInit);
+  };
+}
+function isWithinOrigin(from, to) {
+  if (from.protocol === to.protocol && from.hostname === to.hostname && from.port === to.port) {
+    return true;
+  }
+  return from.hostname === to.hostname && from.protocol === "http:" && from.port === "" && to.protocol === "https:" && to.port === "";
+}
+function redirectTarget(response, requestUrl) {
+  const location = REDIRECT_STATUSES.includes(response.status) ? response.headers.get("location") : null;
+  try {
+    return location ? new URL(location, requestUrl) : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function followWithinOrigin(baseFetch, url2, init, response, followed = 0) {
+  const target = redirectTarget(response, url2);
+  const keepsMethod = response.status === 307 || response.status === 308 || (init?.method ?? "GET").toUpperCase() === "GET";
+  if (!target || followed === MAX_REDIRECTS || !keepsMethod) {
+    return void 0;
+  }
+  const from = new URL(url2);
+  const addsUserinfo = (target.username || target.password) && (target.username !== from.username || target.password !== from.password);
+  if (addsUserinfo || !isWithinOrigin(from, target)) {
+    return void 0;
+  }
+  return Promise.resolve(response.body?.cancel()).then(() => baseFetch(target, { ...init, redirect: "manual" })).then((next) => followWithinOrigin(baseFetch, target, init, next, followed + 1) ?? next);
+}
+function fetchLeavingRedirects(baseFetch) {
+  const following = (url2, init) => (baseFetch ?? fetch)(url2, init);
+  followingFetches.add(following);
+  return following;
+}
+function fetchWithinOrigin(baseFetch = fetch) {
+  if (followingFetches.has(baseFetch)) {
+    return baseFetch;
+  }
+  return (url2, init) => {
+    if (init?.redirect === "error" || init?.redirect === "manual") {
+      return baseFetch(url2, init);
+    }
+    return Promise.resolve(baseFetch(url2, { ...init, redirect: "manual" })).then((response) => followWithinOrigin(baseFetch, url2, init, response) ?? response);
+  };
+}
+function unfollowedRedirect(response, requestUrl) {
+  if (response.type === "opaqueredirect") {
+    return "Redirect not followed: this runtime does not expose the redirect target";
+  }
+  const from = response.url || requestUrl;
+  const target = redirectTarget(response, from);
+  if (!target) {
+    return void 0;
+  }
+  target.username = target.password = target.search = target.hash = "";
+  if (target.protocol === "http:" && new URL(from).protocol === "https:") {
+    target.protocol = "https:";
+    return `Redirect to plain http not followed; try ${target.href} instead`;
+  }
+  return `Redirect to ${target.href} not followed`;
+}
+var MAX_REDIRECTS, REDIRECT_STATUSES, followingFetches;
+var init_transport = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/shared/transport.js"() {
+    MAX_REDIRECTS = 5;
+    REDIRECT_STATUSES = [301, 302, 303, 307, 308];
+    followingFetches = /* @__PURE__ */ new WeakSet();
+  }
+});
+
+// node_modules/pkce-challenge/dist/index.node.js
+async function getRandomValues(size2) {
+  return (await crypto).getRandomValues(new Uint8Array(size2));
+}
+async function random(size2) {
+  const mask = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~";
+  const evenDistCutoff = Math.pow(2, 8) - Math.pow(2, 8) % mask.length;
+  let result = "";
+  while (result.length < size2) {
+    const randomBytes = await getRandomValues(size2 - result.length);
+    for (const randomByte of randomBytes) {
+      if (randomByte < evenDistCutoff) {
+        result += mask[randomByte % mask.length];
+      }
+    }
+  }
+  return result;
+}
+async function generateVerifier(length) {
+  return await random(length);
+}
+async function generateChallenge(code_verifier) {
+  const buffer = await (await crypto).subtle.digest("SHA-256", new TextEncoder().encode(code_verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\//g, "_").replace(/\+/g, "-").replace(/=/g, "");
+}
+async function pkceChallenge(length) {
+  if (!length)
+    length = 43;
+  if (length < 43 || length > 128) {
+    throw `Expected a length between 43 and 128. Received ${length}.`;
+  }
+  const verifier = await generateVerifier(length);
+  const challenge = await generateChallenge(verifier);
+  return {
+    code_verifier: verifier,
+    code_challenge: challenge
+  };
+}
+var crypto;
+var init_index_node = __esm({
+  "node_modules/pkce-challenge/dist/index.node.js"() {
+    crypto = globalThis.crypto?.webcrypto ?? // Node.js [18-16] REPL
+    globalThis.crypto ?? // Node.js >18
+    import("node:crypto").then((m) => m.webcrypto);
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth.js
+var SafeUrlSchema, OAuthProtectedResourceMetadataSchema, OAuthMetadataSchema, OpenIdProviderMetadataSchema, OpenIdProviderDiscoveryMetadataSchema, OAuthTokensSchema, OAuthErrorResponseSchema, OptionalSafeUrlSchema, OAuthClientMetadataSchema, OAuthClientInformationSchema, OAuthClientInformationFullSchema, OAuthClientRegistrationErrorSchema, OAuthTokenRevocationRequestSchema;
+var init_auth = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth.js"() {
+    init_v4();
+    SafeUrlSchema = url().superRefine((val, ctx) => {
+      if (!URL.canParse(val)) {
+        ctx.addIssue({
+          code: ZodIssueCode2.custom,
+          message: "URL must be parseable",
+          fatal: true
+        });
+        return NEVER;
+      }
+    }).refine((url2) => {
+      const u = new URL(url2);
+      return u.protocol !== "javascript:" && u.protocol !== "data:" && u.protocol !== "vbscript:";
+    }, { message: "URL cannot use javascript:, data:, or vbscript: scheme" });
+    OAuthProtectedResourceMetadataSchema = looseObject({
+      resource: string2().url(),
+      authorization_servers: array(SafeUrlSchema).optional(),
+      jwks_uri: string2().url().optional(),
+      scopes_supported: array(string2()).optional(),
+      bearer_methods_supported: array(string2()).optional(),
+      resource_signing_alg_values_supported: array(string2()).optional(),
+      resource_name: string2().optional(),
+      resource_documentation: string2().optional(),
+      resource_policy_uri: string2().url().optional(),
+      resource_tos_uri: string2().url().optional(),
+      tls_client_certificate_bound_access_tokens: boolean2().optional(),
+      authorization_details_types_supported: array(string2()).optional(),
+      dpop_signing_alg_values_supported: array(string2()).optional(),
+      dpop_bound_access_tokens_required: boolean2().optional()
+    });
+    OAuthMetadataSchema = looseObject({
+      issuer: string2(),
+      authorization_endpoint: SafeUrlSchema,
+      token_endpoint: SafeUrlSchema,
+      registration_endpoint: SafeUrlSchema.optional(),
+      scopes_supported: array(string2()).optional(),
+      response_types_supported: array(string2()),
+      response_modes_supported: array(string2()).optional(),
+      grant_types_supported: array(string2()).optional(),
+      token_endpoint_auth_methods_supported: array(string2()).optional(),
+      token_endpoint_auth_signing_alg_values_supported: array(string2()).optional(),
+      service_documentation: SafeUrlSchema.optional(),
+      revocation_endpoint: SafeUrlSchema.optional(),
+      revocation_endpoint_auth_methods_supported: array(string2()).optional(),
+      revocation_endpoint_auth_signing_alg_values_supported: array(string2()).optional(),
+      introspection_endpoint: string2().optional(),
+      introspection_endpoint_auth_methods_supported: array(string2()).optional(),
+      introspection_endpoint_auth_signing_alg_values_supported: array(string2()).optional(),
+      code_challenge_methods_supported: array(string2()).optional(),
+      client_id_metadata_document_supported: boolean2().optional()
+    });
+    OpenIdProviderMetadataSchema = looseObject({
+      issuer: string2(),
+      authorization_endpoint: SafeUrlSchema,
+      token_endpoint: SafeUrlSchema,
+      userinfo_endpoint: SafeUrlSchema.optional(),
+      jwks_uri: SafeUrlSchema,
+      registration_endpoint: SafeUrlSchema.optional(),
+      scopes_supported: array(string2()).optional(),
+      response_types_supported: array(string2()),
+      response_modes_supported: array(string2()).optional(),
+      grant_types_supported: array(string2()).optional(),
+      acr_values_supported: array(string2()).optional(),
+      subject_types_supported: array(string2()),
+      id_token_signing_alg_values_supported: array(string2()),
+      id_token_encryption_alg_values_supported: array(string2()).optional(),
+      id_token_encryption_enc_values_supported: array(string2()).optional(),
+      userinfo_signing_alg_values_supported: array(string2()).optional(),
+      userinfo_encryption_alg_values_supported: array(string2()).optional(),
+      userinfo_encryption_enc_values_supported: array(string2()).optional(),
+      request_object_signing_alg_values_supported: array(string2()).optional(),
+      request_object_encryption_alg_values_supported: array(string2()).optional(),
+      request_object_encryption_enc_values_supported: array(string2()).optional(),
+      token_endpoint_auth_methods_supported: array(string2()).optional(),
+      token_endpoint_auth_signing_alg_values_supported: array(string2()).optional(),
+      display_values_supported: array(string2()).optional(),
+      claim_types_supported: array(string2()).optional(),
+      claims_supported: array(string2()).optional(),
+      service_documentation: string2().optional(),
+      claims_locales_supported: array(string2()).optional(),
+      ui_locales_supported: array(string2()).optional(),
+      claims_parameter_supported: boolean2().optional(),
+      request_parameter_supported: boolean2().optional(),
+      request_uri_parameter_supported: boolean2().optional(),
+      require_request_uri_registration: boolean2().optional(),
+      op_policy_uri: SafeUrlSchema.optional(),
+      op_tos_uri: SafeUrlSchema.optional(),
+      client_id_metadata_document_supported: boolean2().optional()
+    });
+    OpenIdProviderDiscoveryMetadataSchema = object2({
+      ...OpenIdProviderMetadataSchema.shape,
+      ...OAuthMetadataSchema.pick({
+        code_challenge_methods_supported: true
+      }).shape
+    });
+    OAuthTokensSchema = object2({
+      access_token: string2(),
+      id_token: string2().optional(),
+      // Optional for OAuth 2.1, but necessary in OpenID Connect
+      token_type: string2(),
+      expires_in: coerce_exports2.number().optional(),
+      scope: string2().optional(),
+      refresh_token: string2().optional(),
+      /**
+       * Not part of the wire format: the authorization server this value was obtained from, added by
+       * the client's `auth()` before it is stored and compared when it is read back.
+       */
+      issuer: string2().optional().catch(void 0)
+    }).strip();
+    OAuthErrorResponseSchema = object2({
+      error: string2(),
+      error_description: string2().optional(),
+      error_uri: string2().optional()
+    });
+    OptionalSafeUrlSchema = SafeUrlSchema.optional().or(literal("").transform(() => void 0));
+    OAuthClientMetadataSchema = object2({
+      redirect_uris: array(SafeUrlSchema),
+      token_endpoint_auth_method: string2().optional(),
+      grant_types: array(string2()).optional(),
+      response_types: array(string2()).optional(),
+      client_name: string2().optional(),
+      client_uri: SafeUrlSchema.optional(),
+      logo_uri: OptionalSafeUrlSchema,
+      scope: string2().optional(),
+      contacts: array(string2()).optional(),
+      tos_uri: OptionalSafeUrlSchema,
+      policy_uri: string2().optional(),
+      jwks_uri: SafeUrlSchema.optional(),
+      jwks: any().optional(),
+      software_id: string2().optional(),
+      software_version: string2().optional(),
+      software_statement: string2().optional()
+    }).strip();
+    OAuthClientInformationSchema = object2({
+      client_id: string2(),
+      client_secret: string2().optional(),
+      client_id_issued_at: number2().optional(),
+      client_secret_expires_at: number2().optional(),
+      /**
+       * Not part of the wire format: the authorization server this value was obtained from, added by
+       * the client's `auth()` before it is stored and compared when it is read back.
+       */
+      issuer: string2().optional().catch(void 0)
+    }).strip();
+    OAuthClientInformationFullSchema = OAuthClientMetadataSchema.merge(OAuthClientInformationSchema);
+    OAuthClientRegistrationErrorSchema = object2({
+      error: string2(),
+      error_description: string2().optional()
+    }).strip();
+    OAuthTokenRevocationRequestSchema = object2({
+      token: string2(),
+      token_type_hint: string2().optional()
+    }).strip();
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth-utils.js
+function resourceUrlFromServerUrl(url2) {
+  const resourceURL = typeof url2 === "string" ? new URL(url2) : new URL(url2.href);
+  resourceURL.hash = "";
+  return resourceURL;
+}
+function checkResourceAllowed({ requestedResource, configuredResource }) {
+  const requested = typeof requestedResource === "string" ? new URL(requestedResource) : new URL(requestedResource.href);
+  const configured = typeof configuredResource === "string" ? new URL(configuredResource) : new URL(configuredResource.href);
+  if (requested.origin !== configured.origin) {
+    return false;
+  }
+  if (requested.pathname.length < configured.pathname.length) {
+    return false;
+  }
+  const requestedPath = requested.pathname.endsWith("/") ? requested.pathname : requested.pathname + "/";
+  const configuredPath = configured.pathname.endsWith("/") ? configured.pathname : configured.pathname + "/";
+  return requestedPath.startsWith(configuredPath);
+}
+var init_auth_utils = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth-utils.js"() {
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/auth/errors.js
+var OAuthError, InvalidRequestError, InvalidClientError, InvalidGrantError, UnauthorizedClientError, UnsupportedGrantTypeError, InvalidScopeError, AccessDeniedError, ServerError, TemporarilyUnavailableError, UnsupportedResponseTypeError, UnsupportedTokenTypeError, InvalidTokenError, MethodNotAllowedError, TooManyRequestsError, InvalidClientMetadataError, InsufficientScopeError, InvalidTargetError, OAUTH_ERRORS;
+var init_errors4 = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/server/auth/errors.js"() {
+    OAuthError = class extends Error {
+      constructor(message, errorUri) {
+        super(message);
+        this.errorUri = errorUri;
+        this.name = this.constructor.name;
+      }
+      /**
+       * Converts the error to a standard OAuth error response object
+       */
+      toResponseObject() {
+        const response = {
+          error: this.errorCode,
+          error_description: this.message
+        };
+        if (this.errorUri) {
+          response.error_uri = this.errorUri;
+        }
+        return response;
+      }
+      get errorCode() {
+        return this.constructor.errorCode;
+      }
+    };
+    InvalidRequestError = class extends OAuthError {
+    };
+    InvalidRequestError.errorCode = "invalid_request";
+    InvalidClientError = class extends OAuthError {
+    };
+    InvalidClientError.errorCode = "invalid_client";
+    InvalidGrantError = class extends OAuthError {
+    };
+    InvalidGrantError.errorCode = "invalid_grant";
+    UnauthorizedClientError = class extends OAuthError {
+    };
+    UnauthorizedClientError.errorCode = "unauthorized_client";
+    UnsupportedGrantTypeError = class extends OAuthError {
+    };
+    UnsupportedGrantTypeError.errorCode = "unsupported_grant_type";
+    InvalidScopeError = class extends OAuthError {
+    };
+    InvalidScopeError.errorCode = "invalid_scope";
+    AccessDeniedError = class extends OAuthError {
+    };
+    AccessDeniedError.errorCode = "access_denied";
+    ServerError = class extends OAuthError {
+    };
+    ServerError.errorCode = "server_error";
+    TemporarilyUnavailableError = class extends OAuthError {
+    };
+    TemporarilyUnavailableError.errorCode = "temporarily_unavailable";
+    UnsupportedResponseTypeError = class extends OAuthError {
+    };
+    UnsupportedResponseTypeError.errorCode = "unsupported_response_type";
+    UnsupportedTokenTypeError = class extends OAuthError {
+    };
+    UnsupportedTokenTypeError.errorCode = "unsupported_token_type";
+    InvalidTokenError = class extends OAuthError {
+    };
+    InvalidTokenError.errorCode = "invalid_token";
+    MethodNotAllowedError = class extends OAuthError {
+    };
+    MethodNotAllowedError.errorCode = "method_not_allowed";
+    TooManyRequestsError = class extends OAuthError {
+    };
+    TooManyRequestsError.errorCode = "too_many_requests";
+    InvalidClientMetadataError = class extends OAuthError {
+    };
+    InvalidClientMetadataError.errorCode = "invalid_client_metadata";
+    InsufficientScopeError = class extends OAuthError {
+    };
+    InsufficientScopeError.errorCode = "insufficient_scope";
+    InvalidTargetError = class extends OAuthError {
+    };
+    InvalidTargetError.errorCode = "invalid_target";
+    OAUTH_ERRORS = {
+      [InvalidRequestError.errorCode]: InvalidRequestError,
+      [InvalidClientError.errorCode]: InvalidClientError,
+      [InvalidGrantError.errorCode]: InvalidGrantError,
+      [UnauthorizedClientError.errorCode]: UnauthorizedClientError,
+      [UnsupportedGrantTypeError.errorCode]: UnsupportedGrantTypeError,
+      [InvalidScopeError.errorCode]: InvalidScopeError,
+      [AccessDeniedError.errorCode]: AccessDeniedError,
+      [ServerError.errorCode]: ServerError,
+      [TemporarilyUnavailableError.errorCode]: TemporarilyUnavailableError,
+      [UnsupportedResponseTypeError.errorCode]: UnsupportedResponseTypeError,
+      [UnsupportedTokenTypeError.errorCode]: UnsupportedTokenTypeError,
+      [InvalidTokenError.errorCode]: InvalidTokenError,
+      [MethodNotAllowedError.errorCode]: MethodNotAllowedError,
+      [TooManyRequestsError.errorCode]: TooManyRequestsError,
+      [InvalidClientMetadataError.errorCode]: InvalidClientMetadataError,
+      [InsufficientScopeError.errorCode]: InsufficientScopeError,
+      [InvalidTargetError.errorCode]: InvalidTargetError
+    };
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth.js
+function isClientAuthMethod(method) {
+  return ["client_secret_basic", "client_secret_post", "none"].includes(method);
+}
+function selectClientAuthMethod(clientInformation, supportedMethods) {
+  const hasClientSecret = clientInformation.client_secret !== void 0;
+  if ("token_endpoint_auth_method" in clientInformation && clientInformation.token_endpoint_auth_method && isClientAuthMethod(clientInformation.token_endpoint_auth_method) && (supportedMethods.length === 0 || supportedMethods.includes(clientInformation.token_endpoint_auth_method))) {
+    return clientInformation.token_endpoint_auth_method;
+  }
+  if (supportedMethods.length === 0) {
+    return hasClientSecret ? "client_secret_basic" : "none";
+  }
+  if (hasClientSecret && supportedMethods.includes("client_secret_basic")) {
+    return "client_secret_basic";
+  }
+  if (hasClientSecret && supportedMethods.includes("client_secret_post")) {
+    return "client_secret_post";
+  }
+  if (supportedMethods.includes("none")) {
+    return "none";
+  }
+  return hasClientSecret ? "client_secret_post" : "none";
+}
+function applyClientAuthentication(method, clientInformation, headers, params) {
+  const { client_id, client_secret } = clientInformation;
+  switch (method) {
+    case "client_secret_basic":
+      applyBasicAuth(client_id, client_secret, headers);
+      return;
+    case "client_secret_post":
+      applyPostAuth(client_id, client_secret, params);
+      return;
+    case "none":
+      applyPublicAuth(client_id, params);
+      return;
+    default:
+      throw new Error(`Unsupported client authentication method: ${method}`);
+  }
+}
+function applyBasicAuth(clientId, clientSecret, headers) {
+  if (!clientSecret) {
+    throw new Error("client_secret_basic authentication requires a client_secret");
+  }
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+  headers.set("Authorization", `Basic ${credentials}`);
+}
+function applyPostAuth(clientId, clientSecret, params) {
+  params.set("client_id", clientId);
+  if (clientSecret) {
+    params.set("client_secret", clientSecret);
+  }
+}
+function applyPublicAuth(clientId, params) {
+  params.set("client_id", clientId);
+}
+async function parseErrorResponse(input2) {
+  const statusCode = input2 instanceof Response ? input2.status : void 0;
+  const body = input2 instanceof Response ? await input2.text() : input2;
+  try {
+    const result = OAuthErrorResponseSchema.parse(JSON.parse(body));
+    const { error: error62, error_description, error_uri } = result;
+    const errorClass = OAUTH_ERRORS[error62] || ServerError;
+    return new errorClass(error_description || "", error_uri);
+  } catch (error62) {
+    const redirect = input2 instanceof Response ? unfollowedRedirect(input2, input2.url) : void 0;
+    const errorMessage = `${statusCode ? `HTTP ${statusCode}: ` : ""}${redirect ?? `Invalid OAuth error response: ${error62}. Raw body: ${body}`}`;
+    return new ServerError(errorMessage);
+  }
+}
+function issuersMatch(a, b) {
+  let [x, y] = [a, b];
+  try {
+    [x, y] = [new URL(a).href, new URL(b).href];
+  } catch {
+  }
+  return x === y || x.endsWith("/") && x.slice(0, -1) === y || y.endsWith("/") && y.slice(0, -1) === x;
+}
+function discardIfIssuerMismatch(stored, issuer) {
+  if (!stored)
+    return void 0;
+  if (typeof stored.issuer !== "string")
+    return stored.issuer == null ? stored : { ...stored, issuer: void 0 };
+  return issuersMatch(stored.issuer, issuer) ? stored : void 0;
+}
+function boundElsewhereError(stored, issuer) {
+  return new Error(`OAuth client information is bound to authorization server ${stored.issuer} and is not presented to ${issuer}. Clear the stored client information, or correct \`expectedIssuer\`, if the authorization server has moved.`);
+}
+async function auth(provider2, options) {
+  try {
+    return await authInternal(provider2, options);
+  } catch (error62) {
+    if (error62 instanceof InvalidClientError || error62 instanceof UnauthorizedClientError) {
+      await provider2.invalidateCredentials?.("all");
+      return await authInternal(provider2, options);
+    } else if (error62 instanceof InvalidGrantError) {
+      await provider2.invalidateCredentials?.("tokens");
+      return await authInternal(provider2, options);
+    }
+    throw error62;
+  }
+}
+async function authInternal(provider2, { serverUrl, authorizationCode, scope, resourceMetadataUrl, fetchFn }) {
+  const cachedState = await provider2.discoveryState?.();
+  let resourceMetadata;
+  let authorizationServerUrl;
+  let metadata;
+  let effectiveResourceMetadataUrl = resourceMetadataUrl;
+  if (!effectiveResourceMetadataUrl && cachedState?.resourceMetadataUrl) {
+    effectiveResourceMetadataUrl = new URL(cachedState.resourceMetadataUrl);
+  }
+  if (cachedState?.authorizationServerUrl) {
+    authorizationServerUrl = cachedState.authorizationServerUrl;
+    resourceMetadata = cachedState.resourceMetadata;
+    metadata = cachedState.authorizationServerMetadata ?? await discoverAuthorizationServerMetadata(authorizationServerUrl, { fetchFn });
+    if (!resourceMetadata) {
+      try {
+        resourceMetadata = await discoverOAuthProtectedResourceMetadata(serverUrl, { resourceMetadataUrl: effectiveResourceMetadataUrl }, fetchFn);
+      } catch {
+      }
+    }
+    if (metadata !== cachedState.authorizationServerMetadata || resourceMetadata !== cachedState.resourceMetadata) {
+      await provider2.saveDiscoveryState?.({
+        authorizationServerUrl: String(authorizationServerUrl),
+        resourceMetadataUrl: effectiveResourceMetadataUrl?.toString(),
+        resourceMetadata,
+        authorizationServerMetadata: metadata
+      });
+    }
+  } else {
+    const serverInfo = await discoverOAuthServerInfo(serverUrl, { resourceMetadataUrl: effectiveResourceMetadataUrl, fetchFn });
+    authorizationServerUrl = serverInfo.authorizationServerUrl;
+    metadata = serverInfo.authorizationServerMetadata;
+    resourceMetadata = serverInfo.resourceMetadata;
+    await provider2.saveDiscoveryState?.({
+      authorizationServerUrl: String(authorizationServerUrl),
+      resourceMetadataUrl: effectiveResourceMetadataUrl?.toString(),
+      resourceMetadata,
+      authorizationServerMetadata: metadata
+    });
+  }
+  const issuer = String(authorizationServerUrl);
+  const selectedResource = await selectResourceURL(serverUrl, provider2, resourceMetadata);
+  const resource = selectedResource && resourceMetadata && !provider2.validateResourceURL ? resourceMetadata.resource : selectedResource;
+  const resolvedScope = scope || resourceMetadata?.scopes_supported?.join(" ") || provider2.clientMetadata.scope;
+  const storedClientInformation = await Promise.resolve(provider2.clientInformation());
+  let clientInformation = discardIfIssuerMismatch(storedClientInformation, issuer);
+  const canRegisterAgain = provider2.saveClientInformation !== void 0 && !!provider2.redirectUrl;
+  if (storedClientInformation && !clientInformation && !canRegisterAgain) {
+    throw boundElsewhereError(storedClientInformation, issuer);
+  }
+  const unstampedClientInformation = clientInformation?.issuer == null ? clientInformation : void 0;
+  const bindClientInformation = async () => {
+    try {
+      if (unstampedClientInformation)
+        await provider2.saveClientInformation?.({ ...unstampedClientInformation, issuer });
+    } catch {
+    }
+  };
+  if (!clientInformation) {
+    if (authorizationCode !== void 0) {
+      throw new Error("Existing OAuth client information is required when exchanging an authorization code");
+    }
+    const supportsUrlBasedClientId = metadata?.client_id_metadata_document_supported === true;
+    const clientMetadataUrl = provider2.clientMetadataUrl;
+    if (clientMetadataUrl && !isHttpsUrl(clientMetadataUrl)) {
+      throw new InvalidClientMetadataError(`clientMetadataUrl must be a valid HTTPS URL with a non-root pathname, got: ${clientMetadataUrl}`);
+    }
+    const shouldUseUrlBasedClientId = supportsUrlBasedClientId && clientMetadataUrl;
+    if (shouldUseUrlBasedClientId) {
+      clientInformation = { client_id: clientMetadataUrl, issuer };
+      await provider2.saveClientInformation?.(clientInformation);
+    } else {
+      if (!provider2.saveClientInformation) {
+        throw new Error("OAuth client information must be saveable for dynamic registration");
+      }
+      const fullInformation = await registerClient(authorizationServerUrl, {
+        metadata,
+        clientMetadata: provider2.clientMetadata,
+        scope: resolvedScope,
+        fetchFn
+      });
+      clientInformation = { ...fullInformation, issuer };
+      await provider2.saveClientInformation(clientInformation);
+    }
+  }
+  const nonInteractiveFlow = !provider2.redirectUrl;
+  if (authorizationCode !== void 0 || nonInteractiveFlow) {
+    const tokens2 = await fetchToken(provider2, authorizationServerUrl, {
+      metadata,
+      resource,
+      authorizationCode,
+      fetchFn
+    });
+    await bindClientInformation();
+    await provider2.saveTokens({ ...tokens2, issuer });
+    return "AUTHORIZED";
+  }
+  const tokens = discardIfIssuerMismatch(await provider2.tokens(), issuer);
+  if (tokens?.refresh_token && tokens.issuer == null) {
+    console.warn("[mcp-sdk] stored OAuth tokens have no 'issuer' property (saved by an earlier version, or by a provider that does not keep it) and are used as-is; make sure your OAuthClientProvider stores what saveTokens() and saveClientInformation() receive unchanged.");
+  }
+  if (tokens?.refresh_token) {
+    try {
+      const newTokens = await refreshAuthorization(authorizationServerUrl, {
+        metadata,
+        clientInformation,
+        refreshToken: tokens.refresh_token,
+        resource,
+        addClientAuthentication: provider2.addClientAuthentication,
+        fetchFn
+      });
+      await bindClientInformation();
+      await provider2.saveTokens({ ...newTokens, issuer });
+      return "AUTHORIZED";
+    } catch (error62) {
+      if (!(error62 instanceof OAuthError) || error62 instanceof ServerError) {
+      } else {
+        throw error62;
+      }
+    }
+  }
+  const state = provider2.state ? await provider2.state() : void 0;
+  const { authorizationUrl, codeVerifier } = await startAuthorization(authorizationServerUrl, {
+    metadata,
+    clientInformation,
+    state,
+    redirectUrl: provider2.redirectUrl,
+    scope: resolvedScope,
+    resource
+  });
+  await provider2.saveCodeVerifier(codeVerifier);
+  await provider2.redirectToAuthorization(authorizationUrl);
+  return "REDIRECT";
+}
+function isHttpsUrl(value) {
+  if (!value)
+    return false;
+  try {
+    const url2 = new URL(value);
+    return url2.protocol === "https:" && url2.pathname !== "/";
+  } catch {
+    return false;
+  }
+}
+async function selectResourceURL(serverUrl, provider2, resourceMetadata) {
+  const defaultResource = resourceUrlFromServerUrl(serverUrl);
+  if (provider2.validateResourceURL) {
+    return await provider2.validateResourceURL(defaultResource, resourceMetadata?.resource);
+  }
+  if (!resourceMetadata) {
+    return void 0;
+  }
+  if (!checkResourceAllowed({ requestedResource: defaultResource, configuredResource: resourceMetadata.resource })) {
+    throw new Error(`Protected resource ${resourceMetadata.resource} does not match expected ${defaultResource} (or origin)`);
+  }
+  return new URL(resourceMetadata.resource);
+}
+function extractWWWAuthenticateParams(res) {
+  const authenticateHeader = res.headers.get("WWW-Authenticate");
+  if (!authenticateHeader) {
+    return {};
+  }
+  const [type, scheme] = authenticateHeader.split(" ");
+  if (type.toLowerCase() !== "bearer" || !scheme) {
+    return {};
+  }
+  const resourceMetadataMatch = extractFieldFromWwwAuth(res, "resource_metadata") || void 0;
+  let resourceMetadataUrl;
+  if (resourceMetadataMatch) {
+    try {
+      resourceMetadataUrl = new URL(resourceMetadataMatch);
+    } catch {
+    }
+  }
+  const scope = extractFieldFromWwwAuth(res, "scope") || void 0;
+  const error62 = extractFieldFromWwwAuth(res, "error") || void 0;
+  return {
+    resourceMetadataUrl,
+    scope,
+    error: error62
+  };
+}
+function extractFieldFromWwwAuth(response, fieldName) {
+  const wwwAuthHeader = response.headers.get("WWW-Authenticate");
+  if (!wwwAuthHeader) {
+    return null;
+  }
+  const pattern = new RegExp(`${fieldName}=(?:"([^"]+)"|([^\\s,]+))`);
+  const match = wwwAuthHeader.match(pattern);
+  if (match) {
+    return match[1] || match[2];
+  }
+  return null;
+}
+async function discoverOAuthProtectedResourceMetadata(serverUrl, opts, fetchFn = fetch) {
+  const response = await discoverMetadataWithFallback(serverUrl, "oauth-protected-resource", fetchFn, {
+    protocolVersion: opts?.protocolVersion,
+    metadataUrl: opts?.resourceMetadataUrl
+  });
+  if (!response || response.status === 404) {
+    await response?.body?.cancel();
+    throw new Error(`Resource server does not implement OAuth 2.0 Protected Resource Metadata.`);
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error(`HTTP ${response.status} trying to load well-known OAuth protected resource metadata.`);
+  }
+  return OAuthProtectedResourceMetadataSchema.parse(await response.json());
+}
+async function fetchWithCorsRetry(url2, headers, fetchFn = fetch) {
+  try {
+    return await fetchWithinOrigin(fetchFn)(url2, { headers });
+  } catch (error62) {
+    if (error62 instanceof TypeError) {
+      if (headers) {
+        return fetchWithCorsRetry(url2, void 0, fetchFn);
+      } else {
+        return void 0;
+      }
+    }
+    throw error62;
+  }
+}
+function buildWellKnownPath(wellKnownPrefix, pathname = "", options = {}) {
+  if (pathname.endsWith("/")) {
+    pathname = pathname.slice(0, -1);
+  }
+  return options.prependPathname ? `${pathname}/.well-known/${wellKnownPrefix}` : `/.well-known/${wellKnownPrefix}${pathname}`;
+}
+async function tryMetadataDiscovery(url2, protocolVersion, fetchFn = fetch) {
+  const headers = {
+    "MCP-Protocol-Version": protocolVersion
+  };
+  return await fetchWithCorsRetry(url2, headers, fetchFn);
+}
+function shouldAttemptFallback(response, pathname) {
+  return !response || !response.ok && response.status < 500 && pathname !== "/";
+}
+async function discoverMetadataWithFallback(serverUrl, wellKnownType, fetchFn, opts) {
+  const issuer = new URL(serverUrl);
+  const protocolVersion = opts?.protocolVersion ?? LATEST_PROTOCOL_VERSION;
+  let url2;
+  if (opts?.metadataUrl) {
+    url2 = new URL(opts.metadataUrl);
+  } else {
+    const wellKnownPath = buildWellKnownPath(wellKnownType, issuer.pathname);
+    url2 = new URL(wellKnownPath, opts?.metadataServerUrl ?? issuer);
+    url2.search = issuer.search;
+  }
+  let response = await tryMetadataDiscovery(url2, protocolVersion, fetchFn);
+  if (!opts?.metadataUrl && shouldAttemptFallback(response, issuer.pathname)) {
+    const rootUrl = new URL(`/.well-known/${wellKnownType}`, issuer);
+    response = await tryMetadataDiscovery(rootUrl, protocolVersion, fetchFn);
+  }
+  return response;
+}
+function buildDiscoveryUrls(authorizationServerUrl) {
+  const url2 = typeof authorizationServerUrl === "string" ? new URL(authorizationServerUrl) : authorizationServerUrl;
+  const hasPath = url2.pathname !== "/";
+  const urlsToTry = [];
+  if (!hasPath) {
+    urlsToTry.push({
+      url: new URL("/.well-known/oauth-authorization-server", url2.origin),
+      type: "oauth"
+    });
+    urlsToTry.push({
+      url: new URL(`/.well-known/openid-configuration`, url2.origin),
+      type: "oidc"
+    });
+    return urlsToTry;
+  }
+  let pathname = url2.pathname;
+  if (pathname.endsWith("/")) {
+    pathname = pathname.slice(0, -1);
+  }
+  urlsToTry.push({
+    url: new URL(`/.well-known/oauth-authorization-server${pathname}`, url2.origin),
+    type: "oauth"
+  });
+  urlsToTry.push({
+    url: new URL(`/.well-known/openid-configuration${pathname}`, url2.origin),
+    type: "oidc"
+  });
+  urlsToTry.push({
+    url: new URL(`${pathname}/.well-known/openid-configuration`, url2.origin),
+    type: "oidc"
+  });
+  return urlsToTry;
+}
+async function discoverAuthorizationServerMetadata(authorizationServerUrl, { fetchFn = fetch, protocolVersion = LATEST_PROTOCOL_VERSION } = {}) {
+  const headers = {
+    "MCP-Protocol-Version": protocolVersion,
+    Accept: "application/json"
+  };
+  const urlsToTry = buildDiscoveryUrls(authorizationServerUrl);
+  for (const { url: endpointUrl, type } of urlsToTry) {
+    const response = await fetchWithCorsRetry(endpointUrl, headers, fetchFn);
+    if (!response) {
+      continue;
+    }
+    if (!response.ok) {
+      await response.body?.cancel();
+      if (response.status < 500) {
+        continue;
+      }
+      throw new Error(`HTTP ${response.status} trying to load ${type === "oauth" ? "OAuth" : "OpenID provider"} metadata from ${endpointUrl}`);
+    }
+    if (type === "oauth") {
+      return OAuthMetadataSchema.parse(await response.json());
+    } else {
+      return OpenIdProviderDiscoveryMetadataSchema.parse(await response.json());
+    }
+  }
+  return void 0;
+}
+async function discoverOAuthServerInfo(serverUrl, opts) {
+  let resourceMetadata;
+  let authorizationServerUrl;
+  try {
+    resourceMetadata = await discoverOAuthProtectedResourceMetadata(serverUrl, { resourceMetadataUrl: opts?.resourceMetadataUrl }, opts?.fetchFn);
+    if (resourceMetadata.authorization_servers && resourceMetadata.authorization_servers.length > 0) {
+      authorizationServerUrl = resourceMetadata.authorization_servers[0];
+    }
+  } catch {
+  }
+  if (!authorizationServerUrl) {
+    authorizationServerUrl = String(new URL("/", serverUrl));
+  }
+  const authorizationServerMetadata = await discoverAuthorizationServerMetadata(authorizationServerUrl, { fetchFn: opts?.fetchFn });
+  return {
+    authorizationServerUrl,
+    authorizationServerMetadata,
+    resourceMetadata
+  };
+}
+function resourceIndicatorToString(resource) {
+  return typeof resource === "string" ? resource : resource.href;
+}
+async function startAuthorization(authorizationServerUrl, { metadata, clientInformation, redirectUrl, scope, state, resource }) {
+  let authorizationUrl;
+  if (metadata) {
+    authorizationUrl = new URL(metadata.authorization_endpoint);
+    if (!metadata.response_types_supported.includes(AUTHORIZATION_CODE_RESPONSE_TYPE)) {
+      throw new Error(`Incompatible auth server: does not support response type ${AUTHORIZATION_CODE_RESPONSE_TYPE}`);
+    }
+    if (metadata.code_challenge_methods_supported && !metadata.code_challenge_methods_supported.includes(AUTHORIZATION_CODE_CHALLENGE_METHOD)) {
+      throw new Error(`Incompatible auth server: does not support code challenge method ${AUTHORIZATION_CODE_CHALLENGE_METHOD}`);
+    }
+  } else {
+    authorizationUrl = new URL("/authorize", authorizationServerUrl);
+  }
+  const challenge = await pkceChallenge();
+  const codeVerifier = challenge.code_verifier;
+  const codeChallenge = challenge.code_challenge;
+  authorizationUrl.searchParams.set("response_type", AUTHORIZATION_CODE_RESPONSE_TYPE);
+  authorizationUrl.searchParams.set("client_id", clientInformation.client_id);
+  authorizationUrl.searchParams.set("code_challenge", codeChallenge);
+  authorizationUrl.searchParams.set("code_challenge_method", AUTHORIZATION_CODE_CHALLENGE_METHOD);
+  authorizationUrl.searchParams.set("redirect_uri", String(redirectUrl));
+  if (state) {
+    authorizationUrl.searchParams.set("state", state);
+  }
+  if (scope) {
+    authorizationUrl.searchParams.set("scope", scope);
+  }
+  if (scope?.includes("offline_access")) {
+    authorizationUrl.searchParams.append("prompt", "consent");
+  }
+  if (resource) {
+    authorizationUrl.searchParams.set("resource", resourceIndicatorToString(resource));
+  }
+  return { authorizationUrl, codeVerifier };
+}
+function prepareAuthorizationCodeRequest(authorizationCode, codeVerifier, redirectUri) {
+  return new URLSearchParams({
+    grant_type: "authorization_code",
+    code: authorizationCode,
+    code_verifier: codeVerifier,
+    redirect_uri: String(redirectUri)
+  });
+}
+async function executeTokenRequest(authorizationServerUrl, { metadata, tokenRequestParams, clientInformation, addClientAuthentication, resource, fetchFn }) {
+  const tokenUrl = metadata?.token_endpoint ? new URL(metadata.token_endpoint) : new URL("/token", authorizationServerUrl);
+  const headers = new Headers({
+    "Content-Type": "application/x-www-form-urlencoded",
+    Accept: "application/json"
+  });
+  if (resource) {
+    tokenRequestParams.set("resource", resourceIndicatorToString(resource));
+  }
+  if (addClientAuthentication) {
+    await addClientAuthentication(headers, tokenRequestParams, tokenUrl, metadata);
+  } else if (clientInformation) {
+    const supportedMethods = metadata?.token_endpoint_auth_methods_supported ?? [];
+    const authMethod = selectClientAuthMethod(clientInformation, supportedMethods);
+    applyClientAuthentication(authMethod, clientInformation, headers, tokenRequestParams);
+  }
+  const response = await fetchWithinOrigin(fetchFn ?? fetch)(tokenUrl, {
+    method: "POST",
+    headers,
+    body: tokenRequestParams
+  });
+  if (!response.ok) {
+    throw await parseErrorResponse(response);
+  }
+  return TokenResponseSchema.parse(await response.json());
+}
+async function refreshAuthorization(authorizationServerUrl, { metadata, clientInformation, refreshToken, resource, addClientAuthentication, fetchFn }) {
+  const tokenRequestParams = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken
+  });
+  const tokens = await executeTokenRequest(authorizationServerUrl, {
+    metadata,
+    tokenRequestParams,
+    clientInformation,
+    addClientAuthentication,
+    resource,
+    fetchFn
+  });
+  return { refresh_token: refreshToken, ...tokens };
+}
+async function fetchToken(provider2, authorizationServerUrl, { metadata, resource, authorizationCode, fetchFn } = {}) {
+  const readClientInformation = async () => {
+    const storedClientInformation = await provider2.clientInformation();
+    const checked = discardIfIssuerMismatch(storedClientInformation, String(authorizationServerUrl));
+    if (storedClientInformation && !checked) {
+      throw boundElsewhereError(storedClientInformation, String(authorizationServerUrl));
+    }
+    return checked;
+  };
+  let clientInformation = await readClientInformation();
+  const scope = provider2.clientMetadata.scope;
+  let tokenRequestParams;
+  if (provider2.prepareTokenRequest) {
+    tokenRequestParams = await provider2.prepareTokenRequest(scope);
+  }
+  if (!tokenRequestParams) {
+    if (!authorizationCode) {
+      throw new Error("Either provider.prepareTokenRequest() or authorizationCode is required");
+    }
+    if (!provider2.redirectUrl) {
+      throw new Error("redirectUrl is required for authorization_code flow");
+    }
+    const codeVerifier = await provider2.codeVerifier();
+    tokenRequestParams = prepareAuthorizationCodeRequest(authorizationCode, codeVerifier, provider2.redirectUrl);
+  }
+  clientInformation ?? (clientInformation = await readClientInformation());
+  return executeTokenRequest(authorizationServerUrl, {
+    metadata,
+    tokenRequestParams,
+    clientInformation,
+    addClientAuthentication: provider2.addClientAuthentication,
+    resource,
+    fetchFn
+  });
+}
+async function registerClient(authorizationServerUrl, { metadata, clientMetadata, scope, fetchFn }) {
+  let registrationUrl;
+  if (metadata) {
+    if (!metadata.registration_endpoint) {
+      throw new Error("Incompatible auth server: does not support dynamic client registration");
+    }
+    registrationUrl = new URL(metadata.registration_endpoint);
+  } else {
+    registrationUrl = new URL("/register", authorizationServerUrl);
+  }
+  const response = await fetchWithinOrigin(fetchFn ?? fetch)(registrationUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      ...clientMetadata,
+      ...scope !== void 0 ? { scope } : {}
+    })
+  });
+  if (!response.ok) {
+    throw await parseErrorResponse(response);
+  }
+  return RegistrationResponseSchema.parse(await response.json());
+}
+var UnauthorizedError, AUTHORIZATION_CODE_RESPONSE_TYPE, AUTHORIZATION_CODE_CHALLENGE_METHOD, TokenResponseSchema, RegistrationResponseSchema;
+var init_auth2 = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth.js"() {
+    init_index_node();
+    init_types2();
+    init_auth();
+    init_auth();
+    init_auth_utils();
+    init_errors4();
+    init_transport();
+    UnauthorizedError = class extends Error {
+      constructor(message) {
+        super(message ?? "Unauthorized");
+      }
+    };
+    AUTHORIZATION_CODE_RESPONSE_TYPE = "code";
+    AUTHORIZATION_CODE_CHALLENGE_METHOD = "S256";
+    TokenResponseSchema = OAuthTokensSchema.omit({ issuer: true });
+    RegistrationResponseSchema = OAuthClientInformationFullSchema.omit({ issuer: true });
+  }
+});
+
+// node_modules/eventsource-parser/dist/index.js
+function noop(_arg) {
+}
+function createParser(config2) {
+  if (typeof config2 == "function")
+    throw new TypeError(
+      "`config` must be an object, got a function instead. Did you mean `createParser({onEvent: fn})`?"
+    );
+  const { onEvent = noop, onError = noop, onRetry = noop, onComment, maxBufferSize } = config2, pendingFragments = [];
+  let pendingFragmentsLength = 0, isFirstChunk = true, id, data = "", dataLines = 0, eventType, terminated = false;
+  function feed(chunk) {
+    if (terminated)
+      throw new Error(
+        "Cannot feed parser: it was terminated after exceeding the configured max buffer size. Call `reset()` to resume parsing."
+      );
+    if (isFirstChunk && (isFirstChunk = false, chunk.charCodeAt(0) === 239 && chunk.charCodeAt(1) === 187 && chunk.charCodeAt(2) === 191 && (chunk = chunk.slice(3))), pendingFragments.length === 0) {
+      const trailing2 = processLines(chunk);
+      trailing2 !== "" && (pendingFragments.push(trailing2), pendingFragmentsLength = trailing2.length), checkBufferSize();
+      return;
+    }
+    if (chunk.indexOf(`
+`) === -1 && chunk.indexOf("\r") === -1) {
+      pendingFragments.push(chunk), pendingFragmentsLength += chunk.length, checkBufferSize();
+      return;
+    }
+    pendingFragments.push(chunk);
+    const input2 = pendingFragments.join("");
+    pendingFragments.length = 0, pendingFragmentsLength = 0;
+    const trailing = processLines(input2);
+    trailing !== "" && (pendingFragments.push(trailing), pendingFragmentsLength = trailing.length), checkBufferSize();
+  }
+  function checkBufferSize() {
+    maxBufferSize !== void 0 && (pendingFragmentsLength + data.length <= maxBufferSize || (terminated = true, pendingFragments.length = 0, pendingFragmentsLength = 0, id = void 0, data = "", dataLines = 0, eventType = void 0, onError(
+      new ParseError(`Buffered data exceeded max buffer size of ${maxBufferSize} characters`, {
+        type: "max-buffer-size-exceeded"
+      })
+    )));
+  }
+  function processLines(chunk) {
+    let searchIndex = 0;
+    if (chunk.indexOf("\r") === -1) {
+      let lfIndex = chunk.indexOf(`
+`, searchIndex);
+      for (; lfIndex !== -1; ) {
+        if (searchIndex === lfIndex) {
+          dataLines > 0 && onEvent({ id, event: eventType, data }), id = void 0, data = "", dataLines = 0, eventType = void 0, searchIndex = lfIndex + 1, lfIndex = chunk.indexOf(`
+`, searchIndex);
+          continue;
+        }
+        const firstCharCode = chunk.charCodeAt(searchIndex);
+        if (isDataPrefix(chunk, searchIndex, firstCharCode)) {
+          const valueStart = chunk.charCodeAt(searchIndex + 5) === SPACE ? searchIndex + 6 : searchIndex + 5, value = chunk.slice(valueStart, lfIndex);
+          if (dataLines === 0 && chunk.charCodeAt(lfIndex + 1) === LF) {
+            onEvent({ id, event: eventType, data: value }), id = void 0, data = "", eventType = void 0, searchIndex = lfIndex + 2, lfIndex = chunk.indexOf(`
+`, searchIndex);
+            continue;
+          }
+          data = dataLines === 0 ? value : `${data}
+${value}`, dataLines++;
+        } else isEventPrefix(chunk, searchIndex, firstCharCode) ? eventType = chunk.slice(
+          chunk.charCodeAt(searchIndex + 6) === SPACE ? searchIndex + 7 : searchIndex + 6,
+          lfIndex
+        ) || void 0 : parseLine(chunk, searchIndex, lfIndex);
+        searchIndex = lfIndex + 1, lfIndex = chunk.indexOf(`
+`, searchIndex);
+      }
+      return chunk.slice(searchIndex);
+    }
+    for (; searchIndex < chunk.length; ) {
+      const crIndex = chunk.indexOf("\r", searchIndex), lfIndex = chunk.indexOf(`
+`, searchIndex);
+      let lineEnd = -1;
+      if (crIndex !== -1 && lfIndex !== -1 ? lineEnd = crIndex < lfIndex ? crIndex : lfIndex : crIndex !== -1 ? crIndex === chunk.length - 1 ? lineEnd = -1 : lineEnd = crIndex : lfIndex !== -1 && (lineEnd = lfIndex), lineEnd === -1)
+        break;
+      parseLine(chunk, searchIndex, lineEnd), searchIndex = lineEnd + 1, chunk.charCodeAt(searchIndex - 1) === CR && chunk.charCodeAt(searchIndex) === LF && searchIndex++;
+    }
+    return chunk.slice(searchIndex);
+  }
+  function parseLine(chunk, start, end) {
+    if (start === end) {
+      dispatchEvent();
+      return;
+    }
+    const firstCharCode = chunk.charCodeAt(start);
+    if (isDataPrefix(chunk, start, firstCharCode)) {
+      const valueStart = chunk.charCodeAt(start + 5) === SPACE ? start + 6 : start + 5, value2 = chunk.slice(valueStart, end);
+      data = dataLines === 0 ? value2 : `${data}
+${value2}`, dataLines++;
+      return;
+    }
+    if (isEventPrefix(chunk, start, firstCharCode)) {
+      eventType = chunk.slice(chunk.charCodeAt(start + 6) === SPACE ? start + 7 : start + 6, end) || void 0;
+      return;
+    }
+    if (firstCharCode === 105 && chunk.charCodeAt(start + 1) === 100 && chunk.charCodeAt(start + 2) === 58) {
+      const value2 = chunk.slice(chunk.charCodeAt(start + 3) === SPACE ? start + 4 : start + 3, end);
+      value2.includes("\0") || (id = value2);
+      return;
+    }
+    if (firstCharCode === 58) {
+      if (onComment) {
+        const line2 = chunk.slice(start, end);
+        onComment(line2.slice(chunk.charCodeAt(start + 1) === SPACE ? 2 : 1));
+      }
+      return;
+    }
+    const line = chunk.slice(start, end), fieldSeparatorIndex = line.indexOf(":");
+    if (fieldSeparatorIndex === -1) {
+      processField(line, "", line);
+      return;
+    }
+    const field = line.slice(0, fieldSeparatorIndex), offset = line.charCodeAt(fieldSeparatorIndex + 1) === SPACE ? 2 : 1, value = line.slice(fieldSeparatorIndex + offset);
+    processField(field, value, line);
+  }
+  function processField(field, value, line) {
+    switch (field) {
+      case "event":
+        eventType = value || void 0;
+        break;
+      case "data":
+        data = dataLines === 0 ? value : `${data}
+${value}`, dataLines++;
+        break;
+      case "id":
+        value.includes("\0") || (id = value);
+        break;
+      case "retry":
+        /^\d+$/.test(value) ? onRetry(parseInt(value, 10)) : onError(
+          new ParseError(`Invalid \`retry\` value: "${value}"`, {
+            type: "invalid-retry",
+            value,
+            line
+          })
+        );
+        break;
+      default:
+        onError(
+          new ParseError(
+            `Unknown field "${field.length > 20 ? `${field.slice(0, 20)}\u2026` : field}"`,
+            { type: "unknown-field", field, value, line }
+          )
+        );
+        break;
+    }
+  }
+  function dispatchEvent() {
+    dataLines > 0 && onEvent({
+      id,
+      event: eventType,
+      data
+    }), id = void 0, data = "", dataLines = 0, eventType = void 0;
+  }
+  function reset(options = {}) {
+    if (options.consume && pendingFragments.length > 0) {
+      const incompleteLine = pendingFragments.join("");
+      parseLine(incompleteLine, 0, incompleteLine.length);
+    }
+    isFirstChunk = true, id = void 0, data = "", dataLines = 0, eventType = void 0, pendingFragments.length = 0, pendingFragmentsLength = 0, terminated = false;
+  }
+  return { feed, reset };
+}
+function isDataPrefix(chunk, i, firstCharCode) {
+  return firstCharCode === 100 && chunk.charCodeAt(i + 1) === 97 && chunk.charCodeAt(i + 2) === 116 && chunk.charCodeAt(i + 3) === 97 && chunk.charCodeAt(i + 4) === 58;
+}
+function isEventPrefix(chunk, i, firstCharCode) {
+  return firstCharCode === 101 && chunk.charCodeAt(i + 1) === 118 && chunk.charCodeAt(i + 2) === 101 && chunk.charCodeAt(i + 3) === 110 && chunk.charCodeAt(i + 4) === 116 && chunk.charCodeAt(i + 5) === 58;
+}
+var ParseError, LF, CR, SPACE;
+var init_dist = __esm({
+  "node_modules/eventsource-parser/dist/index.js"() {
+    ParseError = class extends Error {
+      constructor(message, options) {
+        super(message), this.name = "ParseError", this.type = options.type, this.field = options.field, this.value = options.value, this.line = options.line;
+      }
+    };
+    LF = 10;
+    CR = 13;
+    SPACE = 32;
+  }
+});
+
+// node_modules/eventsource-parser/dist/stream.js
+var EventSourceParserStream;
+var init_stream = __esm({
+  "node_modules/eventsource-parser/dist/stream.js"() {
+    init_dist();
+    EventSourceParserStream = class extends TransformStream {
+      constructor({ onError, onRetry, onComment, maxBufferSize } = {}) {
+        let parser;
+        super({
+          start(controller) {
+            parser = createParser({
+              onEvent: (event) => {
+                controller.enqueue(event);
+              },
+              onError(error62) {
+                typeof onError == "function" && onError(error62), (onError === "terminate" || error62.type === "max-buffer-size-exceeded") && controller.error(error62);
+              },
+              onRetry,
+              onComment,
+              maxBufferSize
+            });
+          },
+          transform(chunk) {
+            parser.feed(chunk);
+          }
+        });
+      }
+    };
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js
+var DEFAULT_STREAMABLE_HTTP_RECONNECTION_OPTIONS, StreamableHTTPError, StreamableHTTPClientTransport;
+var init_streamableHttp = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js"() {
+    init_mediaType();
+    init_transport();
+    init_types2();
+    init_auth2();
+    init_stream();
+    DEFAULT_STREAMABLE_HTTP_RECONNECTION_OPTIONS = {
+      initialReconnectionDelay: 1e3,
+      maxReconnectionDelay: 3e4,
+      reconnectionDelayGrowFactor: 1.5,
+      maxRetries: 2
+    };
+    StreamableHTTPError = class extends Error {
+      constructor(code, message) {
+        super(`Streamable HTTP error: ${message}`);
+        this.code = code;
+      }
+    };
+    StreamableHTTPClientTransport = class {
+      constructor(url2, opts) {
+        this._hasCompletedAuthFlow = false;
+        this._url = url2;
+        this._resourceMetadataUrl = void 0;
+        this._scope = void 0;
+        this._requestInit = opts?.requestInit;
+        this._authProvider = opts?.authProvider;
+        this._fetch = opts?.fetch;
+        this._fetchWithInit = createFetchWithInit(opts?.fetch, opts?.requestInit);
+        this._followRedirects = opts?.redirectPolicy === "follow";
+        if (this._followRedirects) {
+          this._fetch = fetchLeavingRedirects(this._fetch);
+          this._fetchWithInit = fetchLeavingRedirects(this._fetchWithInit);
+        }
+        this._sessionId = opts?.sessionId;
+        this._reconnectionOptions = opts?.reconnectionOptions ?? DEFAULT_STREAMABLE_HTTP_RECONNECTION_OPTIONS;
+      }
+      /** Error text for a redirect `response` that was not followed, or `undefined` for any other response. */
+      _unfollowedRedirect(response, url2) {
+        const text2 = unfollowedRedirect(response, url2);
+        return text2 && !this._followRedirects ? `${text2} (redirectPolicy: 'same-origin')` : text2;
+      }
+      async _authThenStart() {
+        if (!this._authProvider) {
+          throw new UnauthorizedError("No auth provider");
+        }
+        let result;
+        try {
+          result = await auth(this._authProvider, {
+            serverUrl: this._url,
+            resourceMetadataUrl: this._resourceMetadataUrl,
+            scope: this._scope,
+            fetchFn: this._fetchWithInit
+          });
+        } catch (error62) {
+          this.onerror?.(error62);
+          throw error62;
+        }
+        if (result !== "AUTHORIZED") {
+          throw new UnauthorizedError();
+        }
+        return await this._startOrAuthSse({ resumptionToken: void 0 });
+      }
+      async _commonHeaders() {
+        const headers = {};
+        if (this._authProvider) {
+          const tokens = await this._authProvider.tokens();
+          if (tokens) {
+            headers["Authorization"] = `Bearer ${tokens.access_token}`;
+          }
+        }
+        if (this._sessionId) {
+          headers["mcp-session-id"] = this._sessionId;
+        }
+        if (this._protocolVersion) {
+          headers["mcp-protocol-version"] = this._protocolVersion;
+        }
+        const extraHeaders = normalizeHeaders(this._requestInit?.headers);
+        return new Headers({
+          ...headers,
+          ...extraHeaders
+        });
+      }
+      async _startOrAuthSse(options) {
+        const { resumptionToken } = options;
+        try {
+          const headers = await this._commonHeaders();
+          headers.set("Accept", "text/event-stream");
+          if (resumptionToken) {
+            headers.set("last-event-id", resumptionToken);
+          }
+          const fetchFn = this._fetch ?? fetch;
+          const init = { method: "GET", headers, signal: this._abortController?.signal };
+          let response = await fetchFn(this._url, this._followRedirects ? init : { ...init, redirect: "manual" });
+          const followed = this._followRedirects ? void 0 : followWithinOrigin(fetchFn, this._url, init, response);
+          if (followed) {
+            response = await followed;
+          }
+          if (!response.ok) {
+            await response.body?.cancel();
+            if (response.status === 401 && this._authProvider) {
+              return await this._authThenStart();
+            }
+            if (response.status === 405) {
+              return;
+            }
+            throw new StreamableHTTPError(response.status, `Failed to open SSE stream: ${this._unfollowedRedirect(response, this._url) ?? response.statusText}`);
+          }
+          this._handleSseStream(response.body, options, true);
+        } catch (error62) {
+          this.onerror?.(error62);
+          throw error62;
+        }
+      }
+      /**
+       * Calculates the next reconnection delay using  backoff algorithm
+       *
+       * @param attempt Current reconnection attempt count for the specific stream
+       * @returns Time to wait in milliseconds before next reconnection attempt
+       */
+      _getNextReconnectionDelay(attempt) {
+        if (this._serverRetryMs !== void 0) {
+          return this._serverRetryMs;
+        }
+        const initialDelay = this._reconnectionOptions.initialReconnectionDelay;
+        const growFactor = this._reconnectionOptions.reconnectionDelayGrowFactor;
+        const maxDelay = this._reconnectionOptions.maxReconnectionDelay;
+        return Math.min(initialDelay * Math.pow(growFactor, attempt), maxDelay);
+      }
+      /**
+       * Schedule a reconnection attempt using server-provided retry interval or backoff
+       *
+       * @param lastEventId The ID of the last received event for resumability
+       * @param attemptCount Current reconnection attempt count for this specific stream
+       */
+      _scheduleReconnection(options, attemptCount = 0) {
+        const maxRetries = this._reconnectionOptions.maxRetries;
+        if (attemptCount >= maxRetries) {
+          this.onerror?.(new Error(`Maximum reconnection attempts (${maxRetries}) exceeded.`));
+          return;
+        }
+        const delay = this._getNextReconnectionDelay(attemptCount);
+        this._reconnectionTimeout = setTimeout(() => {
+          this._startOrAuthSse(options).catch((error62) => {
+            this.onerror?.(new Error(`Failed to reconnect SSE stream: ${error62 instanceof Error ? error62.message : String(error62)}`));
+            this._scheduleReconnection(options, attemptCount + 1);
+          });
+        }, delay);
+      }
+      _handleSseStream(stream, options, isReconnectable) {
+        if (!stream) {
+          return;
+        }
+        const { onresumptiontoken, replayMessageId } = options;
+        let lastEventId;
+        let hasPrimingEvent = false;
+        let receivedResponse = false;
+        const processStream = async () => {
+          try {
+            const reader = stream.pipeThrough(new TextDecoderStream()).pipeThrough(new EventSourceParserStream({
+              onRetry: (retryMs) => {
+                this._serverRetryMs = retryMs;
+              }
+            })).getReader();
+            while (true) {
+              const { value: event, done } = await reader.read();
+              if (done) {
+                break;
+              }
+              if (event.id) {
+                lastEventId = event.id;
+                hasPrimingEvent = true;
+                onresumptiontoken?.(event.id);
+              }
+              if (!event.data) {
+                continue;
+              }
+              if (!event.event || event.event === "message") {
+                try {
+                  const message = JSONRPCMessageSchema.parse(JSON.parse(event.data));
+                  if (isJSONRPCResultResponse(message)) {
+                    receivedResponse = true;
+                    if (replayMessageId !== void 0) {
+                      message.id = replayMessageId;
+                    }
+                  }
+                  this.onmessage?.(message);
+                } catch (error62) {
+                  this.onerror?.(error62);
+                }
+              }
+            }
+            const canResume = isReconnectable || hasPrimingEvent;
+            const needsReconnect = canResume && !receivedResponse;
+            if (needsReconnect && this._abortController && !this._abortController.signal.aborted) {
+              this._scheduleReconnection({
+                resumptionToken: lastEventId,
+                onresumptiontoken,
+                replayMessageId
+              }, 0);
+            }
+          } catch (error62) {
+            this.onerror?.(new Error(`SSE stream disconnected: ${error62}`));
+            const canResume = isReconnectable || hasPrimingEvent;
+            const needsReconnect = canResume && !receivedResponse;
+            if (needsReconnect && this._abortController && !this._abortController.signal.aborted) {
+              try {
+                this._scheduleReconnection({
+                  resumptionToken: lastEventId,
+                  onresumptiontoken,
+                  replayMessageId
+                }, 0);
+              } catch (error63) {
+                this.onerror?.(new Error(`Failed to reconnect: ${error63 instanceof Error ? error63.message : String(error63)}`));
+              }
+            }
+          }
+        };
+        processStream();
+      }
+      async start() {
+        if (this._abortController) {
+          throw new Error("StreamableHTTPClientTransport already started! If using Client class, note that connect() calls start() automatically.");
+        }
+        this._abortController = new AbortController();
+      }
+      /**
+       * Call this method after the user has finished authorizing via their user agent and is redirected back to the MCP client application. This will exchange the authorization code for an access token, enabling the next connection attempt to successfully auth.
+       */
+      async finishAuth(authorizationCode) {
+        if (!this._authProvider) {
+          throw new UnauthorizedError("No auth provider");
+        }
+        const result = await auth(this._authProvider, {
+          serverUrl: this._url,
+          authorizationCode,
+          resourceMetadataUrl: this._resourceMetadataUrl,
+          scope: this._scope,
+          fetchFn: this._fetchWithInit
+        });
+        if (result !== "AUTHORIZED") {
+          throw new UnauthorizedError("Failed to authorize");
+        }
+      }
+      async close() {
+        if (this._reconnectionTimeout) {
+          clearTimeout(this._reconnectionTimeout);
+          this._reconnectionTimeout = void 0;
+        }
+        this._abortController?.abort();
+        this.onclose?.();
+      }
+      async send(message, options) {
+        try {
+          const { resumptionToken, onresumptiontoken } = options || {};
+          if (resumptionToken) {
+            this._startOrAuthSse({ resumptionToken, replayMessageId: isJSONRPCRequest(message) ? message.id : void 0 }).catch((err) => this.onerror?.(err));
+            return;
+          }
+          const headers = await this._commonHeaders();
+          headers.set("content-type", "application/json");
+          headers.set("accept", "application/json, text/event-stream");
+          const init = {
+            ...this._requestInit,
+            method: "POST",
+            headers,
+            body: JSON.stringify(message),
+            signal: this._abortController?.signal
+          };
+          const response = await fetchWithinOrigin(this._fetch ?? fetch)(this._url, init);
+          const sessionId = response.headers.get("mcp-session-id");
+          if (sessionId) {
+            this._sessionId = sessionId;
+          }
+          if (!response.ok) {
+            const text2 = await response.text().catch(() => null);
+            if (response.status === 401 && this._authProvider) {
+              if (this._hasCompletedAuthFlow) {
+                throw new StreamableHTTPError(401, "Server returned 401 after successful authentication");
+              }
+              const { resourceMetadataUrl, scope } = extractWWWAuthenticateParams(response);
+              this._resourceMetadataUrl = resourceMetadataUrl;
+              this._scope = scope;
+              const result = await auth(this._authProvider, {
+                serverUrl: this._url,
+                resourceMetadataUrl: this._resourceMetadataUrl,
+                scope: this._scope,
+                fetchFn: this._fetchWithInit
+              });
+              if (result !== "AUTHORIZED") {
+                throw new UnauthorizedError();
+              }
+              this._hasCompletedAuthFlow = true;
+              return this.send(message);
+            }
+            if (response.status === 403 && this._authProvider) {
+              const { resourceMetadataUrl, scope, error: error62 } = extractWWWAuthenticateParams(response);
+              if (error62 === "insufficient_scope") {
+                const wwwAuthHeader = response.headers.get("WWW-Authenticate");
+                if (this._lastUpscopingHeader === wwwAuthHeader) {
+                  throw new StreamableHTTPError(403, "Server returned 403 after trying upscoping");
+                }
+                if (scope) {
+                  this._scope = scope;
+                }
+                if (resourceMetadataUrl) {
+                  this._resourceMetadataUrl = resourceMetadataUrl;
+                }
+                this._lastUpscopingHeader = wwwAuthHeader ?? void 0;
+                const result = await auth(this._authProvider, {
+                  serverUrl: this._url,
+                  resourceMetadataUrl: this._resourceMetadataUrl,
+                  scope: this._scope,
+                  fetchFn: this._fetch
+                });
+                if (result !== "AUTHORIZED") {
+                  throw new UnauthorizedError();
+                }
+                return this.send(message);
+              }
+            }
+            throw new StreamableHTTPError(response.status, `Error POSTing to endpoint: ${this._unfollowedRedirect(response, this._url) ?? text2}`);
+          }
+          this._hasCompletedAuthFlow = false;
+          this._lastUpscopingHeader = void 0;
+          if (response.status === 202) {
+            await response.body?.cancel();
+            if (isInitializedNotification(message)) {
+              this._startOrAuthSse({ resumptionToken: void 0 }).catch((err) => this.onerror?.(err));
+            }
+            return;
+          }
+          const messages = Array.isArray(message) ? message : [message];
+          const hasRequests = messages.filter((msg) => "method" in msg && "id" in msg && msg.id !== void 0).length > 0;
+          const contentType2 = response.headers.get("content-type");
+          const responseMediaType = mediaTypeEssence(contentType2);
+          if (hasRequests) {
+            if (responseMediaType === "text/event-stream") {
+              this._handleSseStream(response.body, { onresumptiontoken }, false);
+            } else if (responseMediaType === "application/json") {
+              const data = await response.json();
+              const responseMessages = Array.isArray(data) ? data.map((msg) => JSONRPCMessageSchema.parse(msg)) : [JSONRPCMessageSchema.parse(data)];
+              for (const msg of responseMessages) {
+                this.onmessage?.(msg);
+              }
+            } else {
+              await response.body?.cancel();
+              throw new StreamableHTTPError(-1, `Unexpected content type: ${contentType2}`);
+            }
+          } else {
+            await response.body?.cancel();
+          }
+        } catch (error62) {
+          this.onerror?.(error62);
+          throw error62;
+        }
+      }
+      get sessionId() {
+        return this._sessionId;
+      }
+      /**
+       * Terminates the current session by sending a DELETE request to the server.
+       *
+       * Clients that no longer need a particular session
+       * (e.g., because the user is leaving the client application) SHOULD send an
+       * HTTP DELETE to the MCP endpoint with the Mcp-Session-Id header to explicitly
+       * terminate the session.
+       *
+       * The server MAY respond with HTTP 405 Method Not Allowed, indicating that
+       * the server does not allow clients to terminate sessions.
+       */
+      async terminateSession() {
+        if (!this._sessionId) {
+          return;
+        }
+        try {
+          const headers = await this._commonHeaders();
+          const init = {
+            ...this._requestInit,
+            method: "DELETE",
+            headers,
+            signal: this._abortController?.signal
+          };
+          const response = await fetchWithinOrigin(this._fetch ?? fetch)(this._url, init);
+          await response.body?.cancel();
+          if (!response.ok && response.status !== 405) {
+            throw new StreamableHTTPError(response.status, `Failed to terminate session: ${this._unfollowedRedirect(response, this._url) ?? response.statusText}`);
+          }
+          this._sessionId = void 0;
+        } catch (error62) {
+          this.onerror?.(error62);
+          throw error62;
+        }
+      }
+      setProtocolVersion(version2) {
+        this._protocolVersion = version2;
+      }
+      get protocolVersion() {
+        return this._protocolVersion;
+      }
+      /**
+       * Resume an SSE stream from a previous event ID.
+       * Opens a GET SSE connection with Last-Event-ID header to replay missed events.
+       *
+       * @param lastEventId The event ID to resume from
+       * @param options Optional callback to receive new resumption tokens
+       */
+      async resumeStream(lastEventId, options) {
+        await this._startOrAuthSse({
+          resumptionToken: lastEventId,
+          onresumptiontoken: options?.onresumptiontoken
+        });
+      }
+    };
+  }
+});
+
+// node_modules/eventsource/dist/index.js
+function syntaxError(message) {
+  const DomException = globalThis.DOMException;
+  return typeof DomException == "function" ? new DomException(message, "SyntaxError") : new SyntaxError(message);
+}
+function flattenError2(err) {
+  return err instanceof Error ? "errors" in err && Array.isArray(err.errors) ? err.errors.map(flattenError2).join(", ") : "cause" in err && err.cause instanceof Error ? `${err}: ${flattenError2(err.cause)}` : err.message : `${err}`;
+}
+function inspectableError(err) {
+  return {
+    type: err.type,
+    message: err.message,
+    code: err.code,
+    defaultPrevented: err.defaultPrevented,
+    cancelable: err.cancelable,
+    timeStamp: err.timeStamp
+  };
+}
+function getBaseURL() {
+  const doc = "document" in globalThis ? globalThis.document : void 0;
+  return doc && typeof doc == "object" && "baseURI" in doc && typeof doc.baseURI == "string" ? doc.baseURI : void 0;
+}
+var ErrorEvent, __typeError, __accessCheck, __privateGet, __privateAdd, __privateSet, __privateMethod, _readyState, _url2, _redirectUrl, _withCredentials, _fetch, _reconnectInterval, _reconnectTimer, _lastEventId, _controller, _parser, _onError, _onMessage, _onOpen, _EventSource_instances, connect_fn, _onFetchResponse, _onFetchError, getRequestOptions_fn, _onEvent, _onRetryChange, failConnection_fn, scheduleReconnect_fn, _reconnect, EventSource;
+var init_dist2 = __esm({
+  "node_modules/eventsource/dist/index.js"() {
+    init_dist();
+    ErrorEvent = class extends Event {
+      /**
+       * Constructs a new `ErrorEvent` instance. This is typically not called directly,
+       * but rather emitted by the `EventSource` object when an error occurs.
+       *
+       * @param type - The type of the event (should be "error")
+       * @param errorEventInitDict - Optional properties to include in the error event
+       */
+      constructor(type, errorEventInitDict) {
+        var _a3, _b;
+        super(type), this.code = (_a3 = errorEventInitDict == null ? void 0 : errorEventInitDict.code) != null ? _a3 : void 0, this.message = (_b = errorEventInitDict == null ? void 0 : errorEventInitDict.message) != null ? _b : void 0;
+      }
+      /**
+       * Node.js "hides" the `message` and `code` properties of the `ErrorEvent` instance,
+       * when it is `console.log`'ed. This makes it harder to debug errors. To ease debugging,
+       * we explicitly include the properties in the `inspect` method.
+       *
+       * This is automatically called by Node.js when you `console.log` an instance of this class.
+       *
+       * @param _depth - The current depth
+       * @param options - The options passed to `util.inspect`
+       * @param inspect - The inspect function to use (prevents having to import it from `util`)
+       * @returns A string representation of the error
+       */
+      [/* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom")](_depth, options, inspect) {
+        return inspect(inspectableError(this), options);
+      }
+      /**
+       * Deno "hides" the `message` and `code` properties of the `ErrorEvent` instance,
+       * when it is `console.log`'ed. This makes it harder to debug errors. To ease debugging,
+       * we explicitly include the properties in the `inspect` method.
+       *
+       * This is automatically called by Deno when you `console.log` an instance of this class.
+       *
+       * @param inspect - The inspect function to use (prevents having to import it from `util`)
+       * @param options - The options passed to `Deno.inspect`
+       * @returns A string representation of the error
+       */
+      [/* @__PURE__ */ Symbol.for("Deno.customInspect")](inspect, options) {
+        return inspect(inspectableError(this), options);
+      }
+    };
+    __typeError = (msg) => {
+      throw TypeError(msg);
+    };
+    __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot " + msg);
+    __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
+    __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
+    __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), member.set(obj, value), value);
+    __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
+    EventSource = class extends EventTarget {
+      constructor(url2, eventSourceInitDict) {
+        var _a3, _b;
+        super(), __privateAdd(this, _EventSource_instances), this.CONNECTING = 0, this.OPEN = 1, this.CLOSED = 2, __privateAdd(this, _readyState), __privateAdd(this, _url2), __privateAdd(this, _redirectUrl), __privateAdd(this, _withCredentials), __privateAdd(this, _fetch), __privateAdd(this, _reconnectInterval), __privateAdd(this, _reconnectTimer), __privateAdd(this, _lastEventId, null), __privateAdd(this, _controller), __privateAdd(this, _parser), __privateAdd(this, _onError, null), __privateAdd(this, _onMessage, null), __privateAdd(this, _onOpen, null), __privateAdd(this, _onFetchResponse, async (response) => {
+          var _a22;
+          __privateGet(this, _parser).reset();
+          const { body, redirected, status, headers } = response;
+          if (status === 204) {
+            __privateMethod(this, _EventSource_instances, failConnection_fn).call(this, "Server sent HTTP 204, not reconnecting", 204), this.close();
+            return;
+          }
+          if (redirected ? __privateSet(this, _redirectUrl, new URL(response.url)) : __privateSet(this, _redirectUrl, void 0), status !== 200) {
+            __privateMethod(this, _EventSource_instances, failConnection_fn).call(this, `Non-200 status code (${status})`, status);
+            return;
+          }
+          if (!(headers.get("content-type") || "").startsWith("text/event-stream")) {
+            __privateMethod(this, _EventSource_instances, failConnection_fn).call(this, 'Invalid content type, expected "text/event-stream"', status);
+            return;
+          }
+          if (__privateGet(this, _readyState) === this.CLOSED)
+            return;
+          __privateSet(this, _readyState, this.OPEN);
+          const openEvent = new Event("open");
+          if ((_a22 = __privateGet(this, _onOpen)) == null || _a22.call(this, openEvent), this.dispatchEvent(openEvent), typeof body != "object" || !body || !("getReader" in body)) {
+            __privateMethod(this, _EventSource_instances, failConnection_fn).call(this, "Invalid response body, expected a web ReadableStream", status), this.close();
+            return;
+          }
+          const decoder = new TextDecoder(), reader = body.getReader();
+          let open2 = true;
+          do {
+            const { done, value } = await reader.read();
+            value && __privateGet(this, _parser).feed(decoder.decode(value, { stream: !done })), done && (open2 = false, __privateGet(this, _parser).reset(), __privateMethod(this, _EventSource_instances, scheduleReconnect_fn).call(this));
+          } while (open2);
+        }), __privateAdd(this, _onFetchError, (err) => {
+          __privateSet(this, _controller, void 0), !(err.name === "AbortError" || err.type === "aborted") && __privateMethod(this, _EventSource_instances, scheduleReconnect_fn).call(this, flattenError2(err));
+        }), __privateAdd(this, _onEvent, (event) => {
+          typeof event.id == "string" && __privateSet(this, _lastEventId, event.id);
+          const messageEvent = new MessageEvent(event.event || "message", {
+            data: event.data,
+            origin: __privateGet(this, _redirectUrl) ? __privateGet(this, _redirectUrl).origin : __privateGet(this, _url2).origin,
+            lastEventId: event.id || ""
+          });
+          __privateGet(this, _onMessage) && (!event.event || event.event === "message") && __privateGet(this, _onMessage).call(this, messageEvent), this.dispatchEvent(messageEvent);
+        }), __privateAdd(this, _onRetryChange, (value) => {
+          __privateSet(this, _reconnectInterval, value);
+        }), __privateAdd(this, _reconnect, () => {
+          __privateSet(this, _reconnectTimer, void 0), __privateGet(this, _readyState) === this.CONNECTING && __privateMethod(this, _EventSource_instances, connect_fn).call(this);
+        });
+        try {
+          if (url2 instanceof URL)
+            __privateSet(this, _url2, url2);
+          else if (typeof url2 == "string")
+            __privateSet(this, _url2, new URL(url2, getBaseURL()));
+          else
+            throw new Error("Invalid URL");
+        } catch {
+          throw syntaxError("An invalid or illegal string was specified");
+        }
+        __privateSet(this, _parser, createParser({
+          onEvent: __privateGet(this, _onEvent),
+          onRetry: __privateGet(this, _onRetryChange)
+        })), __privateSet(this, _readyState, this.CONNECTING), __privateSet(this, _reconnectInterval, 3e3), __privateSet(this, _fetch, (_a3 = eventSourceInitDict == null ? void 0 : eventSourceInitDict.fetch) != null ? _a3 : globalThis.fetch), __privateSet(this, _withCredentials, (_b = eventSourceInitDict == null ? void 0 : eventSourceInitDict.withCredentials) != null ? _b : false), __privateMethod(this, _EventSource_instances, connect_fn).call(this);
+      }
+      /**
+       * Returns the state of this EventSource object's connection. It can have the values described below.
+       *
+       * [MDN Reference](https://developer.mozilla.org/docs/Web/API/EventSource/readyState)
+       *
+       * Note: typed as `number` instead of `0 | 1 | 2` for compatibility with the `EventSource` interface,
+       * defined in the TypeScript `dom` library.
+       *
+       * @public
+       */
+      get readyState() {
+        return __privateGet(this, _readyState);
+      }
+      /**
+       * Returns the URL providing the event stream.
+       *
+       * [MDN Reference](https://developer.mozilla.org/docs/Web/API/EventSource/url)
+       *
+       * @public
+       */
+      get url() {
+        return __privateGet(this, _url2).href;
+      }
+      /**
+       * Returns true if the credentials mode for connection requests to the URL providing the event stream is set to "include", and false otherwise.
+       *
+       * [MDN Reference](https://developer.mozilla.org/docs/Web/API/EventSource/withCredentials)
+       */
+      get withCredentials() {
+        return __privateGet(this, _withCredentials);
+      }
+      /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/EventSource/error_event) */
+      get onerror() {
+        return __privateGet(this, _onError);
+      }
+      set onerror(value) {
+        __privateSet(this, _onError, value);
+      }
+      /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/EventSource/message_event) */
+      get onmessage() {
+        return __privateGet(this, _onMessage);
+      }
+      set onmessage(value) {
+        __privateSet(this, _onMessage, value);
+      }
+      /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/EventSource/open_event) */
+      get onopen() {
+        return __privateGet(this, _onOpen);
+      }
+      set onopen(value) {
+        __privateSet(this, _onOpen, value);
+      }
+      addEventListener(type, listener, options) {
+        const listen = listener;
+        super.addEventListener(type, listen, options);
+      }
+      removeEventListener(type, listener, options) {
+        const listen = listener;
+        super.removeEventListener(type, listen, options);
+      }
+      /**
+       * Aborts any instances of the fetch algorithm started for this EventSource object, and sets the readyState attribute to CLOSED.
+       *
+       * [MDN Reference](https://developer.mozilla.org/docs/Web/API/EventSource/close)
+       *
+       * @public
+       */
+      close() {
+        __privateGet(this, _reconnectTimer) && clearTimeout(__privateGet(this, _reconnectTimer)), __privateGet(this, _readyState) !== this.CLOSED && (__privateGet(this, _controller) && __privateGet(this, _controller).abort(), __privateSet(this, _readyState, this.CLOSED), __privateSet(this, _controller, void 0));
+      }
+    };
+    _readyState = /* @__PURE__ */ new WeakMap(), _url2 = /* @__PURE__ */ new WeakMap(), _redirectUrl = /* @__PURE__ */ new WeakMap(), _withCredentials = /* @__PURE__ */ new WeakMap(), _fetch = /* @__PURE__ */ new WeakMap(), _reconnectInterval = /* @__PURE__ */ new WeakMap(), _reconnectTimer = /* @__PURE__ */ new WeakMap(), _lastEventId = /* @__PURE__ */ new WeakMap(), _controller = /* @__PURE__ */ new WeakMap(), _parser = /* @__PURE__ */ new WeakMap(), _onError = /* @__PURE__ */ new WeakMap(), _onMessage = /* @__PURE__ */ new WeakMap(), _onOpen = /* @__PURE__ */ new WeakMap(), _EventSource_instances = /* @__PURE__ */ new WeakSet(), /**
+    * Connect to the given URL and start receiving events
+    *
+    * @internal
+    */
+    connect_fn = function() {
+      __privateSet(this, _readyState, this.CONNECTING), __privateSet(this, _controller, new AbortController()), __privateGet(this, _fetch)(__privateGet(this, _url2), __privateMethod(this, _EventSource_instances, getRequestOptions_fn).call(this)).then(__privateGet(this, _onFetchResponse)).catch(__privateGet(this, _onFetchError));
+    }, _onFetchResponse = /* @__PURE__ */ new WeakMap(), _onFetchError = /* @__PURE__ */ new WeakMap(), /**
+    * Get request options for the `fetch()` request
+    *
+    * @returns The request options
+    * @internal
+    */
+    getRequestOptions_fn = function() {
+      var _a3;
+      const init = {
+        // [spec] Let `corsAttributeState` be `Anonymous`…
+        // [spec] …will have their mode set to "cors"…
+        mode: "cors",
+        redirect: "follow",
+        headers: { Accept: "text/event-stream", ...__privateGet(this, _lastEventId) ? { "Last-Event-ID": __privateGet(this, _lastEventId) } : void 0 },
+        cache: "no-store",
+        signal: (_a3 = __privateGet(this, _controller)) == null ? void 0 : _a3.signal
+      };
+      return "window" in globalThis && (init.credentials = this.withCredentials ? "include" : "same-origin"), init;
+    }, _onEvent = /* @__PURE__ */ new WeakMap(), _onRetryChange = /* @__PURE__ */ new WeakMap(), /**
+    * Handles the process referred to in the EventSource specification as "failing a connection".
+    *
+    * @param error - The error causing the connection to fail
+    * @param code - The HTTP status code, if available
+    * @internal
+    */
+    failConnection_fn = function(message, code) {
+      var _a3;
+      __privateGet(this, _readyState) !== this.CLOSED && __privateSet(this, _readyState, this.CLOSED);
+      const errorEvent = new ErrorEvent("error", { code, message });
+      (_a3 = __privateGet(this, _onError)) == null || _a3.call(this, errorEvent), this.dispatchEvent(errorEvent);
+    }, /**
+    * Schedules a reconnection attempt against the EventSource endpoint.
+    *
+    * @param message - The error causing the connection to fail
+    * @param code - The HTTP status code, if available
+    * @internal
+    */
+    scheduleReconnect_fn = function(message, code) {
+      var _a3;
+      if (__privateGet(this, _readyState) === this.CLOSED)
+        return;
+      __privateSet(this, _readyState, this.CONNECTING);
+      const errorEvent = new ErrorEvent("error", { code, message });
+      (_a3 = __privateGet(this, _onError)) == null || _a3.call(this, errorEvent), this.dispatchEvent(errorEvent), __privateSet(this, _reconnectTimer, setTimeout(__privateGet(this, _reconnect), __privateGet(this, _reconnectInterval)));
+    }, _reconnect = /* @__PURE__ */ new WeakMap(), /**
+    * ReadyState representing an EventSource currently trying to connect
+    *
+    * @public
+    */
+    EventSource.CONNECTING = 0, /**
+    * ReadyState representing an EventSource connection that is open (eg connected)
+    *
+    * @public
+    */
+    EventSource.OPEN = 1, /**
+    * ReadyState representing an EventSource connection that is closed (eg disconnected)
+    *
+    * @public
+    */
+    EventSource.CLOSED = 2;
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/client/sse.js
+var SseError, SSEClientTransport;
+var init_sse = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/client/sse.js"() {
+    init_dist2();
+    init_transport();
+    init_types2();
+    init_auth2();
+    SseError = class extends Error {
+      constructor(code, message, event) {
+        super(`SSE error: ${message}`);
+        this.code = code;
+        this.event = event;
+      }
+    };
+    SSEClientTransport = class {
+      constructor(url2, opts) {
+        this._url = url2;
+        this._resourceMetadataUrl = void 0;
+        this._scope = void 0;
+        this._eventSourceInit = opts?.eventSourceInit;
+        this._requestInit = opts?.requestInit;
+        this._authProvider = opts?.authProvider;
+        this._fetch = opts?.fetch;
+        this._fetchWithInit = createFetchWithInit(opts?.fetch, opts?.requestInit);
+        this._followRedirects = opts?.redirectPolicy === "follow";
+        if (this._followRedirects) {
+          this._fetch = fetchLeavingRedirects(this._fetch);
+          this._fetchWithInit = fetchLeavingRedirects(this._fetchWithInit);
+        }
+      }
+      /** Error text for a redirect `response` that was not followed, or `undefined` for any other response. */
+      _unfollowedRedirect(response, url2) {
+        const text2 = unfollowedRedirect(response, url2);
+        return text2 && !this._followRedirects ? `${text2} (redirectPolicy: 'same-origin')` : text2;
+      }
+      async _authThenStart() {
+        if (!this._authProvider) {
+          throw new UnauthorizedError("No auth provider");
+        }
+        let result;
+        try {
+          result = await auth(this._authProvider, {
+            serverUrl: this._url,
+            resourceMetadataUrl: this._resourceMetadataUrl,
+            scope: this._scope,
+            fetchFn: this._fetchWithInit
+          });
+        } catch (error62) {
+          this.onerror?.(error62);
+          throw error62;
+        }
+        if (result !== "AUTHORIZED") {
+          throw new UnauthorizedError();
+        }
+        return await this._startOrAuth();
+      }
+      async _commonHeaders() {
+        const headers = {};
+        if (this._authProvider) {
+          const tokens = await this._authProvider.tokens();
+          if (tokens) {
+            headers["Authorization"] = `Bearer ${tokens.access_token}`;
+          }
+        }
+        if (this._protocolVersion) {
+          headers["mcp-protocol-version"] = this._protocolVersion;
+        }
+        const extraHeaders = normalizeHeaders(this._requestInit?.headers);
+        return new Headers({
+          ...headers,
+          ...extraHeaders
+        });
+      }
+      _startOrAuth() {
+        const baseFetch = this?._eventSourceInit?.fetch ?? this._fetch ?? fetch;
+        const fetchImpl = this._followRedirects ? baseFetch : fetchWithinOrigin(baseFetch);
+        let redirect;
+        return new Promise((resolve, reject) => {
+          this._eventSource = new EventSource(this._url.href, {
+            ...this._eventSourceInit,
+            fetch: async (url2, init) => {
+              const headers = await this._commonHeaders();
+              headers.set("Accept", "text/event-stream");
+              const response = await fetchImpl(url2, {
+                ...init,
+                headers
+              });
+              redirect = this._unfollowedRedirect(response, url2);
+              if (response.status === 401 && response.headers.has("www-authenticate")) {
+                const { resourceMetadataUrl, scope } = extractWWWAuthenticateParams(response);
+                this._resourceMetadataUrl = resourceMetadataUrl;
+                this._scope = scope;
+              }
+              return response;
+            }
+          });
+          this._abortController = new AbortController();
+          this._eventSource.onerror = (event) => {
+            if (event.code === 401 && this._authProvider) {
+              this._authThenStart().then(resolve, reject);
+              return;
+            }
+            const error62 = new SseError(event.code, redirect ?? event.message, event);
+            reject(error62);
+            this.onerror?.(error62);
+          };
+          this._eventSource.onopen = () => {
+          };
+          this._eventSource.addEventListener("endpoint", (event) => {
+            const messageEvent = event;
+            try {
+              this._endpoint = new URL(messageEvent.data, this._url);
+              if (this._endpoint.origin !== this._url.origin) {
+                throw new Error(`Endpoint origin does not match connection origin: ${this._endpoint.origin}`);
+              }
+            } catch (error62) {
+              reject(error62);
+              this.onerror?.(error62);
+              void this.close();
+              return;
+            }
+            resolve();
+          });
+          this._eventSource.onmessage = (event) => {
+            const messageEvent = event;
+            let message;
+            try {
+              message = JSONRPCMessageSchema.parse(JSON.parse(messageEvent.data));
+            } catch (error62) {
+              this.onerror?.(error62);
+              return;
+            }
+            this.onmessage?.(message);
+          };
+        });
+      }
+      async start() {
+        if (this._eventSource) {
+          throw new Error("SSEClientTransport already started! If using Client class, note that connect() calls start() automatically.");
+        }
+        return await this._startOrAuth();
+      }
+      /**
+       * Call this method after the user has finished authorizing via their user agent and is redirected back to the MCP client application. This will exchange the authorization code for an access token, enabling the next connection attempt to successfully auth.
+       */
+      async finishAuth(authorizationCode) {
+        if (!this._authProvider) {
+          throw new UnauthorizedError("No auth provider");
+        }
+        const result = await auth(this._authProvider, {
+          serverUrl: this._url,
+          authorizationCode,
+          resourceMetadataUrl: this._resourceMetadataUrl,
+          scope: this._scope,
+          fetchFn: this._fetchWithInit
+        });
+        if (result !== "AUTHORIZED") {
+          throw new UnauthorizedError("Failed to authorize");
+        }
+      }
+      async close() {
+        this._abortController?.abort();
+        this._eventSource?.close();
+        this.onclose?.();
+      }
+      async send(message) {
+        if (!this._endpoint) {
+          throw new Error("Not connected");
+        }
+        try {
+          const headers = await this._commonHeaders();
+          headers.set("content-type", "application/json");
+          const init = {
+            ...this._requestInit,
+            method: "POST",
+            headers,
+            body: JSON.stringify(message),
+            signal: this._abortController?.signal
+          };
+          const response = await fetchWithinOrigin(this._fetch ?? fetch)(this._endpoint, init);
+          if (!response.ok) {
+            const text2 = await response.text().catch(() => null);
+            if (response.status === 401 && this._authProvider) {
+              const { resourceMetadataUrl, scope } = extractWWWAuthenticateParams(response);
+              this._resourceMetadataUrl = resourceMetadataUrl;
+              this._scope = scope;
+              const result = await auth(this._authProvider, {
+                serverUrl: this._url,
+                resourceMetadataUrl: this._resourceMetadataUrl,
+                scope: this._scope,
+                fetchFn: this._fetchWithInit
+              });
+              if (result !== "AUTHORIZED") {
+                throw new UnauthorizedError();
+              }
+              return this.send(message);
+            }
+            throw new Error(`Error POSTing to endpoint (HTTP ${response.status}): ${this._unfollowedRedirect(response, this._endpoint) ?? text2}`);
+          }
+          await response.body?.cancel();
+        } catch (error62) {
+          this.onerror?.(error62);
+          throw error62;
+        }
+      }
+      setProtocolVersion(version2) {
+        this._protocolVersion = version2;
+      }
+    };
+  }
+});
+
+// packages/middleout/src/oauth.mjs
+import crypto2 from "node:crypto";
+import fs4 from "node:fs";
+import http from "node:http";
+import os2 from "node:os";
+import path5 from "node:path";
+import { spawn as spawn2 } from "node:child_process";
+function locked(f, fn) {
+  const l = `${f}.lock`;
+  fs4.mkdirSync(path5.dirname(f), { recursive: true });
+  let got = false;
+  for (let i = 0; i < 200 && !got; i++) {
+    try {
+      fs4.writeFileSync(l, String(process.pid), { flag: "wx" });
+      got = true;
+    } catch {
+      try {
+        if (Date.now() - fs4.statSync(l).mtimeMs > 5e3) fs4.rmSync(l, { force: true });
+      } catch {
+      }
+      const until = Date.now() + 25;
+      while (Date.now() < until) {
+      }
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    if (got) fs4.rmSync(l, { force: true });
+  }
+}
+function write(f, v) {
+  fs4.mkdirSync(path5.dirname(f), { recursive: true });
+  const tmp = `${f}.${process.pid}.tmp`;
+  fs4.writeFileSync(tmp, JSON.stringify(v, null, 2) + "\n", { mode: 384 });
+  fs4.renameSync(tmp, f);
+}
+function provider(name, spec, { interactive, redirectUrl, onRedirect } = {}) {
+  const f = tokenFile(name, spec.url);
+  const load = () => read(f) || { url: spec.url };
+  const save = (patch) => locked(f, () => write(f, { ...load(), ...patch }));
+  let used = null;
+  const fixed = spec.oauth?.clientId ? { client_id: spec.oauth.clientId, ...spec.oauth.clientSecret ? { client_secret: spec.oauth.clientSecret } : {} } : null;
+  let state;
+  return {
+    get redirectUrl() {
+      return redirectUrl || load().redirectUrl;
+    },
+    get clientMetadata() {
+      return {
+        client_name: "middleout",
+        redirect_uris: [this.redirectUrl],
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+        token_endpoint_auth_method: fixed?.client_secret ? "client_secret_post" : "none"
+      };
+    },
+    state() {
+      state = crypto2.randomBytes(16).toString("hex");
+      return state;
+    },
+    expectedState: () => state,
+    clientInformation: () => fixed || load().client,
+    saveClientInformation(client) {
+      if (!interactive) throw new SignInNeeded(signInMessage(name));
+      save({ client });
+    },
+    tokens() {
+      const t = load().tokens;
+      used = t?.refresh_token ?? null;
+      return t;
+    },
+    saveTokens: (tokens) => save({ tokens }),
+    redirectToAuthorization(url2) {
+      if (!interactive) throw new SignInNeeded(signInMessage(name));
+      return onRedirect(url2);
+    },
+    saveCodeVerifier: (verifier) => save({ verifier }),
+    codeVerifier: () => load().verifier,
+    invalidateCredentials(scope) {
+      locked(f, () => {
+        const cur = load();
+        const newer = cur.tokens && used != null && cur.tokens.refresh_token !== used;
+        if (scope === "all" || scope === "client") delete cur.client;
+        if ((scope === "all" || scope === "tokens") && !newer) delete cur.tokens;
+        if (scope === "all" || scope === "verifier") delete cur.verifier;
+        write(f, cur);
+      });
+    }
+  };
+}
+function markNoAuth(name, spec, on) {
+  try {
+    const f = tokenFile(name, spec.url);
+    if (!!read(f)?.no_auth === on) return;
+    locked(f, () => {
+      const cur = read(f) || { url: spec.url };
+      if (on) cur.no_auth = true;
+      else delete cur.no_auth;
+      write(f, cur);
+    });
+  } catch {
+  }
+}
+function openBrowser(url2) {
+  const [cmd2, args] = process.platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url2]] : process.platform === "darwin" ? ["open", [url2]] : ["xdg-open", [url2]];
+  try {
+    spawn2(cmd2, args, { detached: true, stdio: "ignore", windowsHide: true }).on("error", () => {
+    }).unref();
+  } catch {
+  }
+}
+async function login(name, spec, { open: open2 = openBrowser, log = console.log, timeoutMs = 5 * 6e4 } = {}) {
+  if (!spec?.url) throw new Error(`server "${name}" is not an HTTP server: nothing to sign in to`);
+  let resolveCode, rejectCode;
+  const code = new Promise((res, rej) => {
+    resolveCode = res;
+    rejectCode = rej;
+  });
+  code.catch(() => {
+  });
+  let p;
+  const page = (res, status, html) => {
+    res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(`<p>${html}</p>`);
+  };
+  const srv = http.createServer((req, res) => {
+    const u = new URL(req.url, "http://127.0.0.1");
+    if (u.pathname !== "/callback") {
+      res.writeHead(404);
+      return res.end();
+    }
+    const err = u.searchParams.get("error");
+    const ours = p && u.searchParams.get("state") === p.expectedState();
+    if (err && ours) {
+      page(res, 400, `Sign-in failed: ${escapeHtml(err)}.`);
+      return rejectCode(new Error(`sign-in failed: ${err}`));
+    }
+    if (err || !ours || !u.searchParams.get("code")) return page(res, 400, "This sign-in link is not valid for the current request.");
+    page(res, 200, "middleout is signed in. You can close this tab.");
+    resolveCode(u.searchParams.get("code"));
+  });
+  const file2 = tokenFile(name, spec.url);
+  const stored = read(file2);
+  const storedPort = !spec.oauth?.clientId && stored?.client && stored.redirectUrl ? Number(new URL(stored.redirectUrl).port) || 0 : 0;
+  const listen = (port) => new Promise((res, rej) => {
+    srv.once("error", rej);
+    srv.listen(port, "127.0.0.1", () => {
+      srv.off("error", rej);
+      res();
+    });
+  });
+  if (spec.oauth?.callbackPort) await listen(spec.oauth.callbackPort);
+  else {
+    try {
+      await listen(storedPort);
+    } catch {
+      await listen(0);
+    }
+  }
+  const redirectUrl = `http://127.0.0.1:${srv.address().port}/callback`;
+  if (stored?.client && !spec.oauth?.clientId && !(stored.client.redirect_uris || []).includes(redirectUrl)) {
+    locked(file2, () => {
+      const cur = read(file2) || {};
+      delete cur.client;
+      delete cur.tokens;
+      delete cur.verifier;
+      write(file2, cur);
+    });
+  }
+  const timer = setTimeout(() => rejectCode(new Error("sign-in timed out")), timeoutMs);
+  try {
+    p = provider(name, spec, { interactive: true, redirectUrl, onRedirect: async (url2) => {
+      log(`Opening the browser to sign in to "${name}":
+  ${url2.href}`);
+      await open2(url2.href);
+    } });
+    locked(file2, () => write(file2, { ...read(file2) || {}, url: spec.url, redirectUrl }));
+    const headers = spec.headers || {};
+    const first = new StreamableHTTPClientTransport(new URL(spec.url), { authProvider: p, requestInit: { headers } });
+    const probe = new Client({ name: "middleout", version: "0.3.0" });
+    try {
+      await probe.connect(first);
+      await probe.close();
+      if (!read(file2)?.tokens) {
+        locked(file2, () => write(file2, { url: spec.url, no_auth: true }));
+        return { needed: false };
+      }
+    } catch (e) {
+      if (!isAuthError(e)) throw e;
+      await first.finishAuth(await code);
+    }
+    const c = new Client({ name: "middleout", version: "0.3.0" });
+    await c.connect(new StreamableHTTPClientTransport(new URL(spec.url), { authProvider: p, requestInit: { headers } }));
+    const tools = (await c.listTools()).tools.length;
+    await c.close();
+    log(`signed in to "${name}": ${tools} tools available through middleout`);
+    return { needed: true, tools, file: tokenFile(name, spec.url) };
+  } finally {
+    clearTimeout(timer);
+    srv.closeAllConnections?.();
+    srv.close();
+  }
+}
+var home, tokenFile, read, SignInNeeded, signInMessage, maybeNeedsLogin, escapeHtml, runtimeProvider, isAuthError;
+var init_oauth = __esm({
+  "packages/middleout/src/oauth.mjs"() {
+    init_client2();
+    init_streamableHttp();
+    init_auth2();
+    home = () => process.env.MIDDLEOUT_HOME || path5.join(os2.homedir(), ".qbranch", "middleout");
+    tokenFile = (name, url2) => path5.join(home(), "oauth", `${name.replace(/[^\w.-]/g, "_")}-${crypto2.createHash("sha256").update(url2).digest("hex").slice(0, 8)}.json`);
+    read = (f) => {
+      try {
+        return JSON.parse(fs4.readFileSync(f, "utf8"));
+      } catch {
+        return null;
+      }
+    };
+    SignInNeeded = class extends Error {
+    };
+    signInMessage = (name) => `server "${name}" needs sign-in: run \`middleout login ${name}\` once (opens a browser)`;
+    maybeNeedsLogin = (name, spec) => {
+      if (!spec?.url || Object.keys(spec.headers || {}).some((k) => k.toLowerCase() === "authorization")) return false;
+      const r = read(tokenFile(name, spec.url));
+      return !r?.tokens && !r?.no_auth;
+    };
+    escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+    runtimeProvider = (name, spec) => read(tokenFile(name, spec.url))?.tokens ? provider(name, spec, { interactive: false }) : null;
+    isAuthError = (e) => e instanceof UnauthorizedError || e instanceof SignInNeeded || e?.code === 401 || /\b401\b|unauthori[sz]ed/i.test(e?.message || "");
   }
 });
 
@@ -39349,19 +41906,77 @@ var require_jmespath = __commonJS({
 });
 
 // packages/middleout/src/engine.mjs
-function createEngine({ servers = {}, readonly: readonly2 = false, allow = null, concurrency = 8 } = {}) {
+async function connectHttp(name, spec) {
+  const requestInit = { headers: spec.headers || {} };
+  const authProvider = hasAuthHeader(spec.headers) ? void 0 : runtimeProvider(name, spec) || void 0;
+  const authFail = (e) => new Error(hasAuthHeader(spec.headers) ? `server "${name}" rejected its configured credentials (401): check the Authorization header in .mcp.json and the env var it reads` : `${signInMessage(name)}${authProvider ? " (the stored sign-in was rejected and could not be refreshed)" : ""}`, { cause: e });
+  const attempt = async (Transport) => {
+    const c = new Client({ name: "middleout", version: "0.3.0" });
+    const t = new Transport(new URL(spec.url), { requestInit, authProvider });
+    try {
+      await c.connect(t);
+    } catch (e) {
+      try {
+        await t.close();
+      } catch {
+      }
+      throw e;
+    }
+    return c;
+  };
+  const opened = (c) => {
+    if (!authProvider && !hasAuthHeader(spec.headers)) markNoAuth(name, spec, true);
+    return c;
+  };
+  const denied = (e) => {
+    markNoAuth(name, spec, false);
+    return authFail(e);
+  };
+  if (spec.type === "sse") {
+    try {
+      return opened(await attempt(SSEClientTransport));
+    } catch (e) {
+      throw isAuthError(e) ? denied(e) : e;
+    }
+  }
+  try {
+    return opened(await attempt(StreamableHTTPClientTransport));
+  } catch (e) {
+    if (isAuthError(e)) throw denied(e);
+    try {
+      return opened(await attempt(SSEClientTransport));
+    } catch (e2) {
+      if (isAuthError(e2)) throw denied(e2);
+      throw new Error(`server "${name}" (${spec.url}) did not connect: ${e.message}`, { cause: e });
+    }
+  }
+}
+function createEngine({ servers = {}, skipped = {}, readonly: readonly2 = false, allow = null, concurrency = 8 } = {}) {
   const clients = {};
   const readOnly = {};
+  const secrets = Object.values(servers).flatMap((s) => s?.secrets || []);
+  const safe = (e) => new Error(scrub(e?.message ?? e, secrets), { cause: e });
   const allowRe = allow ? new RegExp(allow) : null;
   const allowed = (srv, tool) => (!allowRe || allowRe.test(`${srv}.${tool}`)) && (!readonly2 || readOnly[`${srv}.${tool}`] === true);
   async function client(name) {
-    if (!servers[name]) throw new Error(`unknown server "${name}" (have: ${Object.keys(servers).join(", ") || "none"})`);
+    if (!servers[name]) {
+      const have = Object.keys(servers).join(", ") || "none";
+      throw new Error(`unknown server "${name}" (wrapped: ${have}). ` + (skipped[name] ? `"${name}" is in .mcp.json but was skipped: ${skipped[name]}.` : `"${name}" is not in this project's .mcp.json (plugin and user-scope servers are not wrapped; add it under "servers" in middleout.config.json), so call its tools directly.`));
+    }
     clients[name] ??= (async () => {
-      const c = new Client({ name: "middleout", version: "0.1.0" });
-      await c.connect(new StdioClientTransport({ ...servers[name], env: { ...process.env, ...servers[name].env || {} }, stderr: "ignore" }));
+      const spec = servers[name];
+      let c;
+      if (spec.url) c = await connectHttp(name, spec);
+      else {
+        c = new Client({ name: "middleout", version: "0.3.0" });
+        await c.connect(new StdioClientTransport({ ...spec, env: { ...process.env, ...spec.env || {} }, stderr: "ignore" }));
+      }
       for (const t of (await c.listTools()).tools) readOnly[`${name}.${t.name}`] = t.annotations?.readOnlyHint === true;
       return c;
     })();
+    clients[name].catch(() => {
+      delete clients[name];
+    });
     return clients[name];
   }
   function newStats() {
@@ -39375,7 +41990,9 @@ function createEngine({ servers = {}, readonly: readonly2 = false, allow = null,
     const text2 = r.content?.map((x) => x.text || "").join("") || "";
     st.calls++;
     st.rawBytes += text2.length;
-    st.byTool[`${srv}.${tool}`] = (st.byTool[`${srv}.${tool}`] || 0) + 1;
+    const bt = st.byTool[`${srv}.${tool}`] ??= { calls: 0, rawBytes: 0 };
+    bt.calls++;
+    bt.rawBytes += text2.length;
     if (r.isError) throw new Error(`${srv}.${tool}: ${text2.slice(0, 300)}`);
     try {
       return JSON.parse(text2);
@@ -39389,6 +42006,9 @@ function createEngine({ servers = {}, readonly: readonly2 = false, allow = null,
     const text2 = await r.text();
     st.calls++;
     st.rawBytes += text2.length;
+    const bt = st.byTool[`http.${new URL(url2).host}`] ??= { calls: 0, rawBytes: 0 };
+    bt.calls++;
+    bt.rawBytes += text2.length;
     if (!r.ok) throw new Error(`${method} ${url2} -> ${r.status} ${text2.slice(0, 200)}`);
     return JSON.parse(text2);
   }
@@ -39460,36 +42080,65 @@ function createEngine({ servers = {}, readonly: readonly2 = false, allow = null,
     return v === null ? "null" : `${typeof v} e.g. ${v}`;
   }
   return {
+    /** Every tool from every server that connects, plus the servers that did not and why. */
+    async toolsReport() {
+      const tools = [], failed = [];
+      await Promise.all(Object.keys(servers).map(async (name) => {
+        try {
+          for (const t of (await (await client(name)).listTools()).tools)
+            if (allowed(name, t.name)) tools.push({ ref: `${name}.${t.name}`, params: Object.keys(t.inputSchema?.properties || {}), description: t.description || "" });
+        } catch (e) {
+          failed.push({ server: name, error: safe(e).message });
+        }
+      }));
+      const order = Object.keys(servers);
+      tools.sort((a, b) => order.indexOf(a.ref.split(".")[0]) - order.indexOf(b.ref.split(".")[0]));
+      return { tools, failed };
+    },
     async tools() {
-      const out = [];
-      for (const name of Object.keys(servers)) for (const t of (await (await client(name)).listTools()).tools)
-        if (allowed(name, t.name)) out.push({ ref: `${name}.${t.name}`, params: Object.keys(t.inputSchema?.properties || {}), description: t.description || "" });
-      return out;
+      return (await this.toolsReport()).tools;
     },
     /** Shape (field names, types, one example) of a tool's result: learn field names before writing a plan. */
     async shape(tool, args = {}) {
       const st = newStats();
-      const v = await callAuto(st, tool, args);
-      return { shape: shapeOf(v), stats: st };
+      try {
+        return { shape: shapeOf(await callAuto(st, tool, args)), stats: st };
+      } catch (e) {
+        throw safe(e);
+      }
     },
     /** Run a plan. Returns { result, stats: {calls, rawBytes, autoPages, byTool, returnedBytes} }. */
     async run(plan) {
       const st = newStats();
-      const p = typeof plan === "string" ? JSON.parse(plan) : plan;
-      const result = Array.isArray(p) ? await Promise.all(p.map((n, i) => runNode(st, n, {}, `plan[${i}]`))) : await runNode(st, p, {}, "plan");
+      let result;
+      try {
+        const p = typeof plan === "string" ? JSON.parse(plan) : plan;
+        result = Array.isArray(p) ? await Promise.all(p.map((n, i) => runNode(st, n, {}, `plan[${i}]`))) : await runNode(st, p, {}, "plan");
+      } catch (e) {
+        throw safe(e);
+      }
       st.returnedBytes = JSON.stringify(result ?? null).length;
       return { result, stats: st };
     },
     async close() {
-      for (const c of Object.values(clients)) (await c).close();
+      for (const c of Object.values(clients)) {
+        try {
+          await (await c).close();
+        } catch {
+        }
+      }
     }
   };
 }
-var import_jmespath, PLAN_DOC, CURSOR_KEYS, PARAM_FOR;
+var import_jmespath, PLAN_DOC, CURSOR_KEYS, PARAM_FOR, hasAuthHeader;
 var init_engine = __esm({
   "packages/middleout/src/engine.mjs"() {
     init_client2();
     init_stdio2();
+    init_streamableHttp();
+    init_sse();
+    init_oauth();
+    init_config();
     import_jmespath = __toESM(require_jmespath(), 1);
     PLAN_DOC = `A plan is a node, or an array of independent nodes (results come back as an array).
 A node is {tool, args?, select?, each?, as?, then?, page?} (or {http: "GET https://...", ...} for a plain JSON API).
@@ -39501,27 +42150,90 @@ A node is {tool, args?, select?, each?, as?, then?, page?} (or {http: "GET https
 - Pagination is automatic: when a result says there is more (next_page, has_more + page, or a cursor field), every page is fetched and the item array merged, in the normal shape. "page": false returns only the first page.`;
     CURSOR_KEYS = ["next_cursor", "nextCursor", "next_page_token", "nextPageToken"];
     PARAM_FOR = { next_cursor: "cursor", nextCursor: "cursor", next_page_token: "page_token", nextPageToken: "pageToken" };
+    hasAuthHeader = (h) => Object.keys(h || {}).some((k) => k.toLowerCase() === "authorization");
   }
 });
 
 // packages/middleout/src/stats.mjs
-function summarize(s) {
-  const t = s.totals;
-  const kb = (b) => `${Math.round(b / 1024)} KB`;
-  const missed = Object.entries(s.tools).filter(([, v]) => v.raw_calls).sort((a, b) => b[1].raw_bytes_seen - a[1].raw_bytes_seen).slice(0, 8);
-  return [
-    `middleout stats since ${s.since.slice(0, 10)} (updated ${s.updated.slice(0, 16).replace("T", " ")})`,
-    `runs ${t.runs} | API calls through middleout ${t.api_calls} | auto-fetched pages ${t.auto_pages} | errors ${t.errors}`,
-    `raw ${kb(t.raw_bytes)} -> returned ${kb(t.returned_bytes)} | Weissman score ${s.weissman ?? "-"} | ~${s.est_tokens_saved} tokens kept out of context`,
-    `raw MCP calls that bypassed middleout: ${t.raw_calls_seen} (${kb(t.raw_bytes_seen)}) | nudges ${t.nudges} | gated ${t.gated}`,
-    missed.length ? `biggest raw callers (candidates for middleout):
-  ${missed.map(([k, v]) => `${k}: ${v.raw_calls} calls, ${kb(v.raw_bytes_seen)}`).join("\n  ")}` : ""
-  ].filter(Boolean).join("\n");
+function recordRun(cfg3, st, { ok = true, error: error62 = null, tools = [] } = {}) {
+  upsert(cfg3, (s, day) => {
+    s.totals.runs++;
+    day.runs++;
+    s.totals.api_calls += st.calls || 0;
+    s.totals.auto_pages += st.autoPages || 0;
+    s.totals.raw_bytes += st.rawBytes || 0;
+    day.raw_bytes += st.rawBytes || 0;
+    s.totals.returned_bytes += st.returnedBytes || 0;
+    day.returned_bytes += st.returnedBytes || 0;
+    const refs = Object.entries(st.byTool || {});
+    for (const [ref, b] of refs) {
+      const k = toolStat(s, ref);
+      k.via_middleout += b.calls;
+      k.runs++;
+      k.raw_bytes += b.rawBytes;
+      k.returned_bytes += Math.round((st.returnedBytes || 0) * (st.rawBytes ? b.rawBytes / st.rawBytes : 1 / refs.length));
+    }
+    if (!ok) {
+      s.totals.errors++;
+      s.recent_errors.push({ at: (/* @__PURE__ */ new Date()).toISOString(), message: scrub(error62 || "unknown error").slice(0, 300), tools });
+    }
+  });
 }
-var upsertFile, upsert, toolStat;
+function classOf(ref, v, cfg3) {
+  if (v.class) return v.class;
+  const [server2, tool = ""] = ref.split(/\.(.*)/s);
+  if (isWrite(tool)) return "write";
+  if (BINARY_NAME.test(tool)) return "binary";
+  if (!cfg3) return "unclassified";
+  return isWrapped(cfg3, server2) ? "addressable" : "unwrapped";
+}
+function summarize(s, cfg3 = null) {
+  const t = s.totals;
+  const tools = Object.entries(s.tools || {});
+  const by = { addressable: [], unwrapped: [], binary: [], write: [], unclassified: [] };
+  for (const [ref, v] of tools) if (v.raw_calls) by[classOf(ref, v, cfg3)]?.push([ref, v]);
+  const sum = (list) => list.reduce((a, [, v]) => a + (v.raw_bytes_seen || 0), 0);
+  const calls = (list) => list.reduce((a, [, v]) => a + v.raw_calls, 0);
+  const top = (list, n = 5) => [...list].sort((a, b) => b[1].raw_bytes_seen - a[1].raw_bytes_seen).slice(0, n).map(([k, v]) => `    ${k}: ${plural2(v.raw_calls, "call")}, ${size(v.raw_bytes_seen)}`).join("\n");
+  const addrBytes = sum(by.addressable);
+  const day = (iso) => iso.slice(5, 16).replace("T", " ");
+  const lines = [];
+  lines.push(t.runs ? `middleout since ${s.since.slice(0, 10)}: ~${thou(s.est_tokens_saved ?? 0)} tokens kept out of context (an upper bound vs. the raw results: ${size(t.raw_bytes)} raw -> ${size(t.returned_bytes)} returned, Weissman score ${s.weissman ?? "-"})` : `middleout since ${s.since.slice(0, 10)}: not used yet (0 runs)${addrBytes ? `; ${size(addrBytes)} of raw traffic it could have handled went around it` : ""}`);
+  const cov = [by.unclassified.length ? "coverage: not measured yet (raw calls recorded before v0.3 are not classified)" : `coverage: ${pct(t.raw_bytes, t.raw_bytes + addrBytes)} of the traffic middleout can handle went through it`];
+  if (t.nudges_tracked) cov.push(`${t.nudges_converted || 0}/${t.nudges_tracked} nudges converted (${pct(t.nudges_converted || 0, t.nudges_tracked)})`);
+  else if (t.nudges) cov.push(`${t.nudges} nudges (conversion not tracked before v0.3)`);
+  if (t.gated) cov.push(`gated ${t.gated}`);
+  lines.push(cov.join(" | "));
+  lines.push(`through middleout: ${plural2(t.runs, "run")}, ${t.api_calls} API calls${t.auto_pages ? `, ${t.auto_pages} pages auto-fetched` : ""} | errors ${t.errors}`);
+  const via = tools.filter(([, v]) => v.via_middleout).sort((a, b) => (b[1].raw_bytes || 0) - (a[1].raw_bytes || 0));
+  if (via.length) {
+    const w = Math.max(...via.map(([k]) => k.length));
+    lines.push("  per tool:\n" + via.map(([k, v]) => `    ${k.padEnd(w)}  ${v.runs ? `${plural2(v.runs, "run")}, ` : ""}${v.via_middleout} API calls` + (v.raw_bytes ? `  ${size(v.raw_bytes)} -> ${size(v.returned_bytes)} (saved ${size(Math.max(0, v.raw_bytes - v.returned_bytes))})` : "  (bytes per tool not recorded before v0.3)")).join("\n"));
+  }
+  if (by.addressable.length) {
+    const login2 = [...new Set(by.addressable.map(([k]) => k.split(".")[0]))].map((srv) => Object.keys(cfg3?.servers || {}).find((n) => norm(n) === norm(srv))).filter((n) => n && maybeNeedsLogin(n, cfg3.servers[n]));
+    lines.push(`still raw, could go through middleout (${plural2(calls(by.addressable), "call")}, ${size(addrBytes)}):
+${top(by.addressable)}` + (login2.length ? `
+    (not signed in: ${login2.join(", ")}; if a server needs auth, run: middleout login <server>)` : ""));
+  }
+  if (by.unwrapped.length) lines.push(`not wrapped (middleout cannot reach these servers; add them to .mcp.json or "servers"), ${size(sum(by.unwrapped))}:
+${top(by.unwrapped, 3)}`);
+  if (by.unclassified.length) lines.push(`raw calls recorded before v0.3 (not classified; \`middleout stats\` in the project classifies them by server):
+${top(by.unclassified, 5)}`);
+  const ign = [];
+  if (by.write.length) ign.push(`${plural2(calls(by.write), "write")} (${size(sum(by.write))})`);
+  if (by.binary.length) ign.push(`${calls(by.binary)} binary results such as screenshots (${size(sum(by.binary))})`);
+  if (ign.length) lines.push(`ignored (not middleout's job): ${ign.join(", ")}`);
+  const errs = (s.recent_errors || []).slice(-3);
+  if (errs.length) lines.push("recent errors:\n" + errs.map((e) => `    ${day(e.at)}  ${e.message.slice(0, 160)}`).join("\n"));
+  return lines.join("\n");
+}
+var upsertFile, upsert, TOOL_FRESH, toolStat, WRITE, isWrite, BINARY_NAME, norm, isWrapped, size, thou, pct, plural2;
 var init_stats2 = __esm({
   "packages/middleout/src/stats.mjs"() {
     init_src();
+    init_oauth();
+    init_config();
     upsertFile = createStats({
       tool: "middleout",
       fresh: () => ({
@@ -39535,20 +42247,68 @@ var init_stats2 = __esm({
           raw_calls_seen: 0,
           raw_bytes_seen: 0,
           nudges: 0,
+          nudges_tracked: 0,
+          nudges_converted: 0,
           gated: 0
         },
-        tools: {}
-        // "server.tool" -> { via_middleout, raw_calls, raw_bytes_seen }
+        // nudges_tracked: nudges since conversion tracking began (v0.3); older nudges cannot be matched to a conversion
+        // "server.tool" -> through middleout: via_middleout (API calls), runs, raw_bytes, returned_bytes;
+        //                  bypassing it: raw_calls, raw_bytes_seen, class (addressable | unwrapped | binary | write)
+        tools: {},
+        bypass: {},
+        // derived: class -> { calls, bytes } over the tools map
+        recent_errors: []
+        // last 10 failed runs: { at, message, tools }
       }),
       dayFresh: () => ({ runs: 0, raw_bytes: 0, returned_bytes: 0, raw_calls_seen: 0 }),
       derive: (s) => {
         const t = s.totals;
         s.weissman = t.returned_bytes ? +(t.raw_bytes / t.returned_bytes).toFixed(1) : null;
         s.est_tokens_saved = Math.round((t.raw_bytes - t.returned_bytes) / 3.5);
+        s.bypass = {};
+        for (const v of Object.values(s.tools)) if (v.raw_calls) {
+          const b = s.bypass[v.class || "unclassified"] ??= { calls: 0, bytes: 0 };
+          b.calls += v.raw_calls;
+          b.bytes += v.raw_bytes_seen || 0;
+        }
+        s.recent_errors = (s.recent_errors || []).slice(-10);
       }
     });
     upsert = (cfg3, mutate) => upsertFile(cfg3.root, cfg3.stats, mutate);
-    toolStat = (s, ref) => s.tools[ref] ??= { via_middleout: 0, raw_calls: 0, raw_bytes_seen: 0 };
+    TOOL_FRESH = () => ({ via_middleout: 0, runs: 0, raw_bytes: 0, returned_bytes: 0, raw_calls: 0, raw_bytes_seen: 0 });
+    toolStat = (s, ref) => s.tools[ref] = { ...TOOL_FRESH(), ...s.tools[ref] };
+    WRITE = /^(create|update|delete|add|remove|set|send|post|put|patch|move|merge|start|stop|attach|upsert|insert|edit|write|archive|unarchive|close|cancel|assign|react|share|trash|upload|publish|approve|respond|click|type|navigate|submit)$/i;
+    isWrite = (tool) => {
+      const seg = String(tool).replace(/([a-z0-9])([A-Z])/g, "$1_$2").split(/[_\-.]+/).filter(Boolean);
+      return WRITE.test(seg[0] || "") || seg.length > 2 && WRITE.test(seg[1]);
+    };
+    BINARY_NAME = /(^|[_\-.])(screenshot|computer|image|capture|snapshot)([_\-.]|$)/i;
+    norm = (name) => String(name).replace(/[^A-Za-z0-9]/g, "_").toLowerCase();
+    isWrapped = (cfg3, server2) => Object.keys(cfg3?.servers || {}).some((n) => norm(n) === norm(server2));
+    size = (b) => b >= 1024 * 1024 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`;
+    thou = (n) => n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n);
+    pct = (a, b) => b ? `${Math.round(100 * a / b)}%` : "-";
+    plural2 = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  }
+});
+
+// packages/middleout/src/plan.mjs
+function planTools(plan) {
+  const out = /* @__PURE__ */ new Set();
+  const walk = (n) => {
+    if (Array.isArray(n)) return n.forEach(walk);
+    if (!n || typeof n !== "object") return;
+    if (typeof n.tool === "string") out.add(n.tool);
+    if (n.each) walk(n.each);
+  };
+  try {
+    walk(typeof plan === "string" ? JSON.parse(plan) : plan);
+  } catch {
+  }
+  return [...out];
+}
+var init_plan = __esm({
+  "packages/middleout/src/plan.mjs"() {
   }
 });
 
@@ -41190,7 +43950,7 @@ var init_stdio3 = __esm({
 
 // packages/middleout/src/mcp.mjs
 var mcp_exports = {};
-var cfg, engine, server, text, record2;
+var cfg, engine, server, text, EMPTY;
 var init_mcp2 = __esm({
   async "packages/middleout/src/mcp.mjs"() {
     init_mcp();
@@ -41199,27 +43959,23 @@ var init_mcp2 = __esm({
     init_config();
     init_engine();
     init_stats2();
+    init_plan();
     cfg = loadConfig();
     engine = createEngine(cfg);
-    server = new McpServer({ name: "middleout", version: "0.1.0" });
+    server = new McpServer({ name: "middleout", version: "0.3.0" });
     text = (t) => ({ content: [{ type: "text", text: t }] });
-    record2 = (st, ok) => upsert(cfg, (s, day) => {
-      s.totals.runs++;
-      day.runs++;
-      if (!ok) s.totals.errors++;
-      s.totals.api_calls += st.calls;
-      s.totals.auto_pages += st.autoPages;
-      s.totals.raw_bytes += st.rawBytes;
-      day.raw_bytes += st.rawBytes;
-      s.totals.returned_bytes += st.returnedBytes || 0;
-      day.returned_bytes += st.returnedBytes || 0;
-      for (const [ref, n] of Object.entries(st.byTool)) toolStat(s, ref).via_middleout += n;
-    });
+    EMPTY = { calls: 0, rawBytes: 0, autoPages: 0, byTool: {}, returnedBytes: 0 };
     server.registerTool("middleout_tools", {
       description: "List the API tools middleout can call for you (from this project's MCP servers), with their parameters.",
       inputSchema: {},
       annotations: { title: "List wrapped API tools", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
-    }, async () => text((await engine.tools()).map((t) => `- ${t.ref}(${t.params.join(", ")}): ${t.description.slice(0, 200)}`).join("\n") || "no servers configured"));
+    }, async () => {
+      const { tools, failed } = await engine.toolsReport();
+      const lines = tools.map((t) => `- ${t.ref}(${t.params.join(", ")}): ${t.description.slice(0, 200)}`);
+      for (const f of failed) lines.push(`- ${f.server}: unavailable (${f.error})`);
+      for (const [name, why] of Object.entries(cfg.skipped || {})) if (why !== "it is middleout itself") lines.push(`- ${name}: not wrapped (${why})`);
+      return text(lines.join("\n") || "no servers configured");
+    });
     server.registerTool("middleout_shape", {
       description: "Call one API tool and return only the SHAPE of its result (field names, types, one short example each), not the data. Use it to learn field names before writing a middleout_run plan.",
       inputSchema: { tool: external_exports.string().describe('"server.tool"'), args: external_exports.record(external_exports.string(), external_exports.any()).optional() },
@@ -41229,9 +43985,10 @@ var init_mcp2 = __esm({
       try {
         const { shape, stats } = await engine.shape(tool, args || {});
         const out = JSON.stringify(shape, null, 1);
-        record2({ ...stats, returnedBytes: out.length }, true);
+        recordRun(cfg, { ...stats, returnedBytes: out.length });
         return text(out);
       } catch (e) {
+        recordRun(cfg, EMPTY, { ok: false, error: e.message, tools: [tool] });
         return text(`middleout error: ${e.message}`);
       }
     });
@@ -41242,13 +43999,13 @@ var init_mcp2 = __esm({
     }, async ({ plan }) => {
       try {
         const { result, stats } = await engine.run(plan);
-        record2(stats, true);
+        recordRun(cfg, stats);
         const ratio = stats.returnedBytes ? (stats.rawBytes / stats.returnedBytes).toFixed(1) : "-";
         return text(`${JSON.stringify(result)}
 
 (middleout: ${stats.calls} API calls${stats.autoPages ? `, ${stats.autoPages} pages auto-fetched` : ""}, ${stats.rawBytes} raw bytes -> ${stats.returnedBytes} returned, Weissman ${ratio})`);
       } catch (e) {
-        record2({ calls: 0, rawBytes: 0, autoPages: 0, byTool: {}, returnedBytes: 0 }, false);
+        recordRun(cfg, EMPTY, { ok: false, error: e.message, tools: planTools(plan) });
         return text(`middleout error ${e.message}
 
 ${PLAN_DOC}`);
@@ -41262,24 +44019,75 @@ ${PLAN_DOC}`);
 init_config();
 init_engine();
 init_stats2();
-import fs5 from "node:fs";
-import path6 from "node:path";
+init_oauth();
+import fs6 from "node:fs";
+import path7 from "node:path";
 
 // packages/middleout/src/hook.mjs
 init_stats2();
-import fs4 from "node:fs";
-import os2 from "node:os";
-import path5 from "node:path";
+init_plan();
+init_oauth();
+import fs5 from "node:fs";
+import os3 from "node:os";
+import path6 from "node:path";
 var parse3 = (name) => {
   const m = name.match(/^mcp__(.+?)__(.+)$/);
   return m ? { server: m[1], tool: m[2] } : null;
 };
+var srvName = (cfg3, server2) => Object.keys(cfg3.servers || {}).find((n) => norm(n) === norm(server2)) || server2;
+var isOurs = (server2) => server2 === "middleout" || /middleout/.test(server2);
+var mark = (kind, session, server2) => path6.join(os3.tmpdir(), `middleout-${kind}-${String(session || "x").replace(/[^\w-]/g, "_")}-${norm(server2)}`);
+function hasBinary(v, depth = 0) {
+  if (!v || typeof v !== "object" || depth > 4) return false;
+  if (Array.isArray(v)) return v.some((x) => hasBinary(x, depth + 1));
+  if (v.type === "image" || v.type === "audio" || typeof v.blob === "string") return true;
+  return Object.values(v).some((x) => hasBinary(x, depth + 1));
+}
+function classify(cfg3, t, response) {
+  if (hasBinary(response)) return "binary";
+  if (isWrite(t.tool)) return "write";
+  return isWrapped(cfg3, t.server) ? "addressable" : "unwrapped";
+}
+var responseText = (r) => typeof r === "string" ? r : Array.isArray(r) ? r.map((x) => x?.text || "").join("") : Array.isArray(r?.content) ? r.content.map((x) => x?.text || "").join("") : "";
+function converted(cfg3, h) {
+  if (/^\s*middleout error/.test(responseText(h.response))) return null;
+  const input2 = h.input || {};
+  const refs = h.tool.endsWith("middleout_shape") ? [input2.tool] : h.tool.endsWith("middleout_run") ? planTools(input2.plan) : [];
+  const servers = new Set(refs.filter((r) => typeof r === "string").map((r) => r.includes(".") ? r.split(".")[0] : Object.keys(cfg3.servers)[0]).filter(Boolean));
+  let n = 0;
+  for (const srv of servers) {
+    const f = mark("nudge", h.sessionId, srv);
+    if (fs5.existsSync(f)) {
+      fs5.rmSync(f, { force: true });
+      n++;
+    }
+  }
+  if (n) upsert(cfg3, (s) => {
+    s.totals.nudges_converted += n;
+  });
+  return null;
+}
 function post(cfg3, h) {
   const t = parse3(h.tool || "");
-  if (!t || t.server === "middleout" || /middleout/.test(t.server)) return null;
+  if (!t) return null;
+  if (isOurs(t.server)) {
+    try {
+      return converted(cfg3, h);
+    } catch {
+      return null;
+    }
+  }
   const bytes = JSON.stringify(h.response ?? "").length;
-  const wrapped = !!cfg3.servers[t.server];
-  const nudge = cfg3.mode !== "off" && wrapped && bytes > cfg3.nudgeBytes;
+  const cls = classify(cfg3, t, h.response);
+  const nudge = cfg3.mode !== "off" && cls === "addressable" && bytes > cfg3.nudgeBytes;
+  let tracked = false;
+  if (nudge) {
+    try {
+      fs5.writeFileSync(mark("nudge", h.sessionId, t.server), String(Date.now()), { flag: "wx" });
+      tracked = true;
+    } catch {
+    }
+  }
   upsert(cfg3, (s, day) => {
     s.totals.raw_calls_seen++;
     s.totals.raw_bytes_seen += bytes;
@@ -41287,17 +44095,19 @@ function post(cfg3, h) {
     const k = toolStat(s, `${t.server}.${t.tool}`);
     k.raw_calls++;
     k.raw_bytes_seen += bytes;
+    k.class = k.class === "binary" ? "binary" : cls;
     if (nudge) s.totals.nudges++;
+    if (tracked) s.totals.nudges_tracked++;
   });
   if (!nudge) return null;
-  return { context: `That raw ${t.server}.${t.tool} result was ${Math.round(bytes / 1024)} KB (~${Math.round(bytes / 3.5 / 1e3)}k tokens). For the next fetch from ${t.server}, use middleout_run with a "select" (and "each" for per-item calls): it returns only the fields you need and fetches every page.` };
+  return { context: `That raw ${t.server}.${t.tool} result was ${Math.round(bytes / 1024)} KB (~${Math.round(bytes / 3.5 / 1e3)}k tokens). For the next fetch from ${t.server}, use middleout_run with a "select" (and "each" for per-item calls): it returns only the fields you need and fetches every page.` + (maybeNeedsLogin(srvName(cfg3, t.server), cfg3.servers[srvName(cfg3, t.server)]) ? ` If middleout says ${t.server} needs sign-in, ask the user to run \`middleout login ${srvName(cfg3, t.server)}\` once, and fetch raw until then.` : "") };
 }
 function pre(cfg3, h) {
   const t = parse3(h.tool || "");
-  if (cfg3.mode !== "gate" || !t || !cfg3.servers[t.server]) return null;
-  const mark = path5.join(os2.tmpdir(), `middleout-gate-${h.sessionId || "x"}-${t.server}`);
-  if (fs4.existsSync(mark)) return null;
-  fs4.writeFileSync(mark, "1");
+  if (cfg3.mode !== "gate" || !t || !isWrapped(cfg3, t.server) || isWrite(t.tool)) return null;
+  const f = mark("gate", h.sessionId, t.server);
+  if (fs5.existsSync(f)) return null;
+  fs5.writeFileSync(f, "1");
   upsert(cfg3, (s) => {
     s.totals.gated++;
   });
@@ -41310,8 +44120,9 @@ var [cmd, ...rest] = process.argv.slice(2);
 var cfg2 = loadConfig();
 var HELP = `middleout: API calls, compressed. Only the fields you asked for reach the model.
 
-  middleout init                 write middleout.config.json (wrapping this project's .mcp.json stdio servers)
-  middleout servers              list the wrapped servers and the tools exposed through middleout
+  middleout init                 write middleout.config.json (wrapping this project's .mcp.json servers: stdio, http, sse)
+  middleout servers              list the wrapped servers and the tools exposed through middleout (and any that failed)
+  middleout login <server>       sign in to an OAuth HTTP server once (opens a browser; tokens in ~/.qbranch/middleout)
   middleout run '<plan json>'    run a plan from the shell and print the result + compression
   middleout stats [--json]       usage + savings (Weissman score) from .middleout-stats.json
   middleout mcp                  run the MCP server (middleout_tools / middleout_shape / middleout_run)
@@ -41319,19 +44130,32 @@ var HELP = `middleout: API calls, compressed. Only the fields you asked for reac
 async function main() {
   switch (cmd) {
     case "init": {
-      const f = path6.join(cfg2.root, "middleout.config.json");
-      if (fs5.existsSync(f)) return console.log(`${f} already exists`);
-      fs5.writeFileSync(f, JSON.stringify({ readonly: true, mode: "nudge", nudgeBytes: 8e3 }, null, 2) + "\n");
+      const f = path7.join(cfg2.root, "middleout.config.json");
+      if (fs6.existsSync(f)) return console.log(`${f} already exists`);
+      fs6.writeFileSync(f, JSON.stringify({ readonly: true, mode: "nudge", nudgeBytes: 8e3 }, null, 2) + "\n");
       return console.log(`wrote ${f}
 wrapping (from .mcp.json): ${Object.keys(cfg2.servers).join(", ") || 'none yet: add "servers" or a .mcp.json'}`);
     }
     case "servers": {
       const e = createEngine(cfg2);
       try {
-        for (const t of await e.tools()) console.log(`- ${t.ref}(${t.params.join(", ")})`);
+        const { tools, failed } = await e.toolsReport();
+        for (const t of tools) console.log(`- ${t.ref}(${t.params.join(", ")})`);
+        for (const f of failed) console.log(`! ${f.server}: ${f.error}`);
+        for (const [n, why] of Object.entries(cfg2.skipped)) console.log(`  ${n}: not wrapped (${why})`);
       } finally {
         await e.close();
       }
+      return;
+    }
+    case "login": {
+      const name = rest[0];
+      if (!name || !cfg2.servers[name]) {
+        const http2 = Object.keys(cfg2.servers).filter((n) => cfg2.servers[n].url);
+        throw new Error(`usage: middleout login <server>${http2.length ? ` (HTTP servers here: ${http2.join(", ")})` : " (no HTTP servers in this project)"}`);
+      }
+      const r = await login(name, cfg2.servers[name]);
+      if (!r.needed) console.log(`"${name}" answered without sign-in: nothing to do`);
       return;
     }
     case "run": {
@@ -41348,11 +44172,11 @@ wrapping (from .mcp.json): ${Object.keys(cfg2.servers).join(", ") || 'none yet: 
     case "stats": {
       let s;
       try {
-        s = JSON.parse(fs5.readFileSync(path6.join(cfg2.root, cfg2.stats || ".middleout-stats.json"), "utf8"));
+        s = JSON.parse(fs6.readFileSync(path7.join(cfg2.root, cfg2.stats || ".middleout-stats.json"), "utf8"));
       } catch {
         return console.log("no stats yet");
       }
-      return console.log(rest.includes("--json") ? JSON.stringify(s, null, 2) : summarize(s));
+      return console.log(rest.includes("--json") ? JSON.stringify(s, null, 2) : summarize(s, cfg2));
     }
     case "hook":
       return runHook((h) => rest[0] === "pre" ? pre(cfg2, h) : post(cfg2, h), rest.slice(1));

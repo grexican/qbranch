@@ -4,25 +4,26 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { loadConfig } from './config.mjs';
 import { createEngine, PLAN_DOC } from './engine.mjs';
-import { upsert, toolStat } from './stats.mjs';
+import { recordRun } from './stats.mjs';
+import { planTools } from './plan.mjs';
 
 const cfg = loadConfig();
 const engine = createEngine(cfg);
-const server = new McpServer({ name: 'middleout', version: '0.1.0' });
+const server = new McpServer({ name: 'middleout', version: '0.3.0' });
 const text = (t) => ({ content: [{ type: 'text', text: t }] });
-const record = (st, ok) => upsert(cfg, (s, day) => {
-  s.totals.runs++; day.runs++; if (!ok) s.totals.errors++;
-  s.totals.api_calls += st.calls; s.totals.auto_pages += st.autoPages;
-  s.totals.raw_bytes += st.rawBytes; day.raw_bytes += st.rawBytes;
-  s.totals.returned_bytes += st.returnedBytes || 0; day.returned_bytes += st.returnedBytes || 0;
-  for (const [ref, n] of Object.entries(st.byTool)) toolStat(s, ref).via_middleout += n;
-});
+const EMPTY = { calls: 0, rawBytes: 0, autoPages: 0, byTool: {}, returnedBytes: 0 };
 
 server.registerTool('middleout_tools', {
   description: 'List the API tools middleout can call for you (from this project\'s MCP servers), with their parameters.',
   inputSchema: {},
   annotations: { title: 'List wrapped API tools', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-}, async () => text((await engine.tools()).map(t => `- ${t.ref}(${t.params.join(', ')}): ${t.description.slice(0, 200)}`).join('\n') || 'no servers configured'));
+}, async () => {
+  const { tools, failed } = await engine.toolsReport();
+  const lines = tools.map(t => `- ${t.ref}(${t.params.join(', ')}): ${t.description.slice(0, 200)}`);
+  for (const f of failed) lines.push(`- ${f.server}: unavailable (${f.error})`);
+  for (const [name, why] of Object.entries(cfg.skipped || {})) if (why !== 'it is middleout itself') lines.push(`- ${name}: not wrapped (${why})`);
+  return text(lines.join('\n') || 'no servers configured');
+});
 
 server.registerTool('middleout_shape', {
   description: 'Call one API tool and return only the SHAPE of its result (field names, types, one short example each), not the data. Use it to learn field names before writing a middleout_run plan.',
@@ -30,8 +31,8 @@ server.registerTool('middleout_shape', {
   // middleout is a pass-through: it is exactly as safe as the tool the plan names, so it claims nothing stronger
   annotations: { title: 'Sample an API result shape', readOnlyHint: cfg.readonly === true, destructiveHint: cfg.readonly !== true, idempotentHint: false, openWorldHint: true },
 }, async ({ tool, args }) => {
-  try { const { shape, stats } = await engine.shape(tool, args || {}); const out = JSON.stringify(shape, null, 1); record({ ...stats, returnedBytes: out.length }, true); return text(out); }
-  catch (e) { return text(`middleout error: ${e.message}`); }
+  try { const { shape, stats } = await engine.shape(tool, args || {}); const out = JSON.stringify(shape, null, 1); recordRun(cfg, { ...stats, returnedBytes: out.length }); return text(out); }
+  catch (e) { recordRun(cfg, EMPTY, { ok: false, error: e.message, tools: [tool] }); return text(`middleout error: ${e.message}`); }
 });
 
 server.registerTool('middleout_run', {
@@ -43,11 +44,11 @@ server.registerTool('middleout_run', {
 }, async ({ plan }) => {
   try {
     const { result, stats } = await engine.run(plan);
-    record(stats, true);
+    recordRun(cfg, stats);
     const ratio = stats.returnedBytes ? (stats.rawBytes / stats.returnedBytes).toFixed(1) : '-';
     return text(`${JSON.stringify(result)}\n\n(middleout: ${stats.calls} API calls${stats.autoPages ? `, ${stats.autoPages} pages auto-fetched` : ''}, ${stats.rawBytes} raw bytes -> ${stats.returnedBytes} returned, Weissman ${ratio})`);
   } catch (e) {
-    record({ calls: 0, rawBytes: 0, autoPages: 0, byTool: {}, returnedBytes: 0 }, false);
+    recordRun(cfg, EMPTY, { ok: false, error: e.message, tools: planTools(plan) });
     return text(`middleout error ${e.message}\n\n${PLAN_DOC}`);
   }
 });

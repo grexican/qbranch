@@ -26,7 +26,7 @@ It is a combination, shipped as one Claude Code plugin:
 
 | Piece | Role |
 |---|---|
-| **Tool** (MCP server) | `middleout_tools`, `middleout_shape`, `middleout_run`. It wraps the stdio MCP servers in your project's `.mcp.json` (no config needed), or the ones you list. |
+| **Tool** (MCP server) | `middleout_tools`, `middleout_shape`, `middleout_run`. It wraps the MCP servers in your project's `.mcp.json` (stdio, Streamable HTTP and SSE; no config needed), or the ones you list. |
 | **Skill** | How to write plans: recipes for projection, fan-out, nesting and aggregation, plus the pitfalls. |
 | **Hook** | Watches every raw MCP call. It measures the payload, and when a big result came from a server middleout wraps, it tells the agent to fetch through middleout next time. In `gate` mode it blocks the first raw call to a wrapped server per session (useful for small models). |
 | **Stats** | Upserts `.middleout-stats.json`: calls, bytes in and out, the Weissman score, tokens kept out of context, and the raw traffic that bypassed middleout. |
@@ -90,7 +90,7 @@ Native packages are in [`adapters/`](adapters/): a Cursor plugin, a Codex plugin
 
 ## Configure
 
-In a project with a `.mcp.json`, that is all: middleout wraps its stdio servers. To customize, run `middleout init` and edit `middleout.config.json`:
+In a project with a `.mcp.json`, that is all: middleout wraps its servers, stdio and HTTP alike. To customize, run `middleout init` and edit `middleout.config.json`:
 
 ```json
 {
@@ -104,18 +104,39 @@ In a project with a `.mcp.json`, that is all: middleout wraps its stdio servers.
 }
 ```
 
-`mode`: `off` (measure only), `nudge` (default), or `gate`. HTTP MCP servers whose OAuth Claude Code holds are not wrapped yet; wrap a stdio bridge to them instead.
+`mode`: `off` (measure only), `nudge` (default), or `gate`. Gate never blocks write-like tools.
+
+### HTTP servers and sign-in
+
+HTTP entries (`"type": "http"` or `"sse"`, with a `url`) are wrapped like stdio ones. `headers` values expand `${VAR}` and `${VAR:-default}` from the environment, so an API key stays in your env:
+
+```json
+{ "mcpServers": { "tickets": { "type": "http", "url": "https://tickets.example.com/mcp", "headers": { "Authorization": "Bearer ${TICKETS_TOKEN}" } } } }
+```
+
+For an OAuth server, middleout is its own client, separate from your editor's sign-in. Sign in once:
+
+```
+middleout login tickets
+```
+
+This opens a browser (PKCE, dynamic client registration, or the `oauth.clientId` / `oauth.callbackPort` from `.mcp.json`) and stores the tokens in `~/.qbranch/middleout/oauth/` (owner-only; `MIDDLEOUT_HOME` moves it). Tokens refresh on their own; concurrent sessions share the token file safely (a lock, and a refresh that loses a race keeps the winner's tokens). A server that answers without auth is remembered, so it is never reported as needing sign-in. Errors that reach the stats file are scrubbed of URL query strings, user info and the values of `${VAR}`s from `.mcp.json`. The MCP server never opens a browser: until you sign in, a plan against that server returns a "needs sign-in" error that names this command, and `middleout servers` lists it as unavailable while every other server keeps working.
 
 ## Is it working? `middleout stats`
 
 ```
-middleout stats since 2026-10-14 (updated 2026-10-14 07:47)
-runs 3 | API calls through middleout 15 | auto-fetched pages 6 | errors 0
-raw 67 KB -> returned 1 KB | Weissman score 55.1 | ~19235 tokens kept out of context
-raw MCP calls that bypassed middleout: 0 (0 KB) | nudges 0 | gated 0
+middleout since 2026-10-14: ~19.2k tokens kept out of context (an upper bound vs. the raw results: 67 KB raw -> 1 KB returned, Weissman score 55.1)
+coverage: 88% of the traffic middleout can handle went through it | 3/4 nudges converted (75%)
+through middleout: 3 runs, 15 API calls, 6 pages auto-fetched | errors 0
+  per tool:
+    tickets.list_tickets  2 runs, 9 API calls  52 KB -> 1 KB (saved 51 KB)
+    tickets.get_ticket    1 run, 6 API calls  15 KB -> 0 KB (saved 15 KB)
+still raw, could go through middleout (2 calls, 9 KB):
+    tickets.search: 2 calls, 9 KB
+ignored (not middleout's job): 4 writes (1 KB), 6 binary results such as screenshots (310 KB)
 ```
 
-"Bypassed" is the honest number. If it stays high, agents are reading raw payloads anyway: switch to `gate`, or check the skill. The biggest raw callers are listed as candidates. Commit the file to track a team, or `.gitignore` it. `"stats": false` (or `MIDDLEOUT_STATS=0`) turns it off.
+The first line is the payoff, counted against the raw results. It is an upper bound: an agent working raw might have fetched fewer pages. "Coverage" is the honest number: the share of the traffic middleout could have handled (reads from wrapped servers) that actually went through it. If it stays low, switch to `gate` or check the skill. Raw traffic is split so it never inflates the misses: writes and binary results (screenshots, images) are ignored, and servers middleout does not wrap are listed apart. A nudge counts as converted when the same session's next fetch from that server goes through middleout. The last few errors are shown too. Commit the file to track a team, or `.gitignore` it. `"stats": false` (or `MIDDLEOUT_STATS=0`) turns it off.
 
 ## When you do not need it
 

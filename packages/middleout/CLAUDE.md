@@ -5,10 +5,13 @@ middleout is a declarative fetch layer over MCP servers and JSON APIs: hierarchi
 ## Map
 - `src/engine.mjs`: `createEngine()`: connects downstream servers, read-only filter (server `readOnlyHint`), plan runner, auto-pagination, empty-arg cleanup
 - `src/mcp.mjs`: `middleout_tools` / `middleout_shape` / `middleout_run`
-- `src/hook.mjs`: post (measure raw MCP traffic, nudge) and pre (gate mode)
-- `src/config.mjs`: `middleout.config.json`; default servers = the project's `.mcp.json` stdio servers
-- `src/stats.mjs`: `.middleout-stats.json` upserts and the Weissman score. Stats must never throw into the agent.
-- `test/fixtures/crm-server.mjs`: the fixture every engine test runs against
+- `src/hook.mjs`: post (measure raw MCP traffic split addressable/unwrapped/binary/write, nudge, count nudge conversions) and pre (gate mode)
+- `src/config.mjs`: `middleout.config.json`; default servers = the project's `.mcp.json` servers (stdio, http, sse; `${VAR}` expansion; `skipped` says why an entry is not wrapped)
+- `src/oauth.mjs`: OAuth client for HTTP servers: `middleout login` (browser, once) and the runtime provider (stored tokens + SDK refresh; never a browser, never registers)
+- `src/plan.mjs`: tool refs a plan names (stats, errors, nudge conversion)
+- `src/stats.mjs`: `.middleout-stats.json` upserts, per-tool attribution (`recordRun`), the Weissman score and the summary. Stats must never throw into the agent.
+- `test/fixtures/crm-server.mjs`: the stdio fixture every engine test runs against
+- `test/fixtures/http-server.mjs`: Streamable HTTP fixture (open, bearer, and a minimal OAuth server)
 
 ## Rules
 - Tests: `npm test`. Run them before every commit.
