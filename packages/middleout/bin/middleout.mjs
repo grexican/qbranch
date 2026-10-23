@@ -23,6 +23,7 @@ const HELP = `middleout: API calls, compressed. Only the fields you asked for re
   middleout hook post|pre        PostToolUse / PreToolUse hooks (hook JSON on stdin; --platform claude|codex|cursor|copilot|gemini|windsurf)`;
 
 async function main() {
+  if (!['hook', 'mcp'].includes(cmd) && (rest.includes('--help') || rest.includes('-h'))) return console.log(HELP);
   switch (cmd) {
     case 'init': {
       const f = path.join(cfg.root, 'middleout.config.json');

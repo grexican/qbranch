@@ -1,0 +1,3 @@
+#!/bin/sh
+# `moneyball` as a command where the plugin bin/ is on PATH (Claude Code adds it); runs the bundled CLI.
+exec node "$(dirname "$0")/../dist/moneyball.mjs" "$@"

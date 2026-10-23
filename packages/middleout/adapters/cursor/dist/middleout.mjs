@@ -44174,6 +44174,7 @@ var HELP = `middleout: API calls, compressed. Only the fields you asked for reac
   middleout mcp                  run the MCP server (middleout_tools / middleout_shape / middleout_run)
   middleout hook post|pre        PostToolUse / PreToolUse hooks (hook JSON on stdin; --platform claude|codex|cursor|copilot|gemini|windsurf)`;
 async function main() {
+  if (!["hook", "mcp"].includes(cmd) && (rest.includes("--help") || rest.includes("-h"))) return console.log(HELP);
   switch (cmd) {
     case "init": {
       const f = path7.join(cfg2.root, "middleout.config.json");

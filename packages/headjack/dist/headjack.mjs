@@ -38831,6 +38831,7 @@ function moveDir(from, to) {
   }
 }
 async function main() {
+  if (cmd !== "hook" && (rest.includes("--help") || rest.includes("-h"))) return console.log(HELP);
   switch (cmd) {
     case "init": {
       fs7.mkdirSync(cfg2.sharedDir, { recursive: true });
