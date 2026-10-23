@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.1 (2026-10-23)
+
+**middleout**
+- middleout: sign-in hints name a command that runs (the shim, qbranch middleout, or the plugin's script); installers add headjack/middleout/moneyball/groundhog commands next to qbranch
+
 ## v0.3.0 (2026-10-23)
 
 **other**

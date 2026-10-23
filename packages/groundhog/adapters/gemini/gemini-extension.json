@@ -1,5 +1,5 @@
 {
   "name": "groundhog",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Stop re-living the same session: mine transcripts for repeated procedures and re-learned lessons, keep them in a committed ledger, and enforce them with hooks instead of longer prompts."
 }
