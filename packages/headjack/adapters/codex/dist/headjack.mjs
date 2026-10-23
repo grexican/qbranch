@@ -62,6 +62,14 @@ async function readStdin() {
   for await (const c of process.stdin) raw += c;
   return raw;
 }
+async function selfCommand(tool, script) {
+  try {
+    const sea = await import("node:sea");
+    if (sea.isSea()) return [process.execPath, [tool]];
+  } catch {
+  }
+  return [process.execPath, [script]];
+}
 var expandPath, readJson;
 var init_project = __esm({
   "packages/core/src/project.mjs"() {
@@ -383,6 +391,7 @@ var init_hooks = __esm({
 import fs3 from "node:fs";
 import os3 from "node:os";
 import path4 from "node:path";
+import { execFileSync, spawn } from "node:child_process";
 function installCommand(platform = process.platform, env = process.env) {
   const base = `https://raw.githubusercontent.com/${repoOf(env)}/main/scripts`;
   return platform === "win32" ? `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm ${base}/install.ps1 | iex"` : `curl -fsSL ${base}/install.sh | sh`;
@@ -393,47 +402,148 @@ function cmpVersion(a, b) {
   for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0) ? -1 : 1;
   return 0;
 }
-function withBinaryNote(h, d = null, opts = {}) {
-  const n = binaryNote({ sessionId: h?.sessionId || "", ...opts });
+function readLatest(env = process.env) {
+  try {
+    const j = JSON.parse(fs3.readFileSync(latestFile(env), "utf8"));
+    return j && typeof j === "object" && !Array.isArray(j) ? j : null;
+  } catch {
+    return null;
+  }
+}
+async function latestTag({ env = process.env, run = runCmd, fetchImpl = globalThis.fetch } = {}) {
+  const repo = repoOf(env);
+  const viaGh = run("gh", ["api", `repos/${repo}/releases/latest`, "--jq", ".tag_name"]);
+  if (viaGh && viaGh.trim()) return viaGh.trim().replace(/^v/, "");
+  const r = await fetchImpl(`https://api.github.com/repos/${repo}/releases/latest`, {
+    headers: { "User-Agent": "qbranch", Accept: "application/vnd.github+json", ...env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {} },
+    signal: AbortSignal.timeout(1e4)
+  });
+  if (!r.ok) throw new Error(`GitHub ${r.status}`);
+  const tag = String((await r.json())?.tag_name || "").replace(/^v/, "");
+  if (!tag) throw new Error("no release tag");
+  return tag;
+}
+async function refreshLatest({ env = process.env, run, fetchImpl } = {}) {
+  if (optedOut(env)) return null;
+  const f = latestFile(env), lock2 = `${f}.lock`;
+  if (env.QBRANCH_REFRESH_LOCK_HELD !== "1" && !takeLock(lock2)) return null;
+  try {
+    let version2 = null, error62 = null;
+    try {
+      version2 = await latestTag({ env, run, fetchImpl });
+    } catch (e) {
+      error62 = String(e?.message || e).slice(0, 200);
+    }
+    const prev = readLatest(env);
+    const out = { version: version2 ?? prev?.version ?? null, checkedAt: (/* @__PURE__ */ new Date()).toISOString(), ...error62 ? { error: error62 } : {} };
+    const tmp = `${f}.${process.pid}.tmp`;
+    fs3.writeFileSync(tmp, JSON.stringify(out, null, 2) + "\n");
+    fs3.renameSync(tmp, f);
+    return out;
+  } catch {
+    return null;
+  } finally {
+    try {
+      fs3.rmSync(lock2, { force: true });
+    } catch {
+    }
+  }
+}
+async function maybeRefresh({ env = process.env, tool, script = process.argv[1], spawner = defaultSpawner, now = Date.now() } = {}) {
+  try {
+    if (optedOut(env) || !tool || !needsRefresh(readLatest(env), now)) return false;
+    const lock2 = `${latestFile(env)}.lock`;
+    if (!takeLock(lock2)) return false;
+    try {
+      await spawner({ tool, script, env });
+      return true;
+    } catch {
+      fs3.rmSync(lock2, { force: true });
+      return false;
+    }
+  } catch {
+    return false;
+  }
+}
+function installedPlugins({ env = process.env, cwd = process.cwd() } = {}) {
+  try {
+    const j = JSON.parse(fs3.readFileSync(path4.join(claudeHome(env), "plugins", "installed_plugins.json"), "utf8"));
+    const out = [];
+    for (const [id, installs] of Object.entries(j?.plugins || {})) {
+      const [name, market] = id.split("@");
+      if (market !== "qbranch" || !Array.isArray(installs)) continue;
+      const proj = installs.filter((i) => i?.projectPath && within(cwd, i.projectPath)).sort((a, b) => b.projectPath.length - a.projectPath.length)[0];
+      const pick2 = proj || installs.find((i) => i?.scope === "user");
+      if (pick2?.version) out.push({ name, version: pick2.version });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+async function withBinaryNote(h, d = null, opts = {}) {
+  await maybeRefresh({ tool: opts.tool, script: opts.script, env: opts.env, spawner: opts.spawner });
+  const n = binaryNote({ sessionId: h?.sessionId || "", harness: h?.platform || "claude", cwd: h?.cwd, ...opts });
   if (!n) return d;
   return d ? { ...d, context: d.context ? `${d.context}
 
 ${n}` : n } : { context: n };
 }
-function binaryNote({ sessionId = "", version: version2 = VERSION, env = process.env, platform = process.platform, markDir = markDirDefault() } = {}) {
+function binaryNote({
+  sessionId = "",
+  version: version2 = VERSION,
+  tool = null,
+  harness = "claude",
+  cwd = process.cwd(),
+  env = process.env,
+  platform = process.platform,
+  markDir = markDirDefault()
+} = {}) {
   try {
     if (!version2 || version2 === "dev") return null;
+    const latest = optedOut(env) ? null : readLatest(env)?.version || null;
+    const pluginsBehind = !!latest && cmpVersion(version2, latest) < 0;
     const home = qbranchHome(env);
-    const exe = path4.join(home, platform === "win32" ? "qbranch.exe" : "qbranch");
     let bin = null;
     try {
       bin = fs3.readFileSync(path4.join(home, "VERSION"), "utf8").trim();
     } catch {
     }
-    if (bin === "dev") return null;
-    const hasExe = fs3.existsSync(exe);
-    if (!bin && !hasExe) return null;
-    if (bin && cmpVersion(bin, version2) >= 0) return null;
+    const hasExe = fs3.existsSync(path4.join(home, platform === "win32" ? "qbranch.exe" : "qbranch"));
+    const target = pluginsBehind ? latest : version2;
+    const binBehind = bin !== "dev" && (bin || hasExe) && (!bin || cmpVersion(bin, target) < 0);
+    if (!pluginsBehind && !binBehind) return null;
     const key = (sessionId || `ppid-${process.ppid}`).replace(/[^A-Za-z0-9_.-]/g, "_");
     const mark = path4.join(markDir, `binary-${key}`);
     if (fs3.existsSync(mark)) return null;
     fs3.mkdirSync(markDir, { recursive: true, mode: 448 });
     fs3.writeFileSync(mark, version2, { mode: 384 });
-    const fold = platform === "linux" ? (d) => d : (d) => d.toLowerCase();
-    const dirs = (env.PATH || env.Path || "").split(path4.delimiter).filter(Boolean).map((d) => path4.resolve(d));
-    const homeBin = dirs.findIndex((d) => fold(d) === fold(path4.resolve(home, "bin")));
-    const pluginBin = dirs.findIndex((d) => /[\\/]plugins[\\/]/i.test(d) && /[\\/]bin$/i.test(d) && SHIMS.some((s) => fs3.existsSync(path4.join(d, s))));
-    const shadow = homeBin >= 0 && pluginBin >= 0 && homeBin < pluginBin ? ` Until then its commands (${path4.join(home, "bin")}) come first on PATH and shadow the plugins' newer ones.` : "";
-    const what = bin ? `qbranch binary v${bin.replace(/^v/, "")} is older than the plugins (v${version2})` : `qbranch binary is older than the plugins (v${version2}; it was installed before versions were tracked)`;
-    const alt = platform === "win32" ? `Command Prompt: ${installCommand(platform, env)}` : installCommand(platform, env);
-    return `${what}: run \`qbranch update\` (or ${alt}).${shadow}`;
+    const parts = [];
+    if (pluginsBehind) {
+      const fromRegistry = harness === "claude" ? installedPlugins({ env, cwd }).filter((p) => cmpVersion(p.version, latest) < 0).map((p) => p.name) : [];
+      const names = [.../* @__PURE__ */ new Set([...tool ? [tool] : [], ...fromRegistry])].sort();
+      const list = names.length ? names : SHIMS;
+      parts.push(harness === "claude" ? `qbranch plugins are behind the latest release (v${version2} -> v${latest}): run \`claude plugin marketplace update qbranch\`, then \`claude plugin update <name>@qbranch\` for ${list.join(", ")}, then restart Claude Code.` : `qbranch plugins are behind the latest release (v${version2} -> v${latest}): run \`qbranch update\`, then \`qbranch install ${list.join(" ")} --platform ${harness}\`.`);
+    }
+    if (binBehind && !(pluginsBehind && harness !== "claude")) {
+      const fold = platform === "linux" ? (d) => d : (d) => d.toLowerCase();
+      const dirs = (env.PATH || env.Path || "").split(path4.delimiter).filter(Boolean).map((d) => path4.resolve(d));
+      const homeBin = dirs.findIndex((d) => fold(d) === fold(path4.resolve(home, "bin")));
+      const pluginBin = dirs.findIndex((d) => /[\\/]plugins[\\/]/i.test(d) && /[\\/]bin$/i.test(d) && SHIMS.some((s) => fs3.existsSync(path4.join(d, s))));
+      const shadow = homeBin >= 0 && pluginBin >= 0 && homeBin < pluginBin ? ` Until then its commands (${path4.join(home, "bin")}) come first on PATH and shadow the plugins' newer ones.` : "";
+      const what = bin ? `qbranch binary v${bin.replace(/^v/, "")} is older than the plugins (v${target})` : `qbranch binary is older than the plugins (v${target}; it was installed before versions were tracked)`;
+      const alt = platform === "win32" ? `Command Prompt: ${installCommand(platform, env)}` : installCommand(platform, env);
+      parts.push(`${what}: run \`qbranch update\` (or ${alt}).${shadow}`);
+    }
+    return parts.join(" ");
   } catch {
     return null;
   }
 }
-var VERSION, qbranchHome, repoOf, user, markDirDefault, SHIMS;
+var VERSION, qbranchHome, repoOf, user, markDirDefault, SHIMS, DAY, STALE_LOCK, latestFile, optedOut, needsRefresh, takeLock, runCmd, defaultSpawner, claudeHome, within;
 var init_binary = __esm({
   "packages/core/src/binary.mjs"() {
+    init_project();
     VERSION = true ? "0.5.2" : null;
     qbranchHome = (env = process.env) => env.QBRANCH_HOME || path4.join(os3.homedir(), ".qbranch");
     repoOf = (env) => env.QBRANCH_REPO || "grexican/qbranch";
@@ -446,6 +556,43 @@ var init_binary = __esm({
     };
     markDirDefault = () => path4.join(os3.tmpdir(), `qbranch-${user()}`, "notes");
     SHIMS = ["headjack", "middleout", "moneyball", "groundhog"];
+    DAY = 864e5;
+    STALE_LOCK = 10 * 6e4;
+    latestFile = (env = process.env) => path4.join(qbranchHome(env), "latest.json");
+    optedOut = (env) => env.QBRANCH_UPDATE_CHECK === "0";
+    needsRefresh = (latest, now = Date.now()) => !(latest && Date.parse(latest.checkedAt) > now - DAY);
+    takeLock = (lock2) => {
+      try {
+        fs3.mkdirSync(path4.dirname(lock2), { recursive: true });
+        fs3.writeFileSync(lock2, String(process.pid), { flag: "wx" });
+        return true;
+      } catch {
+        try {
+          if (Date.now() - fs3.statSync(lock2).mtimeMs > STALE_LOCK) {
+            fs3.rmSync(lock2, { force: true });
+            return takeLock(lock2);
+          }
+        } catch {
+        }
+        return false;
+      }
+    };
+    runCmd = (cmd2, args) => {
+      try {
+        return execFileSync(cmd2, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15e3, windowsHide: true });
+      } catch {
+        return null;
+      }
+    };
+    defaultSpawner = async ({ tool, script, env }) => {
+      const [file3, pre] = await selfCommand(tool, script);
+      spawn(file3, [...pre, "refresh-latest"], { detached: true, stdio: "ignore", windowsHide: true, env: { ...env, QBRANCH_REFRESH_LOCK_HELD: "1" } }).unref();
+    };
+    claudeHome = (env) => env.CLAUDE_CONFIG_DIR || path4.join(os3.homedir(), ".claude");
+    within = (dir, root) => {
+      const r = path4.relative(path4.resolve(root), path4.resolve(dir));
+      return !r.startsWith("..") && !path4.isAbsolute(r);
+    };
   }
 });
 
@@ -38919,6 +39066,9 @@ function moveDir(from, to) {
 async function main() {
   if (cmd !== "hook" && (rest.includes("--help") || rest.includes("-h"))) return console.log(HELP);
   switch (cmd) {
+    case "refresh-latest":
+      return void await refreshLatest();
+    // spawned in the background by the session hook
     case "init": {
       fs8.mkdirSync(cfg2.sharedDir, { recursive: true });
       fs8.mkdirSync(cfg2.personalDir, { recursive: true });
@@ -39164,7 +39314,7 @@ ${cur}`);
       return console.log(flag("--json") ? JSON.stringify(s, null, 2) : summarize(s));
     }
     case "hook":
-      if (rest[0] === "session") return runHook((h) => withBinaryNote(h), rest.slice(1));
+      if (rest[0] === "session") return runHook((h) => withBinaryNote(h, null, { tool: "headjack" }), rest.slice(1));
       return runHook(async (h) => ({ context: await suggest(cfg2, h.prompt, { sessionId: h.sessionId }) }), rest);
     case "mcp":
       return init_mcp2().then(() => mcp_exports);

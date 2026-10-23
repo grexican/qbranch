@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readJson, selfCommand } from '@qbranch/core';
 import { runHook } from '@qbranch/core/hooks';
-import { withBinaryNote } from '@qbranch/core/binary';
+import { withBinaryNote, refreshLatest } from '@qbranch/core/binary';
 import { loadConfig } from '../src/config.mjs';
 import { mine } from '../src/mine.mjs';
 import { accept, fromRecovery, fromSwitch, fromRtk, loadLessons, preToolUse, recurrences, sessionStart, updateLesson } from '../src/lessons.mjs';
@@ -61,6 +61,7 @@ async function main() {
   if (cmd !== 'hook' && (rest.includes('--help') || rest.includes('-h'))) return console.log(HELP);
   const cfg = loadConfig();
   switch (cmd) {
+    case 'refresh-latest': return void (await refreshLatest()); // spawned in the background by the session hook
     case 'scan': {
       const ix = mine(cfg, { days: Number(opt('--days', cfg.days)), allProjects: flag('--all-projects') });
       const rec = recurrences(cfg, ix.allCalls);
@@ -145,7 +146,7 @@ async function main() {
       return console.log(flag('--json') ? JSON.stringify(s, null, 2) : summarize(s));
     }
     case 'hook':
-      return runHook((h) => (rest[0] === 'session' ? withBinaryNote(h, sessionStart(cfg)) : preToolUse(cfg, h)), rest.slice(1));
+      return runHook((h) => (rest[0] === 'session' ? withBinaryNote(h, sessionStart(cfg), { tool: 'groundhog' }) : preToolUse(cfg, h)), rest.slice(1));
     default: console.log(HELP);
   }
 }

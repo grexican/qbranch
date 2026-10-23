@@ -65,6 +65,8 @@ qbranch install all --platform claude
 
 The binary is installed apart from the plugins, so `claude plugin update` does not refresh it. Run `qbranch update` (it re-runs the installer; on Windows it can replace the running exe). When the binary falls behind, each plugin says so once per session at startup; plugin-only installs are never told anything. Reinstalling keeps your middleout sign-ins and cached models.
 
+**Staying current.** At session start the plugins also check whether they are behind the latest release, and if so say once, in one line, which plugins to update and how (`claude plugin marketplace update qbranch`, then `claude plugin update <name>@qbranch`; on other platforms `qbranch update` then `qbranch install`). The check reads a cached `~/.qbranch/latest.json`; when that is more than a day old, a detached background process asks GitHub for the latest release tag (one request a day, through `gh` when it is installed). The session never waits on the network. Turn it off with `QBRANCH_UPDATE_CHECK=0`.
+
 `qbranch` is a single executable that runs any gadget (`qbranch moneyball report`, `qbranch groundhog scan`). It is built per OS in CI. It has no local embeddings (those need native modules), so headjack uses keyword search in the binary.
 
 ## Platform support

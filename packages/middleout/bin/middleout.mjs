@@ -8,7 +8,7 @@ import { summarize } from '../src/stats.mjs';
 import { login } from '../src/oauth.mjs';
 import { post, pre } from '../src/hook.mjs';
 import { runHook } from '@qbranch/core/hooks';
-import { withBinaryNote } from '@qbranch/core/binary';
+import { withBinaryNote, refreshLatest } from '@qbranch/core/binary';
 
 const [cmd, ...rest] = process.argv.slice(2);
 const cfg = loadConfig();
@@ -26,6 +26,7 @@ const HELP = `middleout: API calls, compressed. Only the fields you asked for re
 async function main() {
   if (!['hook', 'mcp'].includes(cmd) && (rest.includes('--help') || rest.includes('-h'))) return console.log(HELP);
   switch (cmd) {
+    case 'refresh-latest': return void (await refreshLatest()); // spawned in the background by the session hook
     case 'init': {
       const f = path.join(cfg.root, 'middleout.config.json');
       if (fs.existsSync(f)) return console.log(`${f} already exists`);
@@ -65,7 +66,7 @@ async function main() {
       let s; try { s = JSON.parse(fs.readFileSync(path.join(cfg.root, cfg.stats || '.middleout-stats.json'), 'utf8')); } catch { return console.log('no stats yet'); }
       return console.log(rest.includes('--json') ? JSON.stringify(s, null, 2) : summarize(s, cfg));
     }
-    case 'hook': return runHook((h) => (rest[0] === 'session' ? withBinaryNote(h) : rest[0] === 'pre' ? pre(cfg, h) : post(cfg, h)), rest.slice(1));
+    case 'hook': return runHook((h) => (rest[0] === 'session' ? withBinaryNote(h, null, { tool: 'middleout' }) : rest[0] === 'pre' ? pre(cfg, h) : post(cfg, h)), rest.slice(1));
     case 'mcp': return import('../src/mcp.mjs');
     default: console.log(HELP);
   }

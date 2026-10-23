@@ -68,7 +68,7 @@ function openSqlite(file) {
   }
 }
 function claudeProjectDirs(root) {
-  const base = path5.join(claudeHome(), "projects");
+  const base = path5.join(claudeHome2(), "projects");
   if (!fs4.existsSync(base)) return [];
   if (!root) return fs4.readdirSync(base).map((d) => path5.join(base, d)).filter((d) => fs4.statSync(d).isDirectory());
   const enc = encodeProject(root);
@@ -263,7 +263,7 @@ function* codexSessions({ root, days }) {
     const mtime = mtimeOf(file);
     if (mtime <= since) continue;
     const cwd = headCwd(file, (r) => (r.payload || r).cwd);
-    if (root && !within(cwd, root)) continue;
+    if (root && !within2(cwd, root)) continue;
     yield { platform: "codex", id: path5.basename(file).replace(/\.jsonl(\.zst)?$/, ""), file, kind: "main", meta: { cwd }, mtime, events: () => codexEvents(file) };
   }
 }
@@ -383,7 +383,7 @@ function* cursorIdeSessions({ root, days }) {
       const mtime = c.lastUpdatedAt || c.createdAt || 0;
       if (mtime <= since) continue;
       const cwd = where.get(c.composerId) || c.gitWorktree?.mainWorktreePath || c.gitWorktree?.worktreePath || "";
-      if (root && !within(cwd, root)) continue;
+      if (root && !within2(cwd, root)) continue;
       const parent = c.subagentInfo?.parentComposerId;
       yield {
         platform: "cursor",
@@ -487,7 +487,7 @@ function* copilotSessions({ root, days }) {
     logged.add(d);
     if (mtime <= since) continue;
     const cwd = headCwd(f, (r) => r.data?.context?.cwd || r.data?.cwd);
-    if (root && !within(cwd, root)) continue;
+    if (root && !within2(cwd, root)) continue;
     yield { platform: "copilot-cli", id: d, file: f, kind: "main", meta: { cwd }, mtime, events: () => copilotEvents(f) };
   }
   const stores = [path5.join(base, "session-store.db"), ...editorUserDirs(["Code", "Code - Insiders"], "VSCODE_USER_DIR").map((u) => path5.join(u, "globalStorage", "github.copilot-chat", "session-store.db"))];
@@ -505,7 +505,7 @@ function* copilotStore(store, { root, since, logged }) {
   }
   for (const s of rows) {
     const mtime = Date.parse(String(s.updated_at || "").replace(" ", "T")) || 0;
-    if (logged.has(String(s.id)) || mtime <= since || !s.cwd || root && !within(s.cwd, root)) continue;
+    if (logged.has(String(s.id)) || mtime <= since || !s.cwd || root && !within2(s.cwd, root)) continue;
     yield { platform: "copilot-cli", id: String(s.id), file: `${store}#${s.id}`, kind: "main", meta: { cwd: s.cwd }, mtime, events: function* () {
       yield { t: "meta", cwd: s.cwd, at: s.created_at };
       try {
@@ -597,7 +597,7 @@ function* vscodeChatSessions({ root, days }) {
     const dirs = [...editorWorkspaces(user2)].map(([id, cwd]) => [path5.join(user2, "workspaceStorage", id, "chatSessions"), cwd]);
     dirs.push([path5.join(user2, "globalStorage", "emptyWindowChatSessions"), ""]);
     for (const [dir, cwd] of dirs) {
-      if (root && !within(cwd, root)) continue;
+      if (root && !within2(cwd, root)) continue;
       for (const f of walk(dir, (x) => /\.jsonl?$/.test(x), 0)) {
         const mtime = mtimeOf(f);
         if (mtime <= since) continue;
@@ -693,7 +693,7 @@ function* geminiSessions({ root, days }) {
     } catch {
     }
     if (!cwd && d === hash) cwd = root;
-    if (root && !within(cwd, root)) continue;
+    if (root && !within2(cwd, root)) continue;
     const chats = path5.join(base, d, "chats"), files = new Set(walk(chats, (x) => /\.jsonl?$/.test(x), 1));
     for (const f of files) {
       if (f.endsWith(".json") && files.has(f + "l")) continue;
@@ -750,7 +750,7 @@ function* opencodeSessions({ root, days }) {
     return;
   }
   for (const s of rows) {
-    if (!s.directory || root && !within(s.directory, root)) continue;
+    if (!s.directory || root && !within2(s.directory, root)) continue;
     yield { platform: "opencode", id: String(s.id), file: `${file}#${s.id}`, kind: s.parent_id ? "subagent" : "main", ...s.parent_id ? { parent: String(s.parent_id) } : {}, meta: { cwd: s.directory }, mtime: Number(s.time_updated), events: () => opencodeEvents(db2, s) };
   }
 }
@@ -780,7 +780,7 @@ function* piSessions({ root, days }) {
     const mtime = mtimeOf(f);
     if (mtime <= since) continue;
     const cwd = headCwd(f, (r) => r.type === "session" ? r.cwd : "");
-    if (root && !within(cwd, root)) continue;
+    if (root && !within2(cwd, root)) continue;
     yield { platform: "pi", id: path5.basename(f, ".jsonl"), file: f, kind: "main", meta: { cwd }, mtime, events: () => piEvents(f) };
   }
 }
@@ -793,7 +793,7 @@ function* sessions({ root = null, days = 30, platforms = Object.keys(READERS) } 
     }
   }
 }
-var PRICES, modelId, home, mtimeOf, isDir, ls, within, textOf, parseArgs, SHELLS, FILES, toolName, require_, claudeHome, encodeProject, tag, cursorSlug, uriPath, CURSOR_TOOLS2, cursorTool, VSCODE_TOOLS, vscodeTool, READERS;
+var PRICES, modelId, home, mtimeOf, isDir, ls, within2, textOf, parseArgs, SHELLS, FILES, toolName, require_, claudeHome2, encodeProject, tag, cursorSlug, uriPath, CURSOR_TOOLS2, cursorTool, VSCODE_TOOLS, vscodeTool, READERS;
 var init_transcripts = __esm({
   "packages/core/src/transcripts.mjs"() {
     PRICES = {
@@ -831,7 +831,7 @@ var init_transcripts = __esm({
         return [];
       }
     };
-    within = (p, root) => {
+    within2 = (p, root) => {
       if (!p || !root) return false;
       const r = path5.relative(path5.resolve(root), path5.resolve(p));
       return !r.startsWith("..") && !path5.isAbsolute(r);
@@ -849,7 +849,7 @@ var init_transcripts = __esm({
     FILES = { write: "Write", write_file: "Write", create: "Write", edit: "Edit", replace: "Edit", str_replace: "Edit", read: "Read", read_file: "Read", view: "Read" };
     toolName = (n) => SHELLS[n] || FILES[n] || n;
     require_ = createRequire(import.meta.url);
-    claudeHome = () => home("CLAUDE_CONFIG_DIR", ".claude");
+    claudeHome2 = () => home("CLAUDE_CONFIG_DIR", ".claude");
     encodeProject = (dir) => path5.resolve(dir).replace(/[^A-Za-z0-9]/g, "-");
     tag = (s, n) => s.match(new RegExp(`<${n}>([\\s\\S]*?)</${n}>`))?.[1];
     cursorSlug = (dir) => path5.resolve(dir).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -928,7 +928,7 @@ import fs9 from "node:fs";
 import os6 from "node:os";
 import path12 from "node:path";
 import crypto2 from "node:crypto";
-import { spawn as spawn2, spawnSync } from "node:child_process";
+import { spawn as spawn3, spawnSync } from "node:child_process";
 function unsafeAction({ tool = "", input = {} } = {}, { root = "", allow = [] } = {}) {
   input = input || {};
   const win = /^[A-Za-z]:/.test(root);
@@ -1043,7 +1043,7 @@ function digest(s, root) {
         if (e.id) byId.set(e.id, c);
       }
       const f = e.input?.file_path ?? e.input?.path;
-      if (/^(Write|Edit|MultiEdit)$/.test(e.name) && f && within(path12.resolve(cwd2, f), cwd2)) files.push(path12.relative(cwd2, path12.resolve(cwd2, f)).split(path12.sep).join("/"));
+      if (/^(Write|Edit|MultiEdit)$/.test(e.name) && f && within2(path12.resolve(cwd2, f), cwd2)) files.push(path12.relative(cwd2, path12.resolve(cwd2, f)).split(path12.sep).join("/"));
     } else if (e.t === "result" && byId.has(e.id)) {
       const c = byId.get(e.id);
       c.ran = true;
@@ -1056,7 +1056,7 @@ function digest(s, root) {
   if (!cwd || /qbranch-replay-/.test(cwd)) return null;
   for (const p of prompt.match(/(?:\b[A-Za-z]:[\\/]|(?<![\w.])\/(?:[a-z]|Users|home|mnt|var|opt|etc|srv)\/)[^\s'"`<>|)]*/g) || []) {
     const abs = /^\/[a-z]\//i.test(p) ? `${p[1].toUpperCase()}:${p.slice(2)}` : p;
-    if (!within(path12.resolve(abs), cwd) && !within(path12.resolve(abs), os6.tmpdir())) unsafe.push(`prompt names a path outside the project (${p.slice(0, 60)})`);
+    if (!within2(path12.resolve(abs), cwd) && !within2(path12.resolve(abs), os6.tmpdir())) unsafe.push(`prompt names a path outside the project (${p.slice(0, 60)})`);
   }
   const ok = calls.filter((c) => c.ran && !c.err && !READS.test(commandKey(c.cmd).split(" ")[0]));
   const keys = [...new Map(ok.map((c) => [commandKey(c.cmd), c])).values()].slice(-3);
@@ -1185,7 +1185,7 @@ function exec(bin, args, { cwd, env, input = "", timeoutMs = 3e5 } = {}) {
   return new Promise((resolve) => {
     const file = which(bin), shim = /\.(cmd|bat)$/i.test(file);
     const q = (a) => /[\s"&|<>^]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a;
-    const child = spawn2(shim ? `"${file}"` : file, shim ? args.map(q) : args, { cwd, env, shell: shim, windowsHide: true, detached: process.platform !== "win32" });
+    const child = spawn3(shim ? `"${file}"` : file, shim ? args.map(q) : args, { cwd, env, shell: shim, windowsHide: true, detached: process.platform !== "win32" });
     let stdout = "", stderr = "", killed = false;
     const timer = setTimeout(() => {
       killed = true;
@@ -1230,7 +1230,7 @@ async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeou
     const changed = new Set(sb.status().split("\n").filter((l) => l && !before.has(l)).map((l) => path12.relative(sb.dir, path12.join(sb.root, l.slice(3).replace(/^"|"$/g, ""))).split(path12.sep).join("/")));
     for (const e of r.events || []) {
       const f = e.t === "tool" && /^(Write|Edit|MultiEdit)$/.test(e.name) && (e.input?.file_path ?? e.input?.path);
-      if (f && within(path12.resolve(sb.dir, f), sb.dir)) changed.add(path12.relative(sb.dir, path12.resolve(sb.dir, f)).split(path12.sep).join("/"));
+      if (f && within2(path12.resolve(sb.dir, f), sb.dir)) changed.add(path12.relative(sb.dir, path12.resolve(sb.dir, f)).split(path12.sep).join("/"));
     }
     const usage = r.events?.find((e) => e.t === "usage")?.usage;
     const run = {
@@ -1363,7 +1363,7 @@ async function compareVariants({ tasks, variants, repeats = 1, concurrency = 1, 
   }
   return { perVariant: Object.fromEntries(names.map((n) => [n, summary(totals[n])])), perTask, regressions, skipped, inconclusive, runs, spentUsd: +spent.toFixed(4), complete: skipped.length === 0 && inconclusive.length === 0 };
 }
-var guardSource, STOP2, jaccard, isMeta, READS, SHELL, DENIED, git, AGENTS, registerAgent, claudeHome2, mergeHooks, fwd, swapRoot, CHECKS, claudeJudge;
+var guardSource, STOP2, jaccard, isMeta, READS, SHELL, DENIED, git, AGENTS, registerAgent, claudeHome3, mergeHooks, fwd, swapRoot, CHECKS, claudeJudge;
 var init_replay = __esm({
   "packages/core/src/replay.mjs"() {
     init_transcripts();
@@ -1397,7 +1397,7 @@ process.stdin.on('end', () => {
     registerAgent = (name, adapter) => {
       AGENTS[name] = adapter;
     };
-    claudeHome2 = () => process.env.CLAUDE_CONFIG_DIR || path12.join(os6.homedir(), ".claude");
+    claudeHome3 = () => process.env.CLAUDE_CONFIG_DIR || path12.join(os6.homedir(), ".claude");
     mergeHooks = (...sets) => {
       const out = {};
       for (const s of sets) for (const [ev, list] of Object.entries(s?.hooks || {})) out[ev] = [...out[ev] || [], ...list];
@@ -1437,7 +1437,7 @@ process.stdin.on('end', () => {
         j = Array.isArray(v) ? v.find((x) => x.type === "result") : v;
       } catch {
       }
-      const pdir = path12.join(claudeHome2(), "projects", encodeProject(dir));
+      const pdir = path12.join(claudeHome3(), "projects", encodeProject(dir));
       let transcript = j?.session_id && path12.join(pdir, `${j.session_id}.jsonl`);
       if (!transcript || !fs9.existsSync(transcript)) transcript = (fs9.existsSync(pdir) ? fs9.readdirSync(pdir).filter((f) => f.endsWith(".jsonl")).map((f) => path12.join(pdir, f)) : [])[0] || null;
       let events = [], transcriptPath = null;
@@ -1694,6 +1694,7 @@ async function runHook(handler, argv = process.argv.slice(2)) {
 import fs2 from "node:fs";
 import os from "node:os";
 import path2 from "node:path";
+import { execFileSync, spawn } from "node:child_process";
 var VERSION = true ? "0.5.2" : null;
 var qbranchHome = (env = process.env) => env.QBRANCH_HOME || path2.join(os.homedir(), ".qbranch");
 var repoOf = (env) => env.QBRANCH_REPO || "grexican/qbranch";
@@ -1716,40 +1717,177 @@ var user = () => {
 };
 var markDirDefault = () => path2.join(os.tmpdir(), `qbranch-${user()}`, "notes");
 var SHIMS = ["headjack", "middleout", "moneyball", "groundhog"];
-function withBinaryNote(h, d = null, opts = {}) {
-  const n = binaryNote({ sessionId: h?.sessionId || "", ...opts });
+var DAY = 864e5;
+var STALE_LOCK = 10 * 6e4;
+var latestFile = (env = process.env) => path2.join(qbranchHome(env), "latest.json");
+var optedOut = (env) => env.QBRANCH_UPDATE_CHECK === "0";
+function readLatest(env = process.env) {
+  try {
+    const j = JSON.parse(fs2.readFileSync(latestFile(env), "utf8"));
+    return j && typeof j === "object" && !Array.isArray(j) ? j : null;
+  } catch {
+    return null;
+  }
+}
+var needsRefresh = (latest, now = Date.now()) => !(latest && Date.parse(latest.checkedAt) > now - DAY);
+var takeLock = (lock2) => {
+  try {
+    fs2.mkdirSync(path2.dirname(lock2), { recursive: true });
+    fs2.writeFileSync(lock2, String(process.pid), { flag: "wx" });
+    return true;
+  } catch {
+    try {
+      if (Date.now() - fs2.statSync(lock2).mtimeMs > STALE_LOCK) {
+        fs2.rmSync(lock2, { force: true });
+        return takeLock(lock2);
+      }
+    } catch {
+    }
+    return false;
+  }
+};
+var runCmd = (cmd2, args) => {
+  try {
+    return execFileSync(cmd2, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15e3, windowsHide: true });
+  } catch {
+    return null;
+  }
+};
+async function latestTag({ env = process.env, run = runCmd, fetchImpl = globalThis.fetch } = {}) {
+  const repo = repoOf(env);
+  const viaGh = run("gh", ["api", `repos/${repo}/releases/latest`, "--jq", ".tag_name"]);
+  if (viaGh && viaGh.trim()) return viaGh.trim().replace(/^v/, "");
+  const r = await fetchImpl(`https://api.github.com/repos/${repo}/releases/latest`, {
+    headers: { "User-Agent": "qbranch", Accept: "application/vnd.github+json", ...env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {} },
+    signal: AbortSignal.timeout(1e4)
+  });
+  if (!r.ok) throw new Error(`GitHub ${r.status}`);
+  const tag2 = String((await r.json())?.tag_name || "").replace(/^v/, "");
+  if (!tag2) throw new Error("no release tag");
+  return tag2;
+}
+async function refreshLatest({ env = process.env, run, fetchImpl } = {}) {
+  if (optedOut(env)) return null;
+  const f = latestFile(env), lock2 = `${f}.lock`;
+  if (env.QBRANCH_REFRESH_LOCK_HELD !== "1" && !takeLock(lock2)) return null;
+  try {
+    let version = null, error = null;
+    try {
+      version = await latestTag({ env, run, fetchImpl });
+    } catch (e) {
+      error = String(e?.message || e).slice(0, 200);
+    }
+    const prev = readLatest(env);
+    const out = { version: version ?? prev?.version ?? null, checkedAt: (/* @__PURE__ */ new Date()).toISOString(), ...error ? { error } : {} };
+    const tmp = `${f}.${process.pid}.tmp`;
+    fs2.writeFileSync(tmp, JSON.stringify(out, null, 2) + "\n");
+    fs2.renameSync(tmp, f);
+    return out;
+  } catch {
+    return null;
+  } finally {
+    try {
+      fs2.rmSync(lock2, { force: true });
+    } catch {
+    }
+  }
+}
+var defaultSpawner = async ({ tool, script, env }) => {
+  const [file, pre] = await selfCommand(tool, script);
+  spawn(file, [...pre, "refresh-latest"], { detached: true, stdio: "ignore", windowsHide: true, env: { ...env, QBRANCH_REFRESH_LOCK_HELD: "1" } }).unref();
+};
+async function maybeRefresh({ env = process.env, tool, script = process.argv[1], spawner = defaultSpawner, now = Date.now() } = {}) {
+  try {
+    if (optedOut(env) || !tool || !needsRefresh(readLatest(env), now)) return false;
+    const lock2 = `${latestFile(env)}.lock`;
+    if (!takeLock(lock2)) return false;
+    try {
+      await spawner({ tool, script, env });
+      return true;
+    } catch {
+      fs2.rmSync(lock2, { force: true });
+      return false;
+    }
+  } catch {
+    return false;
+  }
+}
+var claudeHome = (env) => env.CLAUDE_CONFIG_DIR || path2.join(os.homedir(), ".claude");
+var within = (dir, root) => {
+  const r = path2.relative(path2.resolve(root), path2.resolve(dir));
+  return !r.startsWith("..") && !path2.isAbsolute(r);
+};
+function installedPlugins({ env = process.env, cwd = process.cwd() } = {}) {
+  try {
+    const j = JSON.parse(fs2.readFileSync(path2.join(claudeHome(env), "plugins", "installed_plugins.json"), "utf8"));
+    const out = [];
+    for (const [id, installs] of Object.entries(j?.plugins || {})) {
+      const [name, market] = id.split("@");
+      if (market !== "qbranch" || !Array.isArray(installs)) continue;
+      const proj = installs.filter((i) => i?.projectPath && within(cwd, i.projectPath)).sort((a, b) => b.projectPath.length - a.projectPath.length)[0];
+      const pick = proj || installs.find((i) => i?.scope === "user");
+      if (pick?.version) out.push({ name, version: pick.version });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+async function withBinaryNote(h, d = null, opts = {}) {
+  await maybeRefresh({ tool: opts.tool, script: opts.script, env: opts.env, spawner: opts.spawner });
+  const n = binaryNote({ sessionId: h?.sessionId || "", harness: h?.platform || "claude", cwd: h?.cwd, ...opts });
   if (!n) return d;
   return d ? { ...d, context: d.context ? `${d.context}
 
 ${n}` : n } : { context: n };
 }
-function binaryNote({ sessionId = "", version = VERSION, env = process.env, platform = process.platform, markDir = markDirDefault() } = {}) {
+function binaryNote({
+  sessionId = "",
+  version = VERSION,
+  tool = null,
+  harness = "claude",
+  cwd = process.cwd(),
+  env = process.env,
+  platform = process.platform,
+  markDir = markDirDefault()
+} = {}) {
   try {
     if (!version || version === "dev") return null;
+    const latest = optedOut(env) ? null : readLatest(env)?.version || null;
+    const pluginsBehind = !!latest && cmpVersion(version, latest) < 0;
     const home3 = qbranchHome(env);
-    const exe = path2.join(home3, platform === "win32" ? "qbranch.exe" : "qbranch");
     let bin = null;
     try {
       bin = fs2.readFileSync(path2.join(home3, "VERSION"), "utf8").trim();
     } catch {
     }
-    if (bin === "dev") return null;
-    const hasExe = fs2.existsSync(exe);
-    if (!bin && !hasExe) return null;
-    if (bin && cmpVersion(bin, version) >= 0) return null;
+    const hasExe = fs2.existsSync(path2.join(home3, platform === "win32" ? "qbranch.exe" : "qbranch"));
+    const target = pluginsBehind ? latest : version;
+    const binBehind = bin !== "dev" && (bin || hasExe) && (!bin || cmpVersion(bin, target) < 0);
+    if (!pluginsBehind && !binBehind) return null;
     const key = (sessionId || `ppid-${process.ppid}`).replace(/[^A-Za-z0-9_.-]/g, "_");
     const mark = path2.join(markDir, `binary-${key}`);
     if (fs2.existsSync(mark)) return null;
     fs2.mkdirSync(markDir, { recursive: true, mode: 448 });
     fs2.writeFileSync(mark, version, { mode: 384 });
-    const fold = platform === "linux" ? (d) => d : (d) => d.toLowerCase();
-    const dirs = (env.PATH || env.Path || "").split(path2.delimiter).filter(Boolean).map((d) => path2.resolve(d));
-    const homeBin = dirs.findIndex((d) => fold(d) === fold(path2.resolve(home3, "bin")));
-    const pluginBin = dirs.findIndex((d) => /[\\/]plugins[\\/]/i.test(d) && /[\\/]bin$/i.test(d) && SHIMS.some((s) => fs2.existsSync(path2.join(d, s))));
-    const shadow = homeBin >= 0 && pluginBin >= 0 && homeBin < pluginBin ? ` Until then its commands (${path2.join(home3, "bin")}) come first on PATH and shadow the plugins' newer ones.` : "";
-    const what = bin ? `qbranch binary v${bin.replace(/^v/, "")} is older than the plugins (v${version})` : `qbranch binary is older than the plugins (v${version}; it was installed before versions were tracked)`;
-    const alt = platform === "win32" ? `Command Prompt: ${installCommand(platform, env)}` : installCommand(platform, env);
-    return `${what}: run \`qbranch update\` (or ${alt}).${shadow}`;
+    const parts = [];
+    if (pluginsBehind) {
+      const fromRegistry = harness === "claude" ? installedPlugins({ env, cwd }).filter((p) => cmpVersion(p.version, latest) < 0).map((p) => p.name) : [];
+      const names = [.../* @__PURE__ */ new Set([...tool ? [tool] : [], ...fromRegistry])].sort();
+      const list = names.length ? names : SHIMS;
+      parts.push(harness === "claude" ? `qbranch plugins are behind the latest release (v${version} -> v${latest}): run \`claude plugin marketplace update qbranch\`, then \`claude plugin update <name>@qbranch\` for ${list.join(", ")}, then restart Claude Code.` : `qbranch plugins are behind the latest release (v${version} -> v${latest}): run \`qbranch update\`, then \`qbranch install ${list.join(" ")} --platform ${harness}\`.`);
+    }
+    if (binBehind && !(pluginsBehind && harness !== "claude")) {
+      const fold = platform === "linux" ? (d) => d : (d) => d.toLowerCase();
+      const dirs = (env.PATH || env.Path || "").split(path2.delimiter).filter(Boolean).map((d) => path2.resolve(d));
+      const homeBin = dirs.findIndex((d) => fold(d) === fold(path2.resolve(home3, "bin")));
+      const pluginBin = dirs.findIndex((d) => /[\\/]plugins[\\/]/i.test(d) && /[\\/]bin$/i.test(d) && SHIMS.some((s) => fs2.existsSync(path2.join(d, s))));
+      const shadow = homeBin >= 0 && pluginBin >= 0 && homeBin < pluginBin ? ` Until then its commands (${path2.join(home3, "bin")}) come first on PATH and shadow the plugins' newer ones.` : "";
+      const what = bin ? `qbranch binary v${bin.replace(/^v/, "")} is older than the plugins (v${target})` : `qbranch binary is older than the plugins (v${target}; it was installed before versions were tracked)`;
+      const alt = platform === "win32" ? `Command Prompt: ${installCommand(platform, env)}` : installCommand(platform, env);
+      parts.push(`${what}: run \`qbranch update\` (or ${alt}).${shadow}`);
+    }
+    return parts.join(" ");
   } catch {
     return null;
   }
@@ -2360,7 +2498,7 @@ function routes(cfg) {
 // packages/moneyball/src/route.mjs
 import fs6 from "node:fs";
 import path9 from "node:path";
-import { spawn } from "node:child_process";
+import { spawn as spawn2 } from "node:child_process";
 
 // packages/moneyball/src/stats.mjs
 var upsertFile = createStats({
@@ -2496,7 +2634,7 @@ async function sessionStart(cfg, script, now = Date.now()) {
   if (last && now - Date.parse(last) < STALE_MS) return null;
   try {
     const [file, pre] = await selfCommand("moneyball", script);
-    spawn(file, [...pre, "scan", "--quiet"], { cwd: cfg.root, detached: true, stdio: "ignore", windowsHide: true }).unref();
+    spawn2(file, [...pre, "scan", "--quiet"], { cwd: cfg.root, detached: true, stdio: "ignore", windowsHide: true }).unref();
   } catch {
   }
   return null;
@@ -2506,7 +2644,7 @@ async function sessionStart(cfg, script, now = Date.now()) {
 import fs7 from "node:fs";
 import os4 from "node:os";
 import path10 from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync as execFileSync2 } from "node:child_process";
 var tok = (s) => Math.ceil((s || "").length / 4);
 var promptTokens2 = (u) => !u ? 0 : (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
 function quantile(xs, q) {
@@ -2689,10 +2827,10 @@ function claudeProbe(args, cwd, input = null) {
   const opts = { cwd, encoding: "utf8", timeout: 18e4, windowsHide: true, stdio: [input == null ? "ignore" : "pipe", "pipe", "pipe"], ...input == null ? {} : { input } };
   let out;
   try {
-    out = execFileSync("claude", args, opts);
+    out = execFileSync2("claude", args, opts);
   } catch (e) {
     if (e.code !== "ENOENT" || process.platform !== "win32") throw e;
-    out = execFileSync("claude.cmd", args.map((a) => /[\s"{}&|<>^]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a), { ...opts, shell: true });
+    out = execFileSync2("claude.cmd", args.map((a) => /[\s"{}&|<>^]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a), { ...opts, shell: true });
   }
   return JSON.parse(out.trim().split("\n").reverse().find((l) => l.startsWith("{")) || "{}");
 }
@@ -2986,7 +3124,7 @@ init_replay();
 import fs10 from "node:fs";
 import os7 from "node:os";
 import path13 from "node:path";
-import { spawn as spawn3, spawnSync as spawnSync2 } from "node:child_process";
+import { spawn as spawn4, spawnSync as spawnSync2 } from "node:child_process";
 var git2 = (args, opts = {}) => spawnSync2("git", args, { encoding: "utf8", windowsHide: true, maxBuffer: 256 * 1024 * 1024, ...opts });
 var json = (t) => {
   try {
@@ -3081,7 +3219,7 @@ var quote = (f) => /[\s"&|<>^()]/.test(f) ? `"${f}"` : f;
 function sh(cmd2, { cwd, env, timeoutMs }) {
   return new Promise((resolve) => {
     const t0 = Date.now();
-    const child = spawn3(cmd2, { cwd, env, shell: true, windowsHide: true, detached: process.platform !== "win32" });
+    const child = spawn4(cmd2, { cwd, env, shell: true, windowsHide: true, detached: process.platform !== "win32" });
     let out = "", killed = false;
     const add = (d) => {
       out += d;
@@ -3699,6 +3837,9 @@ async function main() {
   if (cmd !== "hook" && (rest.includes("--help") || rest.includes("-h"))) return console.log(HELP);
   const cfg = loadConfig();
   switch (cmd) {
+    case "refresh-latest":
+      return void await refreshLatest();
+    // spawned in the background by the session hook
     case "scan": {
       const r = await doScan(cfg);
       if (!flag("--quiet")) console.log(`read ${r.scanned} subagent transcripts from the last ${r.days} days (+${r.added} new); the index (older runs kept): ${r.runs} runs over ${r.window_days} days, ${r.classes} classes, ${money2(r.spend)} (API-equivalent); ${r.graduate} graduated, ${r.explore} exploring, est. saving ${money2(r.est_saving)} (${money2(r.est_saving_30d || 0)}/30d)${r.est_minutes_30d != null ? `, ~${num(r.est_minutes_30d)} min/30d` : ""}`);
@@ -3799,7 +3940,7 @@ ${"".padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${gain ? ` (${gain})` : ""}`);
       return;
     }
     case "hook":
-      return runHook(async (h) => rest[0] === "session" ? withBinaryNote(h, await sessionStart(cfg, SELF)) : preToolUse(cfg, h), rest.slice(1));
+      return runHook(async (h) => rest[0] === "session" ? withBinaryNote(h, await sessionStart(cfg, SELF), { tool: "moneyball" }) : preToolUse(cfg, h), rest.slice(1));
     default:
       console.log(HELP);
   }

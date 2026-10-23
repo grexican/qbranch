@@ -10,7 +10,7 @@ import { upsert, skillStat, summarize } from '../src/stats.mjs';
 import { suggest } from '../src/suggest.mjs';
 import { record, history, origin, sourceOf, skillHash } from '../src/ledger.mjs';
 import { runHook } from '@qbranch/core/hooks';
-import { withBinaryNote } from '@qbranch/core/binary';
+import { withBinaryNote, refreshLatest } from '@qbranch/core/binary';
 
 const [cmd, ...rest] = process.argv.slice(2);
 const flag = (f) => { const i = rest.indexOf(f); if (i < 0) return false; rest.splice(i, 1); return true; };
@@ -65,6 +65,7 @@ function moveDir(from, to) {
 async function main() {
   if (cmd !== 'hook' && (rest.includes('--help') || rest.includes('-h'))) return console.log(HELP);
   switch (cmd) {
+    case 'refresh-latest': return void (await refreshLatest()); // spawned in the background by the session hook
     case 'init': {
       fs.mkdirSync(cfg.sharedDir, { recursive: true });
       fs.mkdirSync(cfg.personalDir, { recursive: true });
@@ -257,7 +258,7 @@ async function main() {
     }
 
     case 'hook':
-      if (rest[0] === 'session') return runHook((h) => withBinaryNote(h), rest.slice(1));
+      if (rest[0] === 'session') return runHook((h) => withBinaryNote(h, null, { tool: 'headjack' }), rest.slice(1));
       return runHook(async (h) => ({ context: await suggest(cfg, h.prompt, { sessionId: h.sessionId }) }), rest);
 
     case 'mcp': return import('../src/mcp.mjs');

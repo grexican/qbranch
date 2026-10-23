@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { runHook } from '@qbranch/core/hooks';
-import { withBinaryNote } from '@qbranch/core/binary';
+import { withBinaryNote, refreshLatest } from '@qbranch/core/binary';
 import { loadConfig } from '../src/config.mjs';
 import { scan } from '../src/scan.mjs';
 import { plan, routes, overview, signal } from '../src/recommend.mjs';
@@ -147,6 +147,7 @@ async function main() {
   if (cmd !== 'hook' && (rest.includes('--help') || rest.includes('-h'))) return console.log(HELP);
   const cfg = loadConfig();
   switch (cmd) {
+    case 'refresh-latest': return void (await refreshLatest()); // spawned in the background by the session hook
     case 'scan': {
       const r = await doScan(cfg);
       if (!flag('--quiet')) console.log(`read ${r.scanned} subagent transcripts from the last ${r.days} days (+${r.added} new); the index (older runs kept): ${r.runs} runs over ${r.window_days} days, ${r.classes} classes, ${money(r.spend)} (API-equivalent); `
@@ -219,7 +220,7 @@ async function main() {
       return;
     }
     case 'hook':
-      return runHook(async (h) => (rest[0] === 'session' ? withBinaryNote(h, await sessionStart(cfg, SELF)) : preToolUse(cfg, h)), rest.slice(1));
+      return runHook(async (h) => (rest[0] === 'session' ? withBinaryNote(h, await sessionStart(cfg, SELF), { tool: 'moneyball' }) : preToolUse(cfg, h)), rest.slice(1));
     default: console.log(HELP);
   }
 }

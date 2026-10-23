@@ -1175,6 +1175,7 @@ async function runHook(handler, argv = process.argv.slice(2)) {
 import fs4 from "node:fs";
 import os3 from "node:os";
 import path5 from "node:path";
+import { execFileSync, spawn } from "node:child_process";
 var VERSION = true ? "0.5.2" : null;
 var qbranchHome = (env = process.env) => env.QBRANCH_HOME || path5.join(os3.homedir(), ".qbranch");
 var repoOf = (env) => env.QBRANCH_REPO || "grexican/qbranch";
@@ -1197,40 +1198,177 @@ var user = () => {
 };
 var markDirDefault = () => path5.join(os3.tmpdir(), `qbranch-${user()}`, "notes");
 var SHIMS = ["headjack", "middleout", "moneyball", "groundhog"];
-function withBinaryNote(h, d = null, opts = {}) {
-  const n = binaryNote({ sessionId: h?.sessionId || "", ...opts });
+var DAY = 864e5;
+var STALE_LOCK = 10 * 6e4;
+var latestFile = (env = process.env) => path5.join(qbranchHome(env), "latest.json");
+var optedOut = (env) => env.QBRANCH_UPDATE_CHECK === "0";
+function readLatest(env = process.env) {
+  try {
+    const j = JSON.parse(fs4.readFileSync(latestFile(env), "utf8"));
+    return j && typeof j === "object" && !Array.isArray(j) ? j : null;
+  } catch {
+    return null;
+  }
+}
+var needsRefresh = (latest, now = Date.now()) => !(latest && Date.parse(latest.checkedAt) > now - DAY);
+var takeLock = (lock2) => {
+  try {
+    fs4.mkdirSync(path5.dirname(lock2), { recursive: true });
+    fs4.writeFileSync(lock2, String(process.pid), { flag: "wx" });
+    return true;
+  } catch {
+    try {
+      if (Date.now() - fs4.statSync(lock2).mtimeMs > STALE_LOCK) {
+        fs4.rmSync(lock2, { force: true });
+        return takeLock(lock2);
+      }
+    } catch {
+    }
+    return false;
+  }
+};
+var runCmd = (cmd2, args) => {
+  try {
+    return execFileSync(cmd2, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15e3, windowsHide: true });
+  } catch {
+    return null;
+  }
+};
+async function latestTag({ env = process.env, run = runCmd, fetchImpl = globalThis.fetch } = {}) {
+  const repo = repoOf(env);
+  const viaGh = run("gh", ["api", `repos/${repo}/releases/latest`, "--jq", ".tag_name"]);
+  if (viaGh && viaGh.trim()) return viaGh.trim().replace(/^v/, "");
+  const r = await fetchImpl(`https://api.github.com/repos/${repo}/releases/latest`, {
+    headers: { "User-Agent": "qbranch", Accept: "application/vnd.github+json", ...env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {} },
+    signal: AbortSignal.timeout(1e4)
+  });
+  if (!r.ok) throw new Error(`GitHub ${r.status}`);
+  const tag2 = String((await r.json())?.tag_name || "").replace(/^v/, "");
+  if (!tag2) throw new Error("no release tag");
+  return tag2;
+}
+async function refreshLatest({ env = process.env, run, fetchImpl } = {}) {
+  if (optedOut(env)) return null;
+  const f = latestFile(env), lock2 = `${f}.lock`;
+  if (env.QBRANCH_REFRESH_LOCK_HELD !== "1" && !takeLock(lock2)) return null;
+  try {
+    let version = null, error = null;
+    try {
+      version = await latestTag({ env, run, fetchImpl });
+    } catch (e) {
+      error = String(e?.message || e).slice(0, 200);
+    }
+    const prev = readLatest(env);
+    const out = { version: version ?? prev?.version ?? null, checkedAt: (/* @__PURE__ */ new Date()).toISOString(), ...error ? { error } : {} };
+    const tmp = `${f}.${process.pid}.tmp`;
+    fs4.writeFileSync(tmp, JSON.stringify(out, null, 2) + "\n");
+    fs4.renameSync(tmp, f);
+    return out;
+  } catch {
+    return null;
+  } finally {
+    try {
+      fs4.rmSync(lock2, { force: true });
+    } catch {
+    }
+  }
+}
+var defaultSpawner = async ({ tool, script, env }) => {
+  const [file2, pre] = await selfCommand(tool, script);
+  spawn(file2, [...pre, "refresh-latest"], { detached: true, stdio: "ignore", windowsHide: true, env: { ...env, QBRANCH_REFRESH_LOCK_HELD: "1" } }).unref();
+};
+async function maybeRefresh({ env = process.env, tool, script = process.argv[1], spawner = defaultSpawner, now = Date.now() } = {}) {
+  try {
+    if (optedOut(env) || !tool || !needsRefresh(readLatest(env), now)) return false;
+    const lock2 = `${latestFile(env)}.lock`;
+    if (!takeLock(lock2)) return false;
+    try {
+      await spawner({ tool, script, env });
+      return true;
+    } catch {
+      fs4.rmSync(lock2, { force: true });
+      return false;
+    }
+  } catch {
+    return false;
+  }
+}
+var claudeHome2 = (env) => env.CLAUDE_CONFIG_DIR || path5.join(os3.homedir(), ".claude");
+var within2 = (dir, root) => {
+  const r = path5.relative(path5.resolve(root), path5.resolve(dir));
+  return !r.startsWith("..") && !path5.isAbsolute(r);
+};
+function installedPlugins({ env = process.env, cwd = process.cwd() } = {}) {
+  try {
+    const j = JSON.parse(fs4.readFileSync(path5.join(claudeHome2(env), "plugins", "installed_plugins.json"), "utf8"));
+    const out = [];
+    for (const [id, installs] of Object.entries(j?.plugins || {})) {
+      const [name, market] = id.split("@");
+      if (market !== "qbranch" || !Array.isArray(installs)) continue;
+      const proj = installs.filter((i) => i?.projectPath && within2(cwd, i.projectPath)).sort((a, b) => b.projectPath.length - a.projectPath.length)[0];
+      const pick2 = proj || installs.find((i) => i?.scope === "user");
+      if (pick2?.version) out.push({ name, version: pick2.version });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+async function withBinaryNote(h, d = null, opts = {}) {
+  await maybeRefresh({ tool: opts.tool, script: opts.script, env: opts.env, spawner: opts.spawner });
+  const n = binaryNote({ sessionId: h?.sessionId || "", harness: h?.platform || "claude", cwd: h?.cwd, ...opts });
   if (!n) return d;
   return d ? { ...d, context: d.context ? `${d.context}
 
 ${n}` : n } : { context: n };
 }
-function binaryNote({ sessionId = "", version = VERSION, env = process.env, platform = process.platform, markDir: markDir2 = markDirDefault() } = {}) {
+function binaryNote({
+  sessionId = "",
+  version = VERSION,
+  tool = null,
+  harness = "claude",
+  cwd = process.cwd(),
+  env = process.env,
+  platform = process.platform,
+  markDir: markDir2 = markDirDefault()
+} = {}) {
   try {
     if (!version || version === "dev") return null;
+    const latest = optedOut(env) ? null : readLatest(env)?.version || null;
+    const pluginsBehind = !!latest && cmpVersion(version, latest) < 0;
     const home2 = qbranchHome(env);
-    const exe = path5.join(home2, platform === "win32" ? "qbranch.exe" : "qbranch");
     let bin = null;
     try {
       bin = fs4.readFileSync(path5.join(home2, "VERSION"), "utf8").trim();
     } catch {
     }
-    if (bin === "dev") return null;
-    const hasExe = fs4.existsSync(exe);
-    if (!bin && !hasExe) return null;
-    if (bin && cmpVersion(bin, version) >= 0) return null;
+    const hasExe = fs4.existsSync(path5.join(home2, platform === "win32" ? "qbranch.exe" : "qbranch"));
+    const target = pluginsBehind ? latest : version;
+    const binBehind = bin !== "dev" && (bin || hasExe) && (!bin || cmpVersion(bin, target) < 0);
+    if (!pluginsBehind && !binBehind) return null;
     const key = (sessionId || `ppid-${process.ppid}`).replace(/[^A-Za-z0-9_.-]/g, "_");
     const mark = path5.join(markDir2, `binary-${key}`);
     if (fs4.existsSync(mark)) return null;
     fs4.mkdirSync(markDir2, { recursive: true, mode: 448 });
     fs4.writeFileSync(mark, version, { mode: 384 });
-    const fold = platform === "linux" ? (d) => d : (d) => d.toLowerCase();
-    const dirs = (env.PATH || env.Path || "").split(path5.delimiter).filter(Boolean).map((d) => path5.resolve(d));
-    const homeBin = dirs.findIndex((d) => fold(d) === fold(path5.resolve(home2, "bin")));
-    const pluginBin = dirs.findIndex((d) => /[\\/]plugins[\\/]/i.test(d) && /[\\/]bin$/i.test(d) && SHIMS.some((s) => fs4.existsSync(path5.join(d, s))));
-    const shadow = homeBin >= 0 && pluginBin >= 0 && homeBin < pluginBin ? ` Until then its commands (${path5.join(home2, "bin")}) come first on PATH and shadow the plugins' newer ones.` : "";
-    const what = bin ? `qbranch binary v${bin.replace(/^v/, "")} is older than the plugins (v${version})` : `qbranch binary is older than the plugins (v${version}; it was installed before versions were tracked)`;
-    const alt = platform === "win32" ? `Command Prompt: ${installCommand(platform, env)}` : installCommand(platform, env);
-    return `${what}: run \`qbranch update\` (or ${alt}).${shadow}`;
+    const parts = [];
+    if (pluginsBehind) {
+      const fromRegistry = harness === "claude" ? installedPlugins({ env, cwd }).filter((p) => cmpVersion(p.version, latest) < 0).map((p) => p.name) : [];
+      const names = [.../* @__PURE__ */ new Set([...tool ? [tool] : [], ...fromRegistry])].sort();
+      const list = names.length ? names : SHIMS;
+      parts.push(harness === "claude" ? `qbranch plugins are behind the latest release (v${version} -> v${latest}): run \`claude plugin marketplace update qbranch\`, then \`claude plugin update <name>@qbranch\` for ${list.join(", ")}, then restart Claude Code.` : `qbranch plugins are behind the latest release (v${version} -> v${latest}): run \`qbranch update\`, then \`qbranch install ${list.join(" ")} --platform ${harness}\`.`);
+    }
+    if (binBehind && !(pluginsBehind && harness !== "claude")) {
+      const fold = platform === "linux" ? (d) => d : (d) => d.toLowerCase();
+      const dirs = (env.PATH || env.Path || "").split(path5.delimiter).filter(Boolean).map((d) => path5.resolve(d));
+      const homeBin = dirs.findIndex((d) => fold(d) === fold(path5.resolve(home2, "bin")));
+      const pluginBin = dirs.findIndex((d) => /[\\/]plugins[\\/]/i.test(d) && /[\\/]bin$/i.test(d) && SHIMS.some((s) => fs4.existsSync(path5.join(d, s))));
+      const shadow = homeBin >= 0 && pluginBin >= 0 && homeBin < pluginBin ? ` Until then its commands (${path5.join(home2, "bin")}) come first on PATH and shadow the plugins' newer ones.` : "";
+      const what = bin ? `qbranch binary v${bin.replace(/^v/, "")} is older than the plugins (v${target})` : `qbranch binary is older than the plugins (v${target}; it was installed before versions were tracked)`;
+      const alt = platform === "win32" ? `Command Prompt: ${installCommand(platform, env)}` : installCommand(platform, env);
+      parts.push(`${what}: run \`qbranch update\` (or ${alt}).${shadow}`);
+    }
+    return parts.join(" ");
   } catch {
     return null;
   }
@@ -1705,7 +1843,7 @@ import fs8 from "node:fs";
 import os6 from "node:os";
 import path10 from "node:path";
 import crypto2 from "node:crypto";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn as spawn2, spawnSync } from "node:child_process";
 function unsafeAction({ tool = "", input = {} } = {}, { root = "", allow = [] } = {}) {
   input = input || {};
   const win = /^[A-Za-z]:/.test(root);
@@ -1985,7 +2123,7 @@ function exec(bin, args, { cwd, env, input = "", timeoutMs = 3e5 } = {}) {
   return new Promise((resolve) => {
     const file2 = which(bin), shim = /\.(cmd|bat)$/i.test(file2);
     const q2 = (a) => /[\s"&|<>^]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a;
-    const child = spawn(shim ? `"${file2}"` : file2, shim ? args.map(q2) : args, { cwd, env, shell: shim, windowsHide: true, detached: process.platform !== "win32" });
+    const child = spawn2(shim ? `"${file2}"` : file2, shim ? args.map(q2) : args, { cwd, env, shell: shim, windowsHide: true, detached: process.platform !== "win32" });
     let stdout = "", stderr = "", killed = false;
     const timer = setTimeout(() => {
       killed = true;
@@ -2016,7 +2154,7 @@ function exec(bin, args, { cwd, env, input = "", timeoutMs = 3e5 } = {}) {
     child.stdin.end(input);
   });
 }
-var claudeHome2 = () => process.env.CLAUDE_CONFIG_DIR || path10.join(os6.homedir(), ".claude");
+var claudeHome3 = () => process.env.CLAUDE_CONFIG_DIR || path10.join(os6.homedir(), ".claude");
 var mergeHooks = (...sets) => {
   const out = {};
   for (const s of sets) for (const [ev, list] of Object.entries(s?.hooks || {})) out[ev] = [...out[ev] || [], ...list];
@@ -2056,7 +2194,7 @@ registerAgent("claude", async ({ prompt, dir, base: base2, model, budgetUsd, tim
     j = Array.isArray(v) ? v.find((x) => x.type === "result") : v;
   } catch {
   }
-  const pdir = path10.join(claudeHome2(), "projects", encodeProject(dir));
+  const pdir = path10.join(claudeHome3(), "projects", encodeProject(dir));
   let transcript = j?.session_id && path10.join(pdir, `${j.session_id}.jsonl`);
   if (!transcript || !fs8.existsSync(transcript)) transcript = (fs8.existsSync(pdir) ? fs8.readdirSync(pdir).filter((f) => f.endsWith(".jsonl")).map((f) => path10.join(pdir, f)) : [])[0] || null;
   let events = [], transcriptPath = null;
@@ -2259,7 +2397,7 @@ async function compareVariants({ tasks, variants, repeats = 1, concurrency = 1, 
 import fs9 from "node:fs";
 import os7 from "node:os";
 import path11 from "node:path";
-import { spawn as spawn2, spawnSync as spawnSync2 } from "node:child_process";
+import { spawn as spawn3, spawnSync as spawnSync2 } from "node:child_process";
 var git2 = (args, opts = {}) => spawnSync2("git", args, { encoding: "utf8", windowsHide: true, maxBuffer: 256 * 1024 * 1024, ...opts });
 var json = (t) => {
   try {
@@ -2288,7 +2426,7 @@ var quote = (f) => /[\s"&|<>^()]/.test(f) ? `"${f}"` : f;
 function sh(cmd2, { cwd, env, timeoutMs }) {
   return new Promise((resolve) => {
     const t0 = Date.now();
-    const child = spawn2(cmd2, { cwd, env, shell: true, windowsHide: true, detached: process.platform !== "win32" });
+    const child = spawn3(cmd2, { cwd, env, shell: true, windowsHide: true, detached: process.platform !== "win32" });
     let out = "", killed = false;
     const add = (d) => {
       out += d;
@@ -2660,6 +2798,9 @@ async function main() {
   if (cmd !== "hook" && (rest.includes("--help") || rest.includes("-h"))) return console.log(HELP);
   const cfg = loadConfig();
   switch (cmd) {
+    case "refresh-latest":
+      return void await refreshLatest();
+    // spawned in the background by the session hook
     case "scan": {
       const ix = mine(cfg, { days: Number(opt("--days", cfg.days)), allProjects: flag("--all-projects") });
       const rec = recurrences(cfg, ix.allCalls);
@@ -2755,7 +2896,7 @@ Review it, then adopt it into a skill library (e.g. headjack add <dir>).`);
       return console.log(flag("--json") ? JSON.stringify(s, null, 2) : summarize(s));
     }
     case "hook":
-      return runHook((h) => rest[0] === "session" ? withBinaryNote(h, sessionStart(cfg)) : preToolUse(cfg, h), rest.slice(1));
+      return runHook((h) => rest[0] === "session" ? withBinaryNote(h, sessionStart(cfg), { tool: "groundhog" }) : preToolUse(cfg, h), rest.slice(1));
     default:
       console.log(HELP);
   }
