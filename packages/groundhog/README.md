@@ -21,6 +21,9 @@ Across one developer's last 30 days (1,187 sessions, 81k shell commands), the sa
 | Piece | What it does |
 |---|---|
 | **Miner** | Reads transcripts and normalizes each shell command to its shape (paths, strings and numbers generalized; `cd` prefixes and wrappers stripped; `npx tsc` and `npx vitest` kept apart). Looking around (grep, cat, ls) is ignored. A lesson needs the fix to be *related* to the failure, to recur in 2+ sessions, and to point one way: A→B and B→A both is flailing, not a fix. |
+| **Tool switches** | Some fixes are not another shell command. A failing heredoc-written script that works once it is written with the Write tool and run as a file, or a `sed -i` that becomes an Edit, is a lesson too. These group by the risky construct (heredoc script, inline `-e`/`-c`, `sed -i`, `echo >`), not by command shape, so they add up across sessions. `groundhog report` lists them as `W<n>`. |
+| **rtk retries** | When an agent reruns a command as `rtk proxy <cmd>` because the token-saving proxy filtered out what it needed, that command shape is recorded (`K<n>`); accepted, it becomes a reminder, never a block. |
+| **Built-in guard** | On Windows, Git Bash turns `\\` into `\` before bash runs, even inside a quoted heredoc or `'...'`. A Bash command whose inline script contains `\\` gets one note per session saying to write the file with the Write tool. Measured on 30 days of real sessions: these scripts failed 39.8% of the time, against 17.8% for inline scripts without a backslash. Fires only on Windows (`escapeGuard: auto`), never blocks. |
 | **Ledger** | `groundhog.lessons.json`, committed: each lesson is a command pattern, what to do instead, and which shell it applies to. You accept mined lessons (or write your own); nothing is enforced without review. |
 | **Hooks** | `SessionStart` injects the ledger as a short list. `PreToolUse` on shell commands blocks the first matching command per session with the fix, then lets it through with a reminder, so a false positive can never deadlock the agent. |
 | **Replay check** | `groundhog accept L3 --verify --budget 1` proves a lesson before it goes in. It replays real past tasks where the failure happened, in a throwaway sandbox, once without the lesson and once with it (the real hooks enforce it in both runs). A held-out sample of unrelated recurring tasks then runs the same way: the **no-regression gate** rejects any lesson whose presence turns a pass into a fail. The evidence goes into the ledger entry. |
@@ -140,7 +143,7 @@ The number that matters is the last line: an accepted lesson whose failing comma
 { "days": 30, "minSessions": 5, "minRecoveries": 3, "minSequence": 3, "guard": "deny-once", "lessons": "groundhog.lessons.json" }
 ```
 
-`guard`: `off` · `remind` (context only) · `deny-once` (default). `GROUNDHOG_STATS=0` turns the stats file off.
+`guard`: `off` · `remind` (context only) · `deny-once` (default). `escapeGuard`: `auto` (default: Windows only) · `on` · `off`. `GROUNDHOG_STATS=0` turns the stats file off.
 
 ## Evidence
 

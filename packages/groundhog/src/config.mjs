@@ -10,6 +10,7 @@ export const DEFAULTS = {
   minRecoveries: 3,    // the same error -> workaround seen this many times is a lesson candidate
   minSequence: 3,      // a multi-step sequence repeated in this many sessions is a runbook/script candidate
   guard: 'deny-once',  // accepted lessons on matching commands: off | remind | deny-once
+  escapeGuard: 'auto', // inline scripts whose doubled backslashes Git Bash collapses: auto (Windows only) | on | off
   lessons: 'groundhog.lessons.json', // the ledger (commit it: it is the team's memory)
   stats: '.groundhog-stats.json',
 };

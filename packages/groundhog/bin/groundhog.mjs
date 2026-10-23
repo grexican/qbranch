@@ -7,7 +7,7 @@ import { readJson, selfCommand } from '@qbranch/core';
 import { runHook } from '@qbranch/core/hooks';
 import { loadConfig } from '../src/config.mjs';
 import { mine } from '../src/mine.mjs';
-import { accept, fromRecovery, loadLessons, preToolUse, recurrences, sessionStart, updateLesson } from '../src/lessons.mjs';
+import { accept, fromRecovery, fromSwitch, fromRtk, loadLessons, preToolUse, recurrences, sessionStart, updateLesson } from '../src/lessons.mjs';
 import { verifyLesson, acceptable } from '../src/verify.mjs';
 import { loadScenarios, scenariosDir } from '@qbranch/core/scenarios';
 import { draftRunbook } from '../src/draft.mjs';
@@ -20,8 +20,9 @@ const opt = (n, d) => { const i = rest.indexOf(n); return i >= 0 ? rest[i + 1] :
 const HELP = `groundhog: stop re-living the same session.
 
   groundhog scan [--days N] [--all-projects]   mine transcripts: repeated commands, sequences, error -> fix pairs
-  groundhog report [--json]                    numbered candidates: lessons (L), sequences (S), friction (F), repeats (R)
-  groundhog accept L<n>                        add mined lesson n to the ledger (groundhog.lessons.json; commit it)
+  groundhog report [--json]                    numbered candidates: lessons (L), tool switches (W), rtk retries (K),
+                                               sequences (S), friction (F), repeats (R)
+  groundhog accept L<n>|W<n>|K<n>              add a mined lesson to the ledger (groundhog.lessons.json; commit it)
   groundhog accept L<n> --verify --budget USD  replay the tasks where it failed, without and with the lesson, plus a
                                                held-out sample; add it only if it helps (or never hurts) and breaks nothing
   groundhog verify [L<n>] --budget USD         re-check accepted lessons; a lesson that breaks another task is flagged
@@ -64,9 +65,9 @@ async function main() {
       const rec = recurrences(cfg, ix.allCalls);
       upsert(cfg, (s) => {
         s.totals.scans++; s.recurrences = rec;
-        s.last_scan = { sessions: ix.sessions, calls: ix.calls, repeats: ix.repeats.length, lessons: ix.lessons.length, sequences: ix.sequences.length };
+        s.last_scan = { sessions: ix.sessions, calls: ix.calls, repeats: ix.repeats.length, lessons: ix.lessons.length, switches: ix.switches.length, rtk: ix.rtk.length, sequences: ix.sequences.length };
       });
-      return console.log(`${ix.sessions} sessions, ${ix.calls} shell calls: ${ix.lessons.length} lesson candidates, ${ix.sequences.length} sequences, ${ix.friction.length} friction shapes, ${ix.repeats.length} repeats. Next: groundhog report`);
+      return console.log(`${ix.sessions} sessions, ${ix.calls} shell calls: ${ix.lessons.length} lesson candidates, ${ix.switches.length} tool switches, ${ix.rtk.length} rtk retries, ${ix.sequences.length} sequences, ${ix.friction.length} friction shapes, ${ix.repeats.length} repeats. Next: groundhog report`);
     }
     case 'report': {
       const ix = index(cfg);
@@ -75,6 +76,14 @@ async function main() {
       const pct = (e) => `${Math.round((100 * e.errors) / e.count)}%`;
       console.log('Lessons: the same error, then the same workaround (accept with: groundhog accept L<n>)');
       ix.lessons.slice(0, 15).forEach((e, i) => console.log(`  L${i + 1}  x${e.count} in ${e.sessions} sessions  ${e.from}  =>  ${e.to}${known.has(fromRecovery(e).when) ? '  [accepted]' : ''}`));
+      if (ix.switches?.length) {
+        console.log('\nTool switches: a risky shell construct failed, then the Write/Edit tool fixed it (accept with: groundhog accept W<n>)');
+        ix.switches.slice(0, 10).forEach((e, i) => console.log(`  W${i + 1}  x${e.count} in ${e.sessions} sessions  ${e.tool}: ${e.kind}  =>  ${e.toExample.split('\n')[0].slice(0, 90)}${known.has(fromSwitch(e)?.when) ? '  [accepted]' : ''}`));
+      }
+      if (ix.rtk?.length) {
+        console.log('\nrtk retries: rerun as `rtk proxy` for raw output (accept with: groundhog accept K<n>)');
+        ix.rtk.slice(0, 10).forEach((e, i) => console.log(`  K${i + 1}  x${e.count} in ${e.sessions} sessions  ${e.shape}${known.has(fromRtk(e).when) ? '  [accepted]' : ''}`));
+      }
       console.log('\nSequences run by hand again and again (draft a runbook with: groundhog draft S<n>)');
       ix.sequences.slice(0, 12).forEach((e, i) => console.log(`  S${i + 1}  ${e.sessions} sessions  ${e.steps.join('  >  ')}`));
       console.log('\nFriction: repeated commands that fail a lot');
@@ -84,9 +93,11 @@ async function main() {
       return;
     }
     case 'accept': {
-      const e = pick(index(cfg).lessons, rest[0], 'L');
+      const ix = index(cfg), ref = String(rest[0] || '');
+      const e = /^w/i.test(ref) ? pick(ix.switches || [], ref, 'W') : /^k/i.test(ref) ? pick(ix.rtk || [], ref, 'K') : pick(ix.lessons, ref, 'L');
       if (!e) throw new Error(`no lesson ${rest[0]} (see groundhog report)`);
-      const entry = fromRecovery(e);
+      const entry = /^w/i.test(ref) ? fromSwitch(e) : /^k/i.test(ref) ? fromRtk(e) : fromRecovery(e);
+      if (!entry) throw new Error(`${ref} has no ledger form`);
       if (loadLessons(cfg).some(l => l.when === entry.when)) return console.log('already in the ledger');
       if (flag('--verify')) {
         const { verdict, verified } = await verifyLesson(cfg, entry, await verifyOpts(cfg));

@@ -8,6 +8,7 @@ import path from 'node:path';
 import { readJson } from '@qbranch/core';
 import { head } from './mine.mjs';
 import { upsert } from './stats.mjs';
+import { escapeGuard } from './guard.mjs';
 
 const file = (cfg) => path.join(cfg.root, cfg.lessons);
 export const loadLessons = (cfg) => readJson(file(cfg), { lessons: [] }).lessons || [];
@@ -30,6 +31,28 @@ export function fromRecovery(r) {
   const prog = a.split(' ').map(tok).join('\\s+(?:-\\S+\\s+)*'); // "npx tsc" also matches "npx -y tsc"
   if (a !== b) return { ...tool, when: `(^|[\\s;&|(])${prog}(\\s|$)`, instead: `use \`${b}\`, not \`${a}\` (e.g. ${r.toExample.split('\n')[0].slice(0, 120)})`, seen: r.count };
   return { ...tool, when: shapeRegex(r.from), instead: `this form fails here; what worked: ${r.toExample.split('\n')[0].slice(0, 160)}`, seen: r.count };
+}
+
+// Tool-switch lessons match the risky construct (any command using it), not one command shape.
+const KIND = {
+  'inline-backslash-heredoc': { when: /<<-?\s*['"]?\w+['"]?[^\n]*\n[\s\S]*\\\\/.source, instead: 'write scripts that contain backslashes with the Write tool and run the file; heredoc-written ones lost their backslashes here' },
+  'inline-backslash-eval': { when: /\b(node|python3?|py|deno|bun|perl|ruby)(\s+-\S+)*\s+(-e|-c|--eval)\s+['"][\s\S]*\\\\/.source, instead: 'put code that contains backslashes in a file (Write tool) and run it; inline -e/-c scripts lost their backslashes here' },
+  'heredoc-script': { when: /\b(cat|tee)\s+(-a\s+)?>{0,2}\s*\S+\.(m?[jt]s|c[jt]s|py|sh|ps1|rb|php)\b[^\n]*<<|<<-?\s*['"]?\w+['"]?\s*>{1,2}\s*\S+\.(m?[jt]s|c[jt]s|py|sh|ps1|rb|php)\b/.source, instead: 'write script files with the Write tool, not a heredoc; heredoc-written scripts kept failing here' },
+  'inline-eval': { when: /\b(node|python3?|py|deno|bun)(\s+-\S+)*\s+(-e|-c|--eval)\s+['"][^'"]{120,}/.source, instead: 'put anything longer than a one-liner in a file (Write tool) and run it, instead of node -e / python -c' },
+  'sed-in-place': { when: /\b(sed\s+(-\S+\s+)*-\S*i|perl\s+-\S*p\S*i|perl\s+-\S*i\S*p)/.source, instead: 'edit files with the Edit tool, not sed -i / perl -pi: the in-place edits kept failing here' },
+  'echo-to-file': { when: /(^|[;&|]\s*)(echo|printf)\b[^|\n]*>{1,2}\s*\S+\.(m?[jt]s|c[jt]s|json|py|sh|ps1|ya?ml|md|txt)\b/.source, instead: 'write files with the Write tool, not echo/printf redirects' },
+};
+/** A mined tool switch (failing risky construct -> Write/Edit) as a ledger entry, or null for an unknown kind. */
+export function fromSwitch(e) {
+  const k = KIND[e.kind];
+  return k ? { tool: e.tool, when: k.when, instead: `${k.instead} (e.g. ${e.toExample.split('\n')[0].slice(0, 120)})`, seen: e.count, source: `switch:${e.kind}` } : null;
+}
+/** A mined rtk retry as a ledger entry: remind (never deny) to ask rtk for raw output on that command shape. */
+export function fromRtk(e) {
+  // a number inside a token was generalized too (-20 -> -N, HEAD~3 -> HEAD~N): match any digits there
+  const re = shapeRegex(e.shape).replace(/(^|[^A-Za-z\\])N(?=$|[^A-Za-z])/g, '$1\\d+');
+  return { tool: e.tool, action: 'remind', when: `^(?!\\s*rtk\\s+proxy\\b)(?:cd\\s+[^;&]+(?:&&|;)\\s*)*(?:rtk\\s+)?${re}`,
+    instead: `rtk filters the output of \`${e.shape}\`; when you need it raw, run \`rtk proxy ${e.shape}\``, seen: e.count, source: 'rtk' };
 }
 
 export function accept(cfg, entry) {
@@ -62,10 +85,10 @@ export function sessionStart(cfg) {
 }
 
 export function preToolUse(cfg, h) {
-  if (cfg.guard === 'off' || !/^(Bash|PowerShell|Shell)$/.test(h.tool)) return null;
+  if (!/^(Bash|PowerShell|Shell)$/.test(h.tool)) return null;
   const cmd = h.input?.command || '';
-  const hit = loadLessons(cfg).find(l => (!l.tool || l.tool === h.tool) && matches(l, cmd));
-  if (!hit) return null;
+  const hit = cfg.guard === 'off' ? null : loadLessons(cfg).find(l => (!l.tool || l.tool === h.tool) && matches(l, cmd));
+  if (!hit) return escapeGuard(cfg, h); // built-in guards apply even with no ledger
   let deny = false;
   if (hit.action === 'deny-once') {
     const mark = path.join(os.tmpdir(), `groundhog-${(h.sessionId || 'x').replace(/\W/g, '')}-${hit.id}`);

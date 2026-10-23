@@ -3,8 +3,8 @@
 import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);
 
 // packages/groundhog/bin/groundhog.mjs
-import fs10 from "node:fs";
-import path12 from "node:path";
+import fs11 from "node:fs";
+import path13 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // packages/core/src/project.mjs
@@ -249,11 +249,11 @@ function openSqlite(file2) {
 var claudeHome = () => home("CLAUDE_CONFIG_DIR", ".claude");
 var encodeProject = (dir) => path4.resolve(dir).replace(/[^A-Za-z0-9]/g, "-");
 function claudeProjectDirs(root) {
-  const base = path4.join(claudeHome(), "projects");
-  if (!fs3.existsSync(base)) return [];
-  if (!root) return fs3.readdirSync(base).map((d) => path4.join(base, d)).filter((d) => fs3.statSync(d).isDirectory());
+  const base2 = path4.join(claudeHome(), "projects");
+  if (!fs3.existsSync(base2)) return [];
+  if (!root) return fs3.readdirSync(base2).map((d) => path4.join(base2, d)).filter((d) => fs3.statSync(d).isDirectory());
   const enc = encodeProject(root);
-  return fs3.readdirSync(base).filter((d) => d === enc || d.startsWith(enc + "-")).map((d) => path4.join(base, d));
+  return fs3.readdirSync(base2).filter((d) => d === enc || d.startsWith(enc + "-")).map((d) => path4.join(base2, d));
 }
 var tag = (s, n) => s.match(new RegExp(`<${n}>([\\s\\S]*?)</${n}>`))?.[1];
 function lateResult(text, agents) {
@@ -438,9 +438,9 @@ function headCwd(file2, pick2) {
   return "";
 }
 function* codexSessions({ root, days }) {
-  const since = Date.now() - days * 864e5, base = home("CODEX_HOME", ".codex");
+  const since = Date.now() - days * 864e5, base2 = home("CODEX_HOME", ".codex");
   const isRollout = (f) => /^rollout-.*\.jsonl(\.zst)?$/.test(f);
-  const files = [...walk(path4.join(base, "sessions"), isRollout), ...walk(path4.join(base, "archived_sessions"), isRollout, 0)];
+  const files = [...walk(path4.join(base2, "sessions"), isRollout), ...walk(path4.join(base2, "archived_sessions"), isRollout, 0)];
   for (const file2 of files) {
     const mtime = mtimeOf(file2);
     if (mtime <= since) continue;
@@ -474,8 +474,8 @@ function* cursorEvents(file2, cwd) {
 }
 function editorUserDirs(app, env) {
   if (process.env[env]) return [process.env[env]];
-  const base = process.platform === "win32" ? process.env.APPDATA || path4.join(os2.homedir(), "AppData", "Roaming") : process.platform === "darwin" ? path4.join(os2.homedir(), "Library", "Application Support") : process.env.XDG_CONFIG_HOME || path4.join(os2.homedir(), ".config");
-  return app.map((a) => path4.join(base, a, "User"));
+  const base2 = process.platform === "win32" ? process.env.APPDATA || path4.join(os2.homedir(), "AppData", "Roaming") : process.platform === "darwin" ? path4.join(os2.homedir(), "Library", "Application Support") : process.env.XDG_CONFIG_HOME || path4.join(os2.homedir(), ".config");
+  return app.map((a) => path4.join(base2, a, "User"));
 }
 var uriPath = (u) => {
   try {
@@ -629,15 +629,15 @@ function* cursorSessions({ root, days }) {
     seen.add(s.id);
     yield s;
   }
-  const since = Date.now() - days * 864e5, base = path4.join(home("CURSOR_HOME", ".cursor"), "projects");
+  const since = Date.now() - days * 864e5, base2 = path4.join(home("CURSOR_HOME", ".cursor"), "projects");
   const slug2 = root ? cursorSlug(root).toLowerCase() : null;
-  for (const d of ls(base)) {
+  for (const d of ls(base2)) {
     if (slug2 && !(d.toLowerCase() === slug2 || d.toLowerCase().startsWith(slug2 + "-"))) continue;
-    const tdir = path4.join(base, d, "agent-transcripts");
+    const tdir = path4.join(base2, d, "agent-transcripts");
     if (!isDir(tdir)) continue;
     let cwd = root || "";
     try {
-      cwd = JSON.parse(fs3.readFileSync(path4.join(base, d, ".workspace-trusted"), "utf8")).workspacePath || cwd;
+      cwd = JSON.parse(fs3.readFileSync(path4.join(base2, d, ".workspace-trusted"), "utf8")).workspacePath || cwd;
     } catch {
     }
     for (const f of walk(tdir, (x) => x.endsWith(".jsonl"), 2)) {
@@ -694,10 +694,10 @@ function* copilotEvents(file2) {
   }
 }
 function* copilotSessions({ root, days }) {
-  const since = Date.now() - days * 864e5, base = home("COPILOT_HOME", ".copilot");
+  const since = Date.now() - days * 864e5, base2 = home("COPILOT_HOME", ".copilot");
   const logged = /* @__PURE__ */ new Set();
-  for (const d of ls(path4.join(base, "session-state"))) {
-    const f = path4.join(base, "session-state", d, "events.jsonl");
+  for (const d of ls(path4.join(base2, "session-state"))) {
+    const f = path4.join(base2, "session-state", d, "events.jsonl");
     const mtime = mtimeOf(f);
     if (!mtime) continue;
     logged.add(d);
@@ -706,7 +706,7 @@ function* copilotSessions({ root, days }) {
     if (root && !within(cwd, root)) continue;
     yield { platform: "copilot-cli", id: d, file: f, kind: "main", meta: { cwd }, mtime, events: () => copilotEvents(f) };
   }
-  const stores = [path4.join(base, "session-store.db"), ...editorUserDirs(["Code", "Code - Insiders"], "VSCODE_USER_DIR").map((u) => path4.join(u, "globalStorage", "github.copilot-chat", "session-store.db"))];
+  const stores = [path4.join(base2, "session-store.db"), ...editorUserDirs(["Code", "Code - Insiders"], "VSCODE_USER_DIR").map((u) => path4.join(u, "globalStorage", "github.copilot-chat", "session-store.db"))];
   for (const store of stores) yield* copilotStore(store, { root, since, logged });
 }
 function* copilotStore(store, { root, since, logged }) {
@@ -910,22 +910,22 @@ function* geminiEvents(file2, cwd) {
   }
 }
 function* geminiSessions({ root, days }) {
-  const since = Date.now() - days * 864e5, gdir = path4.join(process.env.GEMINI_CLI_HOME || os2.homedir(), ".gemini"), base = path4.join(gdir, "tmp");
+  const since = Date.now() - days * 864e5, gdir = path4.join(process.env.GEMINI_CLI_HOME || os2.homedir(), ".gemini"), base2 = path4.join(gdir, "tmp");
   const owner = /* @__PURE__ */ new Map();
   try {
     for (const [p, slug2] of Object.entries(JSON.parse(fs3.readFileSync(path4.join(gdir, "projects.json"), "utf8")).projects || {})) owner.set(slug2, p);
   } catch {
   }
   const hash = root ? crypto.createHash("sha256").update(root).digest("hex") : null;
-  for (const d of ls(base)) {
+  for (const d of ls(base2)) {
     let cwd = owner.get(d) || "";
     try {
-      cwd = fs3.readFileSync(path4.join(base, d, ".project_root"), "utf8").trim() || cwd;
+      cwd = fs3.readFileSync(path4.join(base2, d, ".project_root"), "utf8").trim() || cwd;
     } catch {
     }
     if (!cwd && d === hash) cwd = root;
     if (root && !within(cwd, root)) continue;
-    const chats = path4.join(base, d, "chats"), files = new Set(walk(chats, (x) => /\.jsonl?$/.test(x), 1));
+    const chats = path4.join(base2, d, "chats"), files = new Set(walk(chats, (x) => /\.jsonl?$/.test(x), 1));
     for (const f of files) {
       if (f.endsWith(".json") && files.has(f + "l")) continue;
       const mtime = mtimeOf(f);
@@ -1006,8 +1006,8 @@ function* piEvents(file2) {
   }
 }
 function* piSessions({ root, days }) {
-  const since = Date.now() - days * 864e5, base = path4.join(process.env.PI_CODING_AGENT_DIR || path4.join(os2.homedir(), ".pi", "agent"), "sessions");
-  for (const f of walk(base, (x) => x.endsWith(".jsonl"), 2)) {
+  const since = Date.now() - days * 864e5, base2 = path4.join(process.env.PI_CODING_AGENT_DIR || path4.join(os2.homedir(), ".pi", "agent"), "sessions");
+  for (const f of walk(base2, (x) => x.endsWith(".jsonl"), 2)) {
     const mtime = mtimeOf(f);
     if (mtime <= since) continue;
     const cwd = headCwd(f, (r) => r.type === "session" ? r.cwd : "");
@@ -1027,6 +1027,8 @@ function* sessions({ root = null, days = 30, platforms = Object.keys(READERS) } 
 }
 
 // packages/core/src/hooks.mjs
+var REWRITE_OUTPUT = /* @__PURE__ */ new Set(["claude", "cursor", "copilot", "codex"]);
+var canRewriteOutput = (platform) => REWRITE_OUTPUT.has(platform);
 var EVENTS = {
   // cursor
   beforeSubmitPrompt: "UserPromptSubmit",
@@ -1075,9 +1077,9 @@ function normalize(raw, platform = detectPlatform(raw), eventHint) {
       input = { value: input };
     }
   }
-  if (platform === "gemini") tool = GEMINI_TOOLS[tool] || tool;
+  if (platform === "gemini") tool = raw.mcp_context?.server_name ? `mcp__${raw.mcp_context.server_name}__${raw.mcp_context.tool_name || tool}` : GEMINI_TOOLS[tool] || tool;
   if (platform === "cursor") {
-    if (tool.startsWith("MCP:")) tool = `mcp__${raw.server || raw.mcp_server || "mcp"}__${tool.slice(4)}`;
+    if (tool.startsWith("MCP:")) tool = `mcp__${raw.server || raw.mcp_server || raw.server_name || raw.mcp_server_name || "mcp"}__${tool.slice(4)}`;
     tool = CURSOR_TOOLS2[tool] || tool;
   }
   if (platform === "windsurf" && raw.tool_info?.mcp_server_name) tool = `mcp__${raw.tool_info.mcp_server_name}__${tool}`;
@@ -1098,42 +1100,54 @@ function normalize(raw, platform = detectPlatform(raw), eventHint) {
   };
 }
 function render(h, d) {
-  if (!d || !d.context && !d.deny && !d.updatedInput) return { stdout: "", exitCode: 0 };
+  if (!d || !d.context && !d.deny && !d.updatedInput && d.updatedOutput == null) return { stdout: "", exitCode: 0 };
   const { platform, event } = h;
+  const out = event === "PostToolUse" && d.updatedOutput != null && canRewriteOutput(platform) ? String(d.updatedOutput) : null;
   if (platform === "windsurf") return d.deny ? { stdout: "", stderr: d.deny, exitCode: 2 } : { stdout: "", exitCode: 0 };
   if (platform === "cursor") {
     if (event === "PreToolUse") {
-      const o = d.deny ? { permission: "deny", agent_message: d.deny, user_message: d.deny } : { permission: "allow" };
-      if (d.updatedInput && !d.deny) o.updated_input = d.updatedInput;
-      return { stdout: JSON.stringify(o), exitCode: 0 };
+      const o2 = d.deny ? { permission: "deny", agent_message: d.deny, user_message: d.deny } : { permission: "allow" };
+      if (d.updatedInput && !d.deny) o2.updated_input = d.updatedInput;
+      return { stdout: JSON.stringify(o2), exitCode: 0 };
     }
     if (event === "UserPromptSubmit") return { stdout: JSON.stringify(d.deny ? { continue: false, user_message: d.deny } : { continue: true }), exitCode: 0 };
-    return { stdout: d.context ? JSON.stringify({ additional_context: d.context }) : "", exitCode: 0 };
+    const o = {};
+    if (out != null) o.updated_mcp_tool_output = { content: [{ type: "text", text: out }] };
+    if (d.context) o.additional_context = d.context;
+    return { stdout: Object.keys(o).length ? JSON.stringify(o) : "", exitCode: 0 };
   }
   if (platform === "copilot") {
     if (event === "PreToolUse") {
-      const o = d.deny ? { permissionDecision: "deny", permissionDecisionReason: d.deny } : { permissionDecision: "allow" };
-      if (d.updatedInput && !d.deny) o.modifiedArgs = d.updatedInput;
-      return { stdout: JSON.stringify(o), exitCode: 0 };
+      const o2 = d.deny ? { permissionDecision: "deny", permissionDecisionReason: d.deny } : { permissionDecision: "allow" };
+      if (d.updatedInput && !d.deny) o2.modifiedArgs = d.updatedInput;
+      return { stdout: JSON.stringify(o2), exitCode: 0 };
     }
-    return { stdout: d.context ? JSON.stringify({ additionalContext: d.context }) : "", exitCode: 0 };
+    const o = {};
+    if (out != null) o.modifiedResult = { resultType: "success", textResultForLlm: out };
+    if (d.context) o.additionalContext = d.context;
+    return { stdout: Object.keys(o).length ? JSON.stringify(o) : "", exitCode: 0 };
   }
   if (platform === "gemini") {
     if (d.deny) return { stdout: JSON.stringify({ decision: "deny", reason: d.deny }), exitCode: 0 };
     const hso2 = {};
     if (d.context) hso2.additionalContext = d.context;
     if (d.updatedInput) hso2.tool_input = d.updatedInput;
-    return { stdout: JSON.stringify({ hookSpecificOutput: hso2 }), exitCode: 0 };
+    return { stdout: Object.keys(hso2).length ? JSON.stringify({ hookSpecificOutput: hso2 }) : "", exitCode: 0 };
   }
   const hso = { hookEventName: event };
   if (event === "PreToolUse") {
     if (d.deny) Object.assign(hso, { permissionDecision: "deny", permissionDecisionReason: d.deny });
-    else if (d.updatedInput) Object.assign(hso, { permissionDecision: "allow", updatedInput: d.updatedInput });
+    else if (d.updatedInput) {
+      if (!(d.keepPermission && platform === "claude")) hso.permissionDecision = "allow";
+      hso.updatedInput = d.updatedInput;
+    }
     if (d.context) hso.additionalContext = d.context;
     return { stdout: JSON.stringify({ hookSpecificOutput: hso }), exitCode: 0 };
   }
   if (d.deny && event === "UserPromptSubmit") return { stdout: JSON.stringify({ decision: "block", reason: d.deny }), exitCode: 0 };
   if (d.context) hso.additionalContext = d.context;
+  if (out != null && platform === "codex") return { stdout: JSON.stringify({ decision: "block", reason: out, hookSpecificOutput: hso }), exitCode: 0 };
+  if (out != null) hso.updatedToolOutput = out;
   return { stdout: JSON.stringify({ hookSpecificOutput: hso }), exitCode: 0 };
 }
 async function runHook(handler, argv = process.argv.slice(2)) {
@@ -1170,6 +1184,8 @@ var DEFAULTS = {
   // a multi-step sequence repeated in this many sessions is a runbook/script candidate
   guard: "deny-once",
   // accepted lessons on matching commands: off | remind | deny-once
+  escapeGuard: "auto",
+  // inline scripts whose doubled backslashes Git Bash collapses: auto (Windows only) | on | off
   lessons: "groundhog.lessons.json",
   // the ledger (commit it: it is the team's memory)
   stats: ".groundhog-stats.json"
@@ -1182,8 +1198,108 @@ function loadConfig(root = projectRoot2()) {
 }
 
 // packages/groundhog/src/mine.mjs
+import fs5 from "node:fs";
+import path7 from "node:path";
+
+// packages/groundhog/src/guard.mjs
 import fs4 from "node:fs";
+import os3 from "node:os";
 import path6 from "node:path";
+
+// packages/groundhog/src/stats.mjs
+var upsertFile = createStats({
+  tool: "groundhog",
+  fresh: () => ({
+    totals: { scans: 0, accepted: 0, injections: 0, guard_hits: 0, denies: 0, drafts: 0, escape_guard: 0 },
+    last_scan: null,
+    // { sessions, calls, repeats, lessons, sequences }
+    recurrences: []
+    // per lesson: failing command ran / failed again since it was accepted
+  }),
+  dayFresh: () => ({ injections: 0, guard_hits: 0 })
+});
+var upsert = (cfg, mutate) => upsertFile(cfg.root, cfg.stats, mutate);
+function summarize(s) {
+  const t = s.totals, l = s.last_scan;
+  const rec = s.recurrences.filter((r) => r.ran);
+  return [
+    `groundhog stats since ${s.since.slice(0, 10)} (updated ${s.updated.slice(0, 16).replace("T", " ")})`,
+    `lessons accepted ${t.accepted} | session injections ${t.injections} | guard hits ${t.guard_hits} (denied ${t.denies}) | drafts ${t.drafts}`,
+    t.escape_guard ? `built-in guard: ${t.escape_guard} inline scripts flagged before Git Bash collapsed their backslashes` : "",
+    l ? `last scan: ${l.sessions} sessions, ${l.calls} shell calls; ${l.repeats} repeated shapes, ${l.lessons} lesson candidates${l.switches != null ? `, ${l.switches} tool switches, ${l.rtk} rtk retries` : ""}, ${l.sequences} sequences` : "no scan yet (run: groundhog scan)",
+    rec.length ? `still recurring after acceptance:
+  ${rec.map((r) => `${r.id}: ran ${r.ran}x, failed ${r.failed}x`).join("\n  ")}` : s.recurrences.length ? "no accepted lesson has recurred since it was accepted" : ""
+  ].filter(Boolean).join("\n");
+}
+
+// packages/groundhog/src/guard.mjs
+var HEREDOC = /<<-?\s*(['"]?)(\w+)\1[^\n]*\n([\s\S]*?)(\n\2\s*(?:$|\n)|$)/;
+var EVAL = /\b(node|nodejs|python3?|py|deno|bun|perl|ruby|php)(?:\s+-\S+)*\s+(-e|-c|-r|--eval|eval)\s+(['"])([\s\S]*?)(\3|$)/;
+function inlineScript(cmd2) {
+  const h = cmd2.match(HEREDOC);
+  if (h) return { kind: "heredoc", body: h[3] };
+  const e = cmd2.match(EVAL);
+  if (e) return { kind: "eval", body: e[4] };
+  return null;
+}
+function escapeRisk(cmd2) {
+  const s = inlineScript(cmd2 || "");
+  return s && s.body.includes("\\\\") ? s.kind : null;
+}
+var WORDING = {
+  heredoc: "groundhog: Git Bash on Windows turns \\\\ into \\ before this runs, even in a quoted heredoc, so the script will not get the backslashes you wrote. Write the file with the Write tool, then run it.",
+  eval: "groundhog: Git Bash on Windows turns \\\\ into \\ before this runs, even inside quotes, so this inline script will not get the backslashes you wrote. Write it to a file with the Write tool, then run the file."
+};
+var applies = (cfg, platform) => cfg.escapeGuard === "on" || cfg.escapeGuard !== "off" && platform === "win32";
+var BASHY = /(^|[\\/])(ba|z)?sh(\.exe)?$|git[\\/]bin|bash/i;
+function isBash(h) {
+  if (h.tool !== "Bash") return false;
+  if (!h.platform || h.platform === "claude") return true;
+  const r = h.raw || {};
+  const shell = r.shell ?? r.shell_type ?? r.tool_input?.shell ?? r.tool_info?.shell ?? r.toolArgs?.shell;
+  return typeof shell === "string" && BASHY.test(shell);
+}
+var MARK_TTL = 2 * 864e5;
+function markDir() {
+  let user = "user";
+  try {
+    user = os3.userInfo().username.replace(/\W/g, "") || user;
+  } catch {
+  }
+  const d = path6.join(os3.tmpdir(), `groundhog-${user}`, "marks");
+  fs4.mkdirSync(d, { recursive: true });
+  return d;
+}
+function sweep(dir, now = Date.now()) {
+  for (const f of fs4.readdirSync(dir)) {
+    if (!f.startsWith("esc-")) continue;
+    try {
+      if (now - fs4.statSync(path6.join(dir, f)).mtimeMs > MARK_TTL) fs4.rmSync(path6.join(dir, f), { force: true });
+    } catch {
+    }
+  }
+}
+var sessionKey = (h) => (h.sessionId || h.transcript || `ppid${process.ppid}`).replace(/[^A-Za-z0-9]/g, "").slice(-80);
+function escapeGuard(cfg, h, { platform = process.platform } = {}) {
+  if (!isBash(h) || !applies(cfg, platform)) return null;
+  const kind = escapeRisk(h.input?.command);
+  if (!kind) return null;
+  try {
+    const dir = markDir();
+    const mark = path6.join(dir, `esc-${sessionKey(h)}-${kind}`);
+    if (fs4.existsSync(mark)) return null;
+    fs4.writeFileSync(mark, "1");
+    sweep(dir);
+  } catch {
+  }
+  upsert(cfg, (s, day) => {
+    s.totals.escape_guard++;
+    day.escape_guard = (day.escape_guard || 0) + 1;
+  });
+  return { context: WORDING[kind] };
+}
+
+// packages/groundhog/src/mine.mjs
 var SHELL = /^(Bash|PowerShell|run_shell_command|Shell)$/;
 var ERR = /exit code [1-9]|\berror[: ]|not found|not recognized|cannot find|command not found|failed|denied|ENOENT|Exception|No such file/i;
 var CD = /^(cd|Set-Location|pushd|export|set)\b/i;
@@ -1233,21 +1349,97 @@ function related(failed, fix) {
   const a = args(failed), b = new Set(args(fix));
   return a.length > 0 && a.filter((t) => b.has(t)).length / a.length >= 0.5;
 }
-function shellCalls(session) {
+var EDIT = /^(Write|Edit|MultiEdit|NotebookEdit)$/;
+var SCRIPT_FILE = /\.(m?[jt]s|c[jt]s|py|sh|ps1|rb|pl|php|sql)$/i;
+function trail(session) {
   const seq = [], byId = /* @__PURE__ */ new Map();
   for (const e of session.events()) {
     if (e.t === "tool" && SHELL.test(e.name) && e.input?.command) {
-      const c = { shape: shape(e.input.command), lead: lead(e.input.command), tool: e.name, cmd: e.input.command.slice(0, 300), err: false };
+      const c = { kind: "shell", tool: e.name, cmd: e.input.command, err: false };
       byId.set(e.id, c);
       seq.push(c);
-    } else if (e.t === "result" && byId.has(e.id)) {
-      byId.get(e.id).err = e.isError || ERR.test((e.text || "").slice(0, 600));
-    }
+    } else if (e.t === "tool" && EDIT.test(e.name)) seq.push({ kind: "edit", tool: e.name, file: String(e.input?.file_path || e.input?.notebook_path || e.input?.path || "") });
+    else if (e.t === "result" && byId.has(e.id)) byId.get(e.id).err = e.isError || ERR.test((e.text || "").slice(0, 600));
   }
   return seq;
 }
+function heredocFile(cmd2) {
+  const m = cmd2.match(/\b(?:cat|tee)\s+(?:-a\s+)?>{0,2}\s*("[^"]+"|'[^']+'|[^\s<>|;&]+)\s*<</) || cmd2.match(/<<-?\s*['"]?\w+['"]?\s*>{1,2}\s*("[^"]+"|'[^']+'|[^\s<>|;&]+)/);
+  return m ? m[1].replace(/^["']|["']$/g, "") : null;
+}
+function riskKind(cmd2) {
+  const esc2 = escapeRisk(cmd2);
+  if (esc2) return `inline-backslash-${esc2}`;
+  const s = inlineScript(cmd2);
+  if (s) return s.kind === "heredoc" ? "heredoc-script" : "inline-eval";
+  if (/\b(sed\s+(-\S*\s+)*-\S*i|perl\s+-\S*p\S*i|perl\s+-\S*i\S*p)/.test(cmd2)) return "sed-in-place";
+  if (/(^|[;&|]\s*)(echo|printf)\b[^|]*?>{1,2}\s*[^\s&|]/.test(cmd2)) return "echo-to-file";
+  return null;
+}
+var base = (f) => f ? f.split(/[\\/]/).pop() : "";
+function toolSwitches(seq) {
+  const out = [];
+  const blamed = /* @__PURE__ */ new Set();
+  for (let i = 0; i < seq.length; i++) {
+    const c = seq[i];
+    if (c.kind !== "shell" || !c.err) continue;
+    let kind = riskKind(c.cmd), from = c;
+    if (!kind) {
+      const prev = seq.slice(Math.max(0, i - 3), i).reverse().find((p) => p.kind === "shell" && heredocFile(p.cmd) && c.cmd.includes(base(heredocFile(p.cmd))));
+      if (prev) {
+        kind = riskKind(prev.cmd);
+        from = prev;
+      }
+    }
+    if (!kind || blamed.has(from)) continue;
+    const ahead = seq.slice(i + 1, i + 7);
+    let fixAt = -1, toExample = null;
+    if (kind === "sed-in-place" || kind === "echo-to-file") {
+      fixAt = ahead.findIndex((x) => x.kind === "edit" && base(x.file) && from.cmd.includes(base(x.file)));
+      if (fixAt >= 0) toExample = `${ahead[fixAt].tool} ${base(ahead[fixAt].file)}`;
+    } else {
+      const ed = ahead.findIndex((x) => x.kind === "edit" && x.tool === "Write" && SCRIPT_FILE.test(x.file));
+      if (ed >= 0) {
+        const edit = ahead[ed], name = base(edit.file);
+        const runs = (cmd2) => cmd2.split(/&&|;|\|\|/).some((part) => {
+          const t = part.trim().split(/\s+/);
+          return /^(node|nodejs|bun|deno|tsx|ts-node|python3?|py|bash|sh|pwsh|powershell|ruby|perl|php)$/i.test(t[0] || "") && part.includes(name);
+        });
+        const r = ahead.slice(ed + 1, ed + 5).findIndex((x) => x.kind === "shell" && runs(x.cmd));
+        const run = r >= 0 ? ahead[ed + 1 + r] : null;
+        if (run && !run.err) {
+          fixAt = ed + 1 + r;
+          toExample = `${edit.tool} ${name}, then: ${run.cmd.split("\n")[0]}`;
+        }
+      }
+    }
+    if (fixAt < 0) continue;
+    out.push({ tool: c.tool, kind, fromExample: from.cmd, toExample });
+    blamed.add(from);
+    i += 1 + fixAt;
+  }
+  return out;
+}
+var RTK_PROXY = /^\s*rtk\s+proxy\s+/;
+var strip = (cmd2) => cmd2.trim().replace(/^(cd\s+[^;&]+(?:&&|;)\s*)+/, "").replace(RTK_PROXY, "").replace(/^rtk\s+(?!proxy\b)/, "").split(/\s\|\s?|\s\|\|/)[0].replace(/\s*\d?>&\d\s*/g, " ").replace(/\s+/g, " ").trim();
+function rtkRetries(seq) {
+  const shells = seq.filter((x) => x.kind === "shell");
+  const out = [];
+  const used = /* @__PURE__ */ new Set();
+  shells.forEach((c, i) => {
+    const own = c.cmd.trim().replace(/^(cd\s+[^;&]+(?:&&|;)\s*)+/, "");
+    if (RTK_PROXY.test(own)) return;
+    const inner = strip(c.cmd);
+    const retry = shells.slice(i + 1, i + 4).find((n) => RTK_PROXY.test(n.cmd.trim().replace(/^(cd\s+[^;&]+(?:&&|;)\s*)+/, "")) && strip(n.cmd) === inner);
+    if (retry && !used.has(retry)) {
+      used.add(retry);
+      out.push({ tool: c.tool, shape: shape(inner), example: retry.cmd.split("\n")[0].slice(0, 200) });
+    }
+  });
+  return out;
+}
 function mine(cfg, { days = cfg.days, allProjects = false } = {}) {
-  const shapes = /* @__PURE__ */ new Map(), seqs = /* @__PURE__ */ new Map(), recov = /* @__PURE__ */ new Map();
+  const shapes = /* @__PURE__ */ new Map(), seqs = /* @__PURE__ */ new Map(), recov = /* @__PURE__ */ new Map(), switches = /* @__PURE__ */ new Map(), rtk = /* @__PURE__ */ new Map();
   let nSessions = 0, nCalls = 0;
   const calls = [];
   const bump = (m, k, sid, init) => {
@@ -1256,7 +1448,8 @@ function mine(cfg, { days = cfg.days, allProjects = false } = {}) {
     return e;
   };
   for (const s of sessions({ root: allProjects ? null : cfg.root, days })) {
-    const seq = shellCalls(s);
+    const tr = trail(s);
+    const seq = tr.filter((x) => x.kind === "shell").map((x) => ({ shape: shape(x.cmd), lead: lead(x.cmd), tool: x.tool, cmd: x.cmd.slice(0, 300), err: x.err }));
     if (!seq.length) continue;
     nSessions++;
     nCalls += seq.length;
@@ -1276,6 +1469,15 @@ function mine(cfg, { days = cfg.days, allProjects = false } = {}) {
       r.count++;
       r.mtimes.push(s.mtime);
     });
+    for (const w of toolSwitches(tr)) {
+      const e = bump(switches, `${w.tool}: ${w.kind}`, sid, () => ({ count: 0, tool: w.tool, kind: w.kind, fromExample: w.fromExample.slice(0, 300), toExample: w.toExample.slice(0, 200), mtimes: [] }));
+      e.count++;
+      e.mtimes.push(s.mtime);
+    }
+    for (const k of rtkRetries(tr)) {
+      const e = bump(rtk, `${k.tool}: ${k.shape}`, sid, () => ({ count: 0, tool: k.tool, shape: k.shape, example: k.example }));
+      e.count++;
+    }
     const work = seq.filter((c) => !inspect(c.shape));
     work.forEach((c, i, seq2) => {
       const e = bump(shapes, c.shape, sid, () => ({ count: 0, errors: 0, example: c.cmd }));
@@ -1299,48 +1501,33 @@ function mine(cfg, { days = cfg.days, allProjects = false } = {}) {
   }).sort((a, b) => b.sessions - a.sessions || b.count - a.count);
   let sequences = flat(seqs).filter((e) => e.sessions >= cfg.minSequence).sort((a, b) => b.steps.length - a.steps.length || b.sessions - a.sessions);
   sequences = sequences.filter((e, i) => !sequences.slice(0, i).some((l) => l.steps.length > e.steps.length && l.sessions >= e.sessions && l.steps.join("\n").includes(e.steps.join("\n")))).sort((a, b) => b.sessions * b.steps.length - a.sessions * a.steps.length).slice(0, 50);
-  const index2 = { scanned: (/* @__PURE__ */ new Date()).toISOString(), days, sessions: nSessions, calls: nCalls, repeats: repeats.slice(0, 100), friction, lessons: lessons.slice(0, 100), sequences };
-  fs4.mkdirSync(cfg.dataDir, { recursive: true });
-  if (!fs4.existsSync(path6.join(cfg.dataDir, ".gitignore"))) fs4.writeFileSync(path6.join(cfg.dataDir, ".gitignore"), "*\n");
-  fs4.writeFileSync(path6.join(cfg.dataDir, "index.json"), JSON.stringify(index2, null, 2));
+  const recurring = (m) => flat(m).filter((e) => e.sessions >= Math.max(2, cfg.minRecoveries)).sort((a, b) => b.sessions - a.sessions || b.count - a.count);
+  const index2 = {
+    scanned: (/* @__PURE__ */ new Date()).toISOString(),
+    days,
+    sessions: nSessions,
+    calls: nCalls,
+    repeats: repeats.slice(0, 100),
+    friction,
+    lessons: lessons.slice(0, 100),
+    sequences,
+    switches: recurring(switches).slice(0, 30),
+    rtk: recurring(rtk).slice(0, 30)
+  };
+  fs5.mkdirSync(cfg.dataDir, { recursive: true });
+  if (!fs5.existsSync(path7.join(cfg.dataDir, ".gitignore"))) fs5.writeFileSync(path7.join(cfg.dataDir, ".gitignore"), "*\n");
+  fs5.writeFileSync(path7.join(cfg.dataDir, "index.json"), JSON.stringify(index2, null, 2));
   return { ...index2, allCalls: calls };
 }
 
 // packages/groundhog/src/lessons.mjs
-import fs5 from "node:fs";
-import os3 from "node:os";
-import path7 from "node:path";
-
-// packages/groundhog/src/stats.mjs
-var upsertFile = createStats({
-  tool: "groundhog",
-  fresh: () => ({
-    totals: { scans: 0, accepted: 0, injections: 0, guard_hits: 0, denies: 0, drafts: 0 },
-    last_scan: null,
-    // { sessions, calls, repeats, lessons, sequences }
-    recurrences: []
-    // per lesson: failing command ran / failed again since it was accepted
-  }),
-  dayFresh: () => ({ injections: 0, guard_hits: 0 })
-});
-var upsert = (cfg, mutate) => upsertFile(cfg.root, cfg.stats, mutate);
-function summarize(s) {
-  const t = s.totals, l = s.last_scan;
-  const rec = s.recurrences.filter((r) => r.ran);
-  return [
-    `groundhog stats since ${s.since.slice(0, 10)} (updated ${s.updated.slice(0, 16).replace("T", " ")})`,
-    `lessons accepted ${t.accepted} | session injections ${t.injections} | guard hits ${t.guard_hits} (denied ${t.denies}) | drafts ${t.drafts}`,
-    l ? `last scan: ${l.sessions} sessions, ${l.calls} shell calls; ${l.repeats} repeated shapes, ${l.lessons} lesson candidates, ${l.sequences} sequences` : "no scan yet (run: groundhog scan)",
-    rec.length ? `still recurring after acceptance:
-  ${rec.map((r) => `${r.id}: ran ${r.ran}x, failed ${r.failed}x`).join("\n  ")}` : s.recurrences.length ? "no accepted lesson has recurred since it was accepted" : ""
-  ].filter(Boolean).join("\n");
-}
-
-// packages/groundhog/src/lessons.mjs
-var file = (cfg) => path7.join(cfg.root, cfg.lessons);
+import fs6 from "node:fs";
+import os4 from "node:os";
+import path8 from "node:path";
+var file = (cfg) => path8.join(cfg.root, cfg.lessons);
 var loadLessons = (cfg) => readJson(file(cfg), { lessons: [] }).lessons || [];
 function saveLessons(cfg, lessons) {
-  fs5.writeFileSync(file(cfg), JSON.stringify({ lessons }, null, 2) + "\n");
+  fs6.writeFileSync(file(cfg), JSON.stringify({ lessons }, null, 2) + "\n");
 }
 var esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 var tok = (t) => /^[SPN]$/.test(t) ? "\\S+" : t.includes("/") ? `(?:\\S*[\\\\/])?${t.split("/").map(esc).join("[\\\\/]")}` : esc(t);
@@ -1353,6 +1540,29 @@ function fromRecovery(r) {
   const prog = a.split(" ").map(tok).join("\\s+(?:-\\S+\\s+)*");
   if (a !== b) return { ...tool, when: `(^|[\\s;&|(])${prog}(\\s|$)`, instead: `use \`${b}\`, not \`${a}\` (e.g. ${r.toExample.split("\n")[0].slice(0, 120)})`, seen: r.count };
   return { ...tool, when: shapeRegex(r.from), instead: `this form fails here; what worked: ${r.toExample.split("\n")[0].slice(0, 160)}`, seen: r.count };
+}
+var KIND = {
+  "inline-backslash-heredoc": { when: /<<-?\s*['"]?\w+['"]?[^\n]*\n[\s\S]*\\\\/.source, instead: "write scripts that contain backslashes with the Write tool and run the file; heredoc-written ones lost their backslashes here" },
+  "inline-backslash-eval": { when: /\b(node|python3?|py|deno|bun|perl|ruby)(\s+-\S+)*\s+(-e|-c|--eval)\s+['"][\s\S]*\\\\/.source, instead: "put code that contains backslashes in a file (Write tool) and run it; inline -e/-c scripts lost their backslashes here" },
+  "heredoc-script": { when: /\b(cat|tee)\s+(-a\s+)?>{0,2}\s*\S+\.(m?[jt]s|c[jt]s|py|sh|ps1|rb|php)\b[^\n]*<<|<<-?\s*['"]?\w+['"]?\s*>{1,2}\s*\S+\.(m?[jt]s|c[jt]s|py|sh|ps1|rb|php)\b/.source, instead: "write script files with the Write tool, not a heredoc; heredoc-written scripts kept failing here" },
+  "inline-eval": { when: /\b(node|python3?|py|deno|bun)(\s+-\S+)*\s+(-e|-c|--eval)\s+['"][^'"]{120,}/.source, instead: "put anything longer than a one-liner in a file (Write tool) and run it, instead of node -e / python -c" },
+  "sed-in-place": { when: /\b(sed\s+(-\S+\s+)*-\S*i|perl\s+-\S*p\S*i|perl\s+-\S*i\S*p)/.source, instead: "edit files with the Edit tool, not sed -i / perl -pi: the in-place edits kept failing here" },
+  "echo-to-file": { when: /(^|[;&|]\s*)(echo|printf)\b[^|\n]*>{1,2}\s*\S+\.(m?[jt]s|c[jt]s|json|py|sh|ps1|ya?ml|md|txt)\b/.source, instead: "write files with the Write tool, not echo/printf redirects" }
+};
+function fromSwitch(e) {
+  const k = KIND[e.kind];
+  return k ? { tool: e.tool, when: k.when, instead: `${k.instead} (e.g. ${e.toExample.split("\n")[0].slice(0, 120)})`, seen: e.count, source: `switch:${e.kind}` } : null;
+}
+function fromRtk(e) {
+  const re = shapeRegex(e.shape).replace(/(^|[^A-Za-z\\])N(?=$|[^A-Za-z])/g, "$1\\d+");
+  return {
+    tool: e.tool,
+    action: "remind",
+    when: `^(?!\\s*rtk\\s+proxy\\b)(?:cd\\s+[^;&]+(?:&&|;)\\s*)*(?:rtk\\s+)?${re}`,
+    instead: `rtk filters the output of \`${e.shape}\`; when you need it raw, run \`rtk proxy ${e.shape}\``,
+    seen: e.count,
+    source: "rtk"
+  };
 }
 function accept(cfg, entry) {
   const lessons = loadLessons(cfg);
@@ -1391,15 +1601,15 @@ function sessionStart(cfg) {
 ${lessons.slice(0, 25).map((l) => `- ${l.instead}`).join("\n")}` };
 }
 function preToolUse(cfg, h) {
-  if (cfg.guard === "off" || !/^(Bash|PowerShell|Shell)$/.test(h.tool)) return null;
+  if (!/^(Bash|PowerShell|Shell)$/.test(h.tool)) return null;
   const cmd2 = h.input?.command || "";
-  const hit2 = loadLessons(cfg).find((l) => (!l.tool || l.tool === h.tool) && matches(l, cmd2));
-  if (!hit2) return null;
+  const hit2 = cfg.guard === "off" ? null : loadLessons(cfg).find((l) => (!l.tool || l.tool === h.tool) && matches(l, cmd2));
+  if (!hit2) return escapeGuard(cfg, h);
   let deny = false;
   if (hit2.action === "deny-once") {
-    const mark = path7.join(os3.tmpdir(), `groundhog-${(h.sessionId || "x").replace(/\W/g, "")}-${hit2.id}`);
-    if (!fs5.existsSync(mark)) {
-      fs5.writeFileSync(mark, "1");
+    const mark = path8.join(os4.tmpdir(), `groundhog-${(h.sessionId || "x").replace(/\W/g, "")}-${hit2.id}`);
+    if (!fs6.existsSync(mark)) {
+      fs6.writeFileSync(mark, "1");
       deny = true;
     }
   }
@@ -1422,13 +1632,13 @@ function recurrences(cfg, calls) {
 }
 
 // packages/groundhog/src/verify.mjs
-import fs8 from "node:fs";
-import path10 from "node:path";
+import fs9 from "node:fs";
+import path11 from "node:path";
 
 // packages/core/src/replay.mjs
-import fs6 from "node:fs";
-import os4 from "node:os";
-import path8 from "node:path";
+import fs7 from "node:fs";
+import os5 from "node:os";
+import path9 from "node:path";
 import crypto2 from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 function unsafeAction({ tool = "", input = {} } = {}, { root = "", allow = [] } = {}) {
@@ -1446,25 +1656,25 @@ function unsafeAction({ tool = "", input = {} } = {}, { root = "", allow = [] } 
     const p = (m[1] || "") + "/" + out.join("/");
     return win ? p.toLowerCase() : p;
   };
-  const absolute = (p, base) => {
+  const absolute = (p, base2) => {
     let s = slash(String(p).replace(/^['"]|['"]$/g, ""));
     if (win) s = s.replace(/^\/([A-Za-z])(\/|$)/, "$1:/");
     if (/^(\$TMPDIR|\$\{TMPDIR\}|\$TEMP|\$TMP|%TEMP%|%TMP%|\$env:TEMP|\$env:TMP)/i.test(s)) return "TMP";
     if (/^(~|\$HOME|\$\{HOME\}|%USERPROFILE%|\$env:USERPROFILE|\$env:APPDATA|%APPDATA%|%LOCALAPPDATA%)/i.test(s)) return null;
     if (/^([A-Za-z]:)?\//.test(s)) return canon(s);
-    if (/^[A-Za-z]:/.test(s) || !base) return null;
-    return canon(slash(base) + "/" + s);
+    if (/^[A-Za-z]:/.test(s) || !base2) return null;
+    return canon(slash(base2) + "/" + s);
   };
   const roots = [root, "/tmp", ...allow].filter(Boolean).map(canon).filter(Boolean);
-  const inside = (p, base = root) => {
+  const inside = (p, base2 = root) => {
     if (/^(\/dev\/(null|stdout|stderr)|nul|\$null)$/i.test(String(p))) return true;
-    const a = absolute(p, base);
+    const a = absolute(p, base2);
     if (a === "TMP") return true;
     return !!a && roots.some((r) => a === r || a.startsWith(r.replace(/\/$/, "") + "/"));
   };
   const own = canon(root);
-  const insideSandbox = (p, base = root) => {
-    const a = absolute(p, base);
+  const insideSandbox = (p, base2 = root) => {
+    const a = absolute(p, base2);
     return !!a && a !== "TMP" && !!own && (a === own || a.startsWith(own.replace(/\/$/, "") + "/"));
   };
   const file2 = input.file_path ?? input.path ?? input.notebook_path ?? input.filePath;
@@ -1547,7 +1757,7 @@ var READS = /^(grep|rg|sed|cat|head|tail|ls|dir|echo|sleep|find|wc|pwd|which|whe
 function commandKey(cmd2) {
   const seg = String(cmd2).split(/&&|\|\||;|\n/).map((s) => s.trim()).find((s) => s && !/^(cd|Set-Location|pushd|export|set)\b/i.test(s)) || "";
   const t = seg.replace(/^(\w+=\S+\s+)+/, "").replace(/^(rtk proxy|rtk|timeout\s+\S+|time|sudo|env|command)\s+/, "").split(/\s+/);
-  const prog = path8.basename(t[0] || "").replace(/\.(exe|cmd|bat)$/i, "").toLowerCase();
+  const prog = path9.basename(t[0] || "").replace(/\.(exe|cmd|bat)$/i, "").toLowerCase();
   return /^[a-z][\w:-]*$/i.test(t[1] || "") ? `${prog} ${t[1]}` : prog;
 }
 var SHELL2 = /^(Bash|PowerShell|Shell)$/;
@@ -1562,7 +1772,7 @@ function digest(s, root) {
     else if (e.t === "usage") cost += costOf(e.model, e.usage);
     else if (e.t === "tool") {
       const cwd2 = meta.cwd || s.meta?.cwd || root;
-      const why = unsafeAction({ tool: e.name, input: e.input }, { root: cwd2, allow: [os4.tmpdir()] });
+      const why = unsafeAction({ tool: e.name, input: e.input }, { root: cwd2, allow: [os5.tmpdir()] });
       if (why) unsafe.push(why);
       if (SHELL2.test(e.name) && e.input?.command) {
         const c = { tool: e.name, cmd: String(e.input.command).slice(0, 300), err: false, ran: false };
@@ -1570,7 +1780,7 @@ function digest(s, root) {
         if (e.id) byId.set(e.id, c);
       }
       const f = e.input?.file_path ?? e.input?.path;
-      if (/^(Write|Edit|MultiEdit)$/.test(e.name) && f && within(path8.resolve(cwd2, f), cwd2)) files.push(path8.relative(cwd2, path8.resolve(cwd2, f)).split(path8.sep).join("/"));
+      if (/^(Write|Edit|MultiEdit)$/.test(e.name) && f && within(path9.resolve(cwd2, f), cwd2)) files.push(path9.relative(cwd2, path9.resolve(cwd2, f)).split(path9.sep).join("/"));
     } else if (e.t === "result" && byId.has(e.id)) {
       const c = byId.get(e.id);
       c.ran = true;
@@ -1583,7 +1793,7 @@ function digest(s, root) {
   if (!cwd || /qbranch-replay-/.test(cwd)) return null;
   for (const p of prompt.match(/(?:\b[A-Za-z]:[\\/]|(?<![\w.])\/(?:[a-z]|Users|home|mnt|var|opt|etc|srv)\/)[^\s'"`<>|)]*/g) || []) {
     const abs = /^\/[a-z]\//i.test(p) ? `${p[1].toUpperCase()}:${p.slice(2)}` : p;
-    if (!within(path8.resolve(abs), cwd) && !within(path8.resolve(abs), os4.tmpdir())) unsafe.push(`prompt names a path outside the project (${p.slice(0, 60)})`);
+    if (!within(path9.resolve(abs), cwd) && !within(path9.resolve(abs), os5.tmpdir())) unsafe.push(`prompt names a path outside the project (${p.slice(0, 60)})`);
   }
   const ok = calls.filter((c) => c.ran && !c.err && !READS.test(commandKey(c.cmd).split(" ")[0]));
   const keys = [...new Map(ok.map((c) => [commandKey(c.cmd), c])).values()].slice(-3);
@@ -1649,23 +1859,23 @@ function harvestTasks({ root = null, days = 30, limit = 20, filter = (t) => t.re
 }
 var git = (args, opts = {}) => spawnSync("git", args, { encoding: "utf8", windowsHide: true, ...opts });
 function makeSandbox(cwd, { mode = "auto" } = {}) {
-  if (!fs6.existsSync(cwd)) throw new Error(`task directory no longer exists: ${cwd}`);
-  const base = fs6.realpathSync.native(fs6.mkdtempSync(path8.join(os4.tmpdir(), "qbranch-replay-")));
-  const hooks = path8.join(base, "git-hooks");
-  fs6.mkdirSync(hooks);
-  fs6.writeFileSync(path8.join(hooks, "pre-push"), '#!/bin/sh\necho "qbranch replay sandbox: push refused" >&2\nexit 1\n', { mode: 493 });
+  if (!fs7.existsSync(cwd)) throw new Error(`task directory no longer exists: ${cwd}`);
+  const base2 = fs7.realpathSync.native(fs7.mkdtempSync(path9.join(os5.tmpdir(), "qbranch-replay-")));
+  const hooks = path9.join(base2, "git-hooks");
+  fs7.mkdirSync(hooks);
+  fs7.writeFileSync(path9.join(hooks, "pre-push"), '#!/bin/sh\necho "qbranch replay sandbox: push refused" >&2\nexit 1\n', { mode: 493 });
   const top = mode === "copy" ? "" : (git(["-C", cwd, "rev-parse", "--show-toplevel"]).stdout || "").trim();
-  const work = path8.join(base, "work");
+  const work = path9.join(base2, "work");
   let dir = work;
   if (top) {
     const r = git(["-c", `core.hooksPath=${hooks}`, "-C", top, "worktree", "add", "--detach", work, "HEAD"]);
     if (r.status !== 0) {
-      fs6.rmSync(base, { recursive: true, force: true });
+      fs7.rmSync(base2, { recursive: true, force: true });
       throw new Error(`git worktree add failed: ${(r.stderr || "").trim()}`);
     }
-    dir = path8.join(work, path8.relative(path8.resolve(top), path8.resolve(cwd)));
+    dir = path9.join(work, path9.relative(path9.resolve(top), path9.resolve(cwd)));
   } else {
-    fs6.cpSync(cwd, work, { recursive: true, filter: (src) => !/[\\/](node_modules|\.git|\.venv|venv|dist|build|\.next)$/.test(src) });
+    fs7.cpSync(cwd, work, { recursive: true, filter: (src) => !/[\\/](node_modules|\.git|\.venv|venv|dist|build|\.next)$/.test(src) });
   }
   const env = { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "core.hooksPath", GIT_CONFIG_VALUE_0: hooks };
   const status = () => top ? git(["-C", work, "status", "--porcelain", "-uall"], { env: { ...process.env, ...env } }).stdout || "" : "";
@@ -1674,25 +1884,25 @@ function makeSandbox(cwd, { mode = "auto" } = {}) {
       git(["-C", top, "worktree", "remove", "--force", work]);
     }
     try {
-      fs6.rmSync(base, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+      fs7.rmSync(base2, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     } catch {
     }
     if (top) git(["-C", top, "worktree", "prune"]);
   };
-  return { base, root: work, dir, git: !!top, env, status, cleanup };
+  return { base: base2, root: work, dir, git: !!top, env, status, cleanup };
 }
 var AGENTS = {};
 var registerAgent = (name, adapter) => {
   AGENTS[name] = adapter;
 };
 function which(bin) {
-  if (path8.isAbsolute(bin)) return bin;
+  if (path9.isAbsolute(bin)) return bin;
   const exts = process.platform === "win32" ? (process.env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
-  for (const d of (process.env.PATH || "").split(path8.delimiter)) for (const e of exts) {
-    const f = path8.join(d, bin + e.toLowerCase());
-    if (fs6.existsSync(f)) return f;
-    const g = path8.join(d, bin + e);
-    if (fs6.existsSync(g)) return g;
+  for (const d of (process.env.PATH || "").split(path9.delimiter)) for (const e of exts) {
+    const f = path9.join(d, bin + e.toLowerCase());
+    if (fs7.existsSync(f)) return f;
+    const g = path9.join(d, bin + e);
+    if (fs7.existsSync(g)) return g;
   }
   return bin;
 }
@@ -1741,19 +1951,19 @@ function exec(bin, args, { cwd, env, input = "", timeoutMs = 3e5 } = {}) {
     child.stdin.end(input);
   });
 }
-var claudeHome2 = () => process.env.CLAUDE_CONFIG_DIR || path8.join(os4.homedir(), ".claude");
+var claudeHome2 = () => process.env.CLAUDE_CONFIG_DIR || path9.join(os5.homedir(), ".claude");
 var mergeHooks = (...sets) => {
   const out = {};
   for (const s of sets) for (const [ev, list] of Object.entries(s?.hooks || {})) out[ev] = [...out[ev] || [], ...list];
   return out;
 };
-var fwd = (p) => p.split(path8.sep).join("/");
-registerAgent("claude", async ({ prompt, dir, base, model, budgetUsd, timeoutMs, settings, env, artifactsDir }) => {
-  const guard = path8.join(base, "guard.mjs");
-  fs6.writeFileSync(guard, guardSource());
+var fwd = (p) => p.split(path9.sep).join("/");
+registerAgent("claude", async ({ prompt, dir, base: base2, model, budgetUsd, timeoutMs, settings, env, artifactsDir }) => {
+  const guard = path9.join(base2, "guard.mjs");
+  fs7.writeFileSync(guard, guardSource());
   const all = { ...settings || {}, hooks: mergeHooks({ hooks: { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: `node "${fwd(guard)}"` }] }] } }, settings) };
-  const settingsFile = path8.join(base, "settings.json");
-  fs6.writeFileSync(settingsFile, JSON.stringify(all, null, 2));
+  const settingsFile = path9.join(base2, "settings.json");
+  fs7.writeFileSync(settingsFile, JSON.stringify(all, null, 2));
   const args = [
     "-p",
     "--output-format",
@@ -1773,7 +1983,7 @@ registerAgent("claude", async ({ prompt, dir, base, model, budgetUsd, timeoutMs,
     cwd: dir,
     input: prompt,
     timeoutMs,
-    env: { ...process.env, ...env, QBRANCH_REPLAY_ROOT: dir, QBRANCH_REPLAY_ALLOW: JSON.stringify([os4.tmpdir()]), CLAUDECODE: "" }
+    env: { ...process.env, ...env, QBRANCH_REPLAY_ROOT: dir, QBRANCH_REPLAY_ALLOW: JSON.stringify([os5.tmpdir()]), CLAUDECODE: "" }
   });
   let j = null;
   try {
@@ -1781,17 +1991,17 @@ registerAgent("claude", async ({ prompt, dir, base, model, budgetUsd, timeoutMs,
     j = Array.isArray(v) ? v.find((x) => x.type === "result") : v;
   } catch {
   }
-  const pdir = path8.join(claudeHome2(), "projects", encodeProject(dir));
-  let transcript = j?.session_id && path8.join(pdir, `${j.session_id}.jsonl`);
-  if (!transcript || !fs6.existsSync(transcript)) transcript = (fs6.existsSync(pdir) ? fs6.readdirSync(pdir).filter((f) => f.endsWith(".jsonl")).map((f) => path8.join(pdir, f)) : [])[0] || null;
+  const pdir = path9.join(claudeHome2(), "projects", encodeProject(dir));
+  let transcript = j?.session_id && path9.join(pdir, `${j.session_id}.jsonl`);
+  if (!transcript || !fs7.existsSync(transcript)) transcript = (fs7.existsSync(pdir) ? fs7.readdirSync(pdir).filter((f) => f.endsWith(".jsonl")).map((f) => path9.join(pdir, f)) : [])[0] || null;
   let events = [], transcriptPath = null;
   if (transcript) {
     events = [...claudeEvents(transcript)];
-    fs6.mkdirSync(artifactsDir, { recursive: true });
-    transcriptPath = path8.join(artifactsDir, `${path8.basename(base)}.jsonl`);
-    fs6.copyFileSync(transcript, transcriptPath);
+    fs7.mkdirSync(artifactsDir, { recursive: true });
+    transcriptPath = path9.join(artifactsDir, `${path9.basename(base2)}.jsonl`);
+    fs7.copyFileSync(transcript, transcriptPath);
   }
-  if (/qbranch-replay-/.test(pdir)) fs6.rmSync(pdir, { recursive: true, force: true });
+  if (/qbranch-replay-/.test(pdir)) fs7.rmSync(pdir, { recursive: true, force: true });
   const used = events.filter((e) => e.t === "usage");
   return {
     exitCode: r.exitCode,
@@ -1811,7 +2021,7 @@ var swapRoot = (text, from, to) => {
   for (const [a, b] of [[dbl(from), dbl(to)], [from, to], [fwd(from), fwd(to)]]) if (a.length > 3) out = out.split(a).join(b);
   return out;
 };
-async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeoutMs = 3e5, sandbox = "auto", after, keep = false, allowUnsafe = false, artifactsDir = path8.join(os4.tmpdir(), "qbranch-replay-runs") } = {}) {
+async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeoutMs = 3e5, sandbox = "auto", after, keep = false, allowUnsafe = false, artifactsDir = path9.join(os5.tmpdir(), "qbranch-replay-runs") } = {}) {
   if (!(budgetUsd > 0)) throw new Error("runTask needs an explicit budgetUsd (spending is opt-in)");
   if (!task.readOnly && !allowUnsafe) throw new Error(`task ${task.id} is not read-only (${(task.unsafe || []).join("; ")}): refusing to replay it`);
   const adapter = AGENTS[agent];
@@ -1822,10 +2032,10 @@ async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeou
     const variant = setup && await setup(sb.dir, { task, sandbox: sb }) || {};
     const before = new Set(sb.status().split("\n").filter(Boolean));
     const r = await adapter({ prompt: swapRoot(task.prompt, task.cwd, sb.dir), dir: sb.dir, base: sb.base, model, budgetUsd, timeoutMs, settings: variant.settings, env: sb.env, artifactsDir });
-    const changed = new Set(sb.status().split("\n").filter((l) => l && !before.has(l)).map((l) => path8.relative(sb.dir, path8.join(sb.root, l.slice(3).replace(/^"|"$/g, ""))).split(path8.sep).join("/")));
+    const changed = new Set(sb.status().split("\n").filter((l) => l && !before.has(l)).map((l) => path9.relative(sb.dir, path9.join(sb.root, l.slice(3).replace(/^"|"$/g, ""))).split(path9.sep).join("/")));
     for (const e of r.events || []) {
       const f = e.t === "tool" && /^(Write|Edit|MultiEdit)$/.test(e.name) && (e.input?.file_path ?? e.input?.path);
-      if (f && within(path8.resolve(sb.dir, f), sb.dir)) changed.add(path8.relative(sb.dir, path8.resolve(sb.dir, f)).split(path8.sep).join("/"));
+      if (f && within(path9.resolve(sb.dir, f), sb.dir)) changed.add(path9.relative(sb.dir, path9.resolve(sb.dir, f)).split(path9.sep).join("/"));
     }
     const usage = r.events?.find((e) => e.t === "usage")?.usage;
     const run = {
@@ -1972,18 +2182,18 @@ async function compareVariants({ tasks, variants, repeats = 1, concurrency = 1, 
   });
   for (const row of perTask) for (const n of names) row.variants[n] = summary(row.variants[n]);
   const regressions = [];
-  const [base, ...rest2] = names;
+  const [base2, ...rest2] = names;
   for (const row of perTask) for (const n of rest2) {
-    const b = row.variants[base], v = row.variants[n];
+    const b = row.variants[base2], v = row.variants[n];
     if (b.runs && v.runs && v.passRate < b.passRate) regressions.push({ task: row.id, variant: n, before: b.passRate, after: v.passRate, reasons: row.reasons[n] || [] });
   }
   return { perVariant: Object.fromEntries(names.map((n) => [n, summary(totals[n])])), perTask, regressions, skipped, inconclusive, runs, spentUsd: +spent.toFixed(4), complete: skipped.length === 0 && inconclusive.length === 0 };
 }
 
 // packages/core/src/scenarios.mjs
-import fs7 from "node:fs";
-import os5 from "node:os";
-import path9 from "node:path";
+import fs8 from "node:fs";
+import os6 from "node:os";
+import path10 from "node:path";
 import { spawn as spawn2, spawnSync as spawnSync2 } from "node:child_process";
 var git2 = (args, opts = {}) => spawnSync2("git", args, { encoding: "utf8", windowsHide: true, maxBuffer: 256 * 1024 * 1024, ...opts });
 var json = (t) => {
@@ -1993,7 +2203,7 @@ var json = (t) => {
     return null;
   }
 };
-var posix = (p) => p.split(path9.sep).join("/");
+var posix = (p) => p.split(path10.sep).join("/");
 function glob(g) {
   g = String(g).replace(/^\.\//, "");
   if (!/[*?]/.test(g)) {
@@ -2004,8 +2214,8 @@ function glob(g) {
   return new RegExp(`^${re}$`);
 }
 function scenarioConfig(root) {
-  const file2 = process.env.QBRANCH_SCENARIOS_CONFIG || path9.join(root, "qbranch.scenarios.json");
-  const c = json(fs7.existsSync(file2) ? fs7.readFileSync(file2, "utf8") : "null") || {};
+  const file2 = process.env.QBRANCH_SCENARIOS_CONFIG || path10.join(root, "qbranch.scenarios.json");
+  const c = json(fs8.existsSync(file2) ? fs8.readFileSync(file2, "utf8") : "null") || {};
   return { maxFiles: 20, neighbours: 10, testTimeoutSec: 600, ...c, include: (c.include || []).map(glob), exclude: (c.exclude || []).map(glob) };
 }
 var packageManager = (has) => has("pnpm-lock.yaml") ? "pnpm" : has("yarn.lock") ? "yarn" : has("bun.lockb") || has("bun.lock") ? "bun" : "npm";
@@ -2045,11 +2255,11 @@ function cmdEnv(sb, cwd) {
   delete env.NODE_TEST_CONTEXT;
   const key = Object.keys(env).find((k) => /^path$/i.test(k)) || "PATH";
   const bins = [];
-  for (let d = cwd; ; d = path9.dirname(d)) {
-    bins.push(path9.join(d, "node_modules", ".bin"));
-    if (path9.resolve(d) === path9.resolve(sb.root) || path9.dirname(d) === d) break;
+  for (let d = cwd; ; d = path10.dirname(d)) {
+    bins.push(path10.join(d, "node_modules", ".bin"));
+    if (path10.resolve(d) === path10.resolve(sb.root) || path10.dirname(d) === d) break;
   }
-  env[key] = [...bins, env[key]].join(path9.delimiter);
+  env[key] = [...bins, env[key]].join(path10.delimiter);
   return env;
 }
 async function runGroups(sb, groups, cfg) {
@@ -2057,7 +2267,7 @@ async function runGroups(sb, groups, cfg) {
   for (const g of groups) {
     const files = g.files.map(quote).join(" ");
     const cmd2 = g.cmd.includes("{files}") ? g.cmd.replace("{files}", files) : `${g.cmd} ${files}`;
-    const cwd = path9.join(sb.root, g.cwd);
+    const cwd = path10.join(sb.root, g.cwd);
     results.push({ cmd: cmd2, cwd: g.cwd, ...await sh(cmd2, { cwd, env: cmdEnv(sb, cwd), timeoutMs: cfg.testTimeoutSec * 1e3 }) });
   }
   return { pass: results.length > 0 && results.every((r) => r.pass), ms: results.reduce((a, r) => a + r.ms, 0), tail: results.filter((r) => !r.pass).map((r) => `$ ${r.cmd}
@@ -2065,21 +2275,21 @@ ${r.tail}`).join("\n").slice(-2e3), groups: results.map(({ tail, ...r }) => r) }
 }
 var runOne = async (sb, cmd2, cfg) => ({ cmd: cmd2, ...await sh(cmd2, { cwd: sb.root, env: cmdEnv(sb, sb.root), timeoutMs: cfg.testTimeoutSec * 1e3 }) });
 function snapshotSandbox(root, ref) {
-  const base = fs7.realpathSync.native(fs7.mkdtempSync(path9.join(os5.tmpdir(), "qbranch-replay-")));
-  const hooks = path9.join(base, "git-hooks"), work = path9.join(base, "work");
-  fs7.mkdirSync(hooks);
-  fs7.mkdirSync(work);
-  fs7.writeFileSync(path9.join(hooks, "pre-push"), '#!/bin/sh\necho "qbranch replay sandbox: push refused" >&2\nexit 1\n', { mode: 493 });
+  const base2 = fs8.realpathSync.native(fs8.mkdtempSync(path10.join(os6.tmpdir(), "qbranch-replay-")));
+  const hooks = path10.join(base2, "git-hooks"), work = path10.join(base2, "work");
+  fs8.mkdirSync(hooks);
+  fs8.mkdirSync(work);
+  fs8.writeFileSync(path10.join(hooks, "pre-push"), '#!/bin/sh\necho "qbranch replay sandbox: push refused" >&2\nexit 1\n', { mode: 493 });
   const fail = (what, r2) => {
-    fs7.rmSync(base, { recursive: true, force: true });
+    fs8.rmSync(base2, { recursive: true, force: true });
     throw new Error(`${what} failed: ${(r2.stderr || "").trim().slice(0, 300)}`);
   };
-  const idx = { env: { ...process.env, GIT_INDEX_FILE: path9.join(base, "index") } };
+  const idx = { env: { ...process.env, GIT_INDEX_FILE: path10.join(base2, "index") } };
   let r = git2(["-C", root, "read-tree", ref], idx);
   if (r.status !== 0) fail(`git read-tree ${ref}`, r);
   r = git2(["-C", root, `--work-tree=${work}`, "checkout-index", "-a", "-f"], idx);
   if (r.status !== 0) fail("git checkout-index", r);
-  fs7.rmSync(path9.join(base, "index"), { force: true });
+  fs8.rmSync(path10.join(base2, "index"), { force: true });
   const env = { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "core.hooksPath", GIT_CONFIG_VALUE_0: hooks };
   const genv = { env: { ...process.env, ...env } };
   const id = ["-c", "user.name=qbranch", "-c", "user.email=qbranch@localhost", "-c", "commit.gpgsign=false", "-c", "core.safecrlf=false"];
@@ -2090,17 +2300,17 @@ function snapshotSandbox(root, ref) {
   const links = [];
   const status = () => git2(["-C", work, "status", "--porcelain", "-uall"], genv).stdout || "";
   const cleanup = () => {
-    killStrays(path9.basename(base));
+    killStrays(path10.basename(base2));
     for (const l of links.splice(0)) try {
-      fs7.unlinkSync(l);
+      fs8.unlinkSync(l);
     } catch {
     }
     try {
-      fs7.rmSync(base, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+      fs8.rmSync(base2, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     } catch {
     }
   };
-  return { base, root: work, dir: work, git: true, env, status, cleanup, links };
+  return { base: base2, root: work, dir: work, git: true, env, status, cleanup, links };
 }
 function killStrays(tag2) {
   if (!/^qbranch-replay-\w{6}$/.test(tag2)) return;
@@ -2114,40 +2324,40 @@ function killStrays(tag2) {
 }
 function applyFiles(work, root, sha, entries) {
   for (const e of entries) {
-    const dst = path9.join(work, e.path);
+    const dst = path10.join(work, e.path);
     if (e.status === "D") {
-      fs7.rmSync(dst, { force: true });
+      fs8.rmSync(dst, { force: true });
       continue;
     }
     const r = spawnSync2("git", ["-C", root, "cat-file", "blob", `${sha}:${e.path}`], { windowsHide: true, maxBuffer: 256 * 1024 * 1024 });
     if (r.status !== 0) throw new Error(`cannot read ${e.path} at ${sha.slice(0, 8)}`);
-    fs7.mkdirSync(path9.dirname(dst), { recursive: true });
-    fs7.writeFileSync(dst, r.stdout);
+    fs8.mkdirSync(path10.dirname(dst), { recursive: true });
+    fs8.writeFileSync(dst, r.stdout);
   }
 }
 var SKIP_NM = /* @__PURE__ */ new Set([".vite", ".vitest", ".cache", ".tmp", ".turbo"]);
 function linkDeps(live, work, links = []) {
   const pkgs = (git2(["-C", live, "ls-files", "--", "package.json", "*/package.json"]).stdout || "").split("\n").filter(Boolean).filter((p) => !/node_modules\//.test(p));
-  const liveReal = fs7.realpathSync.native(live);
+  const liveReal = fs8.realpathSync.native(live);
   const target = (real) => {
-    const rel = path9.relative(liveReal, real);
-    return !rel.startsWith("..") && !path9.isAbsolute(rel) && !rel.split(path9.sep).includes("node_modules") ? path9.join(work, rel) : real;
+    const rel = path10.relative(liveReal, real);
+    return !rel.startsWith("..") && !path10.isAbsolute(rel) && !rel.split(path10.sep).includes("node_modules") ? path10.join(work, rel) : real;
   };
   const linkDir = (src, dst) => {
-    fs7.mkdirSync(dst, { recursive: true });
-    for (const e of fs7.readdirSync(src, { withFileTypes: true })) {
+    fs8.mkdirSync(dst, { recursive: true });
+    for (const e of fs8.readdirSync(src, { withFileTypes: true })) {
       if (SKIP_NM.has(e.name)) continue;
-      const s = path9.join(src, e.name), d = path9.join(dst, e.name);
-      if (fs7.existsSync(d)) continue;
+      const s = path10.join(src, e.name), d = path10.join(dst, e.name);
+      if (fs8.existsSync(d)) continue;
       let real;
       try {
-        real = fs7.realpathSync.native(s);
+        real = fs8.realpathSync.native(s);
       } catch {
         continue;
       }
-      const st = fs7.statSync(real);
+      const st = fs8.statSync(real);
       if (!st.isDirectory()) {
-        fs7.copyFileSync(real, d);
+        fs8.copyFileSync(real, d);
         continue;
       }
       if (e.name.startsWith("@") && e.isDirectory()) {
@@ -2155,19 +2365,19 @@ function linkDeps(live, work, links = []) {
         continue;
       }
       const t = target(real);
-      if (!fs7.existsSync(t)) continue;
-      fs7.symlinkSync(t, d, "junction");
+      if (!fs8.existsSync(t)) continue;
+      fs8.symlinkSync(t, d, "junction");
       links.push(d);
     }
   };
   for (const p of pkgs) {
-    const rel = path9.posix.dirname(p), src = path9.join(live, rel, "node_modules"), dst = path9.join(work, rel, "node_modules");
-    if (fs7.existsSync(src) && fs7.existsSync(path9.dirname(dst)) && !fs7.existsSync(dst)) linkDir(src, dst);
+    const rel = path10.posix.dirname(p), src = path10.join(live, rel, "node_modules"), dst = path10.join(work, rel, "node_modules");
+    if (fs8.existsSync(src) && fs8.existsSync(path10.dirname(dst)) && !fs8.existsSync(dst)) linkDir(src, dst);
   }
   return links;
 }
 async function installDeps(sb, cfg) {
-  const has = (f) => fs7.existsSync(path9.join(sb.root, f));
+  const has = (f) => fs8.existsSync(path10.join(sb.root, f));
   const pm = packageManager(has);
   const cmd2 = {
     npm: has("package-lock.json") ? "npm ci --ignore-scripts --no-audit --no-fund" : "npm install --ignore-scripts --no-audit --no-fund",
@@ -2215,13 +2425,13 @@ async function runScenario(s, { agent = "claude", model, setup, budgetUsd, timeo
       await prepareDeps(s, ctx.sandbox, cfg, s.install);
       const v = setup && await setup(dir, ctx) || {};
       if (s.install) return v;
-      const guard = path9.join(ctx.sandbox.base, "deps-guard.mjs");
-      fs7.writeFileSync(guard, depsGuardSource());
+      const guard = path10.join(ctx.sandbox.base, "deps-guard.mjs");
+      fs8.writeFileSync(guard, depsGuardSource());
       const hooks = v.settings?.hooks || {};
       return { ...v, settings: { ...v.settings, hooks: { ...hooks, PreToolUse: [...hooks.PreToolUse || [], { matcher: "*", hooks: [{ type: "command", command: `node "${posix(guard)}"` }] }] } } };
     },
     after: async (sb) => {
-      killStrays(path9.basename(sb.base));
+      killStrays(path10.basename(sb.base));
       applyFiles(sb.root, s.repo, s.sha, s.files.hidden);
       const suites = { "fail-to-pass": await runGroups(sb, s.plan.tests, cfg) };
       if (s.plan.neighbours?.length) suites["pass-to-pass"] = await runGroups(sb, s.plan.neighbours, cfg);
@@ -2231,10 +2441,10 @@ async function runScenario(s, { agent = "claude", model, setup, budgetUsd, timeo
     }
   });
 }
-var scenariosDir = (root) => path9.join(root, ".qbranch", "scenarios");
+var scenariosDir = (root) => path10.join(root, ".qbranch", "scenarios");
 function loadScenarios(root, { dir = scenariosDir(root), status } = {}) {
-  if (!fs7.existsSync(dir)) return [];
-  return fs7.readdirSync(dir).filter((f) => /^scn_.*\.json$/.test(f)).map((f) => json(fs7.readFileSync(path9.join(dir, f), "utf8"))).filter(Boolean).filter((s) => !status || [].concat(status).includes(s.status)).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  if (!fs8.existsSync(dir)) return [];
+  return fs8.readdirSync(dir).filter((f) => /^scn_.*\.json$/.test(f)).map((f) => json(fs8.readFileSync(path10.join(dir, f), "utf8"))).filter(Boolean).filter((s) => !status || [].concat(status).includes(s.status)).sort((a, b) => String(b.at).localeCompare(String(a.at)));
 }
 
 // packages/groundhog/src/verify.mjs
@@ -2254,7 +2464,7 @@ function lessonTasks(cfg, lesson, { days = cfg.days, tasks = 2, heldOut = 2, har
   return { target, held: others.sort(cheapest).slice(0, heldOut), candidates: all.length };
 }
 var ledgerVariant = (cfg, lessons, hookCommand) => async (dir) => {
-  fs8.writeFileSync(path10.join(dir, cfg.lessons), JSON.stringify({ lessons }, null, 2) + "\n");
+  fs9.writeFileSync(path11.join(dir, cfg.lessons), JSON.stringify({ lessons }, null, 2) + "\n");
   if (!hookCommand) return {};
   return { settings: { hooks: {
     SessionStart: [{ hooks: [{ type: "command", command: `${hookCommand} hook session` }] }],
@@ -2271,8 +2481,8 @@ async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks = 2, he
   const { target, held: recurring, candidates } = lessonTasks(cfg, cand, { days, tasks, heldOut, harvest });
   const held = scenarios ? scenarios.slice(0, heldOut) : recurring;
   const at = (/* @__PURE__ */ new Date()).toISOString();
-  const base = { at, model: model || null, agent, repeats };
-  if (!target.length) return { verdict: "no-evidence", verified: { ...base, tasks: 0, before: null, after: null, regressions: [], costUsd: 0, verdict: "no-evidence", note: `none of ${candidates} replayable tasks hit this failure` } };
+  const base2 = { at, model: model || null, agent, repeats };
+  if (!target.length) return { verdict: "no-evidence", verified: { ...base2, tasks: 0, before: null, after: null, regressions: [], costUsd: 0, verdict: "no-evidence", note: `none of ${candidates} replayable tasks hit this failure` } };
   const variants = { without: ledgerVariant(cfg, ledger, hookCommand), with: ledgerVariant(cfg, [...ledger, cand], hookCommand) };
   const opts = { variants, repeats, agent, model, timeoutMs, onRun: ({ task, variant, grade, run, spent }) => log(`  ${variant.padEnd(7)} ${task.id}  ${grade.pass ? "pass" : "fail"} ${grade.score.toFixed(2)}  $${(run.costUsd || 0).toFixed(3)} (spent $${spent.toFixed(3)})${grade.pass ? "" : `  ${(grade.reasons || []).join("; ").slice(0, 140)}`}`) };
   log(`replaying ${target.length} task(s) where the failure happened, without and with ${cand.id}`);
@@ -2287,7 +2497,7 @@ async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks = 2, he
   const ran = paired(a);
   const verdict = !ran ? "inconclusive" : regressions.length ? "regressed" : after.passRate < before.passRate || after.meanScore < before.meanScore ? "hurts" : after.passRate > before.passRate || after.meanScore > before.meanScore ? "helps" : "neutral";
   const verified = {
-    ...base,
+    ...base2,
     tasks: ran + paired(b),
     before,
     after,
@@ -2301,15 +2511,15 @@ async function verifyLesson(cfg, lesson, { budgetUsd, model, days, tasks = 2, he
 var acceptable = (verdict) => verdict === "helps" || verdict === "neutral";
 
 // packages/groundhog/src/draft.mjs
-import fs9 from "node:fs";
-import path11 from "node:path";
+import fs10 from "node:fs";
+import path12 from "node:path";
 var slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "runbook";
 function draftRunbook(cfg, item, name) {
   const steps = item.steps || [item.shape];
   const examples = item.examples || [item.example];
   const n = slug(name || steps.map((s) => s.split(" ").slice(0, 2).join(" ")).join(" then "));
-  const dir = path11.join(cfg.dataDir, "drafts", n);
-  fs9.mkdirSync(dir, { recursive: true });
+  const dir = path12.join(cfg.dataDir, "drafts", n);
+  fs10.mkdirSync(dir, { recursive: true });
   const body = [
     `# ${n}`,
     "",
@@ -2327,7 +2537,7 @@ function draftRunbook(cfg, item, name) {
     ""
   ].join("\n");
   const meta = { name: n, description: `Runbook: ${steps.join(" -> ").slice(0, 300)}. Use when doing this procedure by hand. (groundhog draft: review before use)` };
-  fs9.writeFileSync(path11.join(dir, "SKILL.md"), renderFrontmatter(meta, body));
+  fs10.writeFileSync(path12.join(dir, "SKILL.md"), renderFrontmatter(meta, body));
   upsert(cfg, (s) => {
     s.totals.drafts++;
   });
@@ -2344,8 +2554,9 @@ var opt = (n, d) => {
 var HELP = `groundhog: stop re-living the same session.
 
   groundhog scan [--days N] [--all-projects]   mine transcripts: repeated commands, sequences, error -> fix pairs
-  groundhog report [--json]                    numbered candidates: lessons (L), sequences (S), friction (F), repeats (R)
-  groundhog accept L<n>                        add mined lesson n to the ledger (groundhog.lessons.json; commit it)
+  groundhog report [--json]                    numbered candidates: lessons (L), tool switches (W), rtk retries (K),
+                                               sequences (S), friction (F), repeats (R)
+  groundhog accept L<n>|W<n>|K<n>              add a mined lesson to the ledger (groundhog.lessons.json; commit it)
   groundhog accept L<n> --verify --budget USD  replay the tasks where it failed, without and with the lesson, plus a
                                                held-out sample; add it only if it helps (or never hurts) and breaks nothing
   groundhog verify [L<n>] --budget USD         re-check accepted lessons; a lesson that breaks another task is flagged
@@ -2357,7 +2568,7 @@ var HELP = `groundhog: stop re-living the same session.
   groundhog stats [--json]                     usage + whether accepted lessons stopped recurring
   groundhog hook session|pre [--platform P]    SessionStart (inject lessons) / PreToolUse (guard shell commands)`;
 function index(cfg) {
-  const ix = readJson(path12.join(cfg.dataDir, "index.json"), null);
+  const ix = readJson(path13.join(cfg.dataDir, "index.json"), null);
   if (!ix) throw new Error("no scan yet: run `groundhog scan`");
   return ix;
 }
@@ -2375,8 +2586,8 @@ async function verifyOpts(cfg) {
     repeats: Number(opt("--repeats", 1)),
     timeoutMs: Number(opt("--timeout", 300)) * 1e3,
     log: (m) => console.log(m),
-    hookCommand: [exe, ...pre].map((a) => `"${a.split(path12.sep).join("/")}"`).join(" "),
-    scenarios: flag("--scenarios") ? loadScenarios(cfg.root, { dir: opt("--cache") ? path12.resolve(opt("--cache")) : process.env.QBRANCH_SCENARIOS_DIR || scenariosDir(cfg.root), status: "valid" }) : null
+    hookCommand: [exe, ...pre].map((a) => `"${a.split(path13.sep).join("/")}"`).join(" "),
+    scenarios: flag("--scenarios") ? loadScenarios(cfg.root, { dir: opt("--cache") ? path13.resolve(opt("--cache")) : process.env.QBRANCH_SCENARIOS_DIR || scenariosDir(cfg.root), status: "valid" }) : null
   };
 }
 var showVerified = (v) => !v ? "" : v.before ? `${v.verdict}: pass ${v.before.passRate} -> ${v.after.passRate}, score ${v.before.meanScore} -> ${v.after.meanScore} on ${v.tasks} task(s)${v.regressions.length ? `, regressions: ${v.regressions.join(", ")}` : ""}, $${v.costUsd}` + (v.repeats === 1 && v.verdict !== "neutral" ? " (one sample per task and variant: confirm with --repeats 3)" : "") : `${v.verdict}${v.note ? ` (${v.note})` : ""}`;
@@ -2390,9 +2601,9 @@ async function main() {
       upsert(cfg, (s) => {
         s.totals.scans++;
         s.recurrences = rec;
-        s.last_scan = { sessions: ix.sessions, calls: ix.calls, repeats: ix.repeats.length, lessons: ix.lessons.length, sequences: ix.sequences.length };
+        s.last_scan = { sessions: ix.sessions, calls: ix.calls, repeats: ix.repeats.length, lessons: ix.lessons.length, switches: ix.switches.length, rtk: ix.rtk.length, sequences: ix.sequences.length };
       });
-      return console.log(`${ix.sessions} sessions, ${ix.calls} shell calls: ${ix.lessons.length} lesson candidates, ${ix.sequences.length} sequences, ${ix.friction.length} friction shapes, ${ix.repeats.length} repeats. Next: groundhog report`);
+      return console.log(`${ix.sessions} sessions, ${ix.calls} shell calls: ${ix.lessons.length} lesson candidates, ${ix.switches.length} tool switches, ${ix.rtk.length} rtk retries, ${ix.sequences.length} sequences, ${ix.friction.length} friction shapes, ${ix.repeats.length} repeats. Next: groundhog report`);
     }
     case "report": {
       const ix = index(cfg);
@@ -2401,6 +2612,14 @@ async function main() {
       const pct = (e) => `${Math.round(100 * e.errors / e.count)}%`;
       console.log("Lessons: the same error, then the same workaround (accept with: groundhog accept L<n>)");
       ix.lessons.slice(0, 15).forEach((e, i) => console.log(`  L${i + 1}  x${e.count} in ${e.sessions} sessions  ${e.from}  =>  ${e.to}${known.has(fromRecovery(e).when) ? "  [accepted]" : ""}`));
+      if (ix.switches?.length) {
+        console.log("\nTool switches: a risky shell construct failed, then the Write/Edit tool fixed it (accept with: groundhog accept W<n>)");
+        ix.switches.slice(0, 10).forEach((e, i) => console.log(`  W${i + 1}  x${e.count} in ${e.sessions} sessions  ${e.tool}: ${e.kind}  =>  ${e.toExample.split("\n")[0].slice(0, 90)}${known.has(fromSwitch(e)?.when) ? "  [accepted]" : ""}`));
+      }
+      if (ix.rtk?.length) {
+        console.log("\nrtk retries: rerun as `rtk proxy` for raw output (accept with: groundhog accept K<n>)");
+        ix.rtk.slice(0, 10).forEach((e, i) => console.log(`  K${i + 1}  x${e.count} in ${e.sessions} sessions  ${e.shape}${known.has(fromRtk(e).when) ? "  [accepted]" : ""}`));
+      }
       console.log("\nSequences run by hand again and again (draft a runbook with: groundhog draft S<n>)");
       ix.sequences.slice(0, 12).forEach((e, i) => console.log(`  S${i + 1}  ${e.sessions} sessions  ${e.steps.join("  >  ")}`));
       console.log("\nFriction: repeated commands that fail a lot");
@@ -2410,9 +2629,11 @@ async function main() {
       return;
     }
     case "accept": {
-      const e = pick(index(cfg).lessons, rest[0], "L");
+      const ix = index(cfg), ref = String(rest[0] || "");
+      const e = /^w/i.test(ref) ? pick(ix.switches || [], ref, "W") : /^k/i.test(ref) ? pick(ix.rtk || [], ref, "K") : pick(ix.lessons, ref, "L");
       if (!e) throw new Error(`no lesson ${rest[0]} (see groundhog report)`);
-      const entry = fromRecovery(e);
+      const entry = /^w/i.test(ref) ? fromSwitch(e) : /^k/i.test(ref) ? fromRtk(e) : fromRecovery(e);
+      if (!entry) throw new Error(`${ref} has no ledger form`);
       if (loadLessons(cfg).some((l2) => l2.when === entry.when)) return console.log("already in the ledger");
       if (flag("--verify")) {
         const { verdict, verified } = await verifyLesson(cfg, entry, await verifyOpts(cfg));
@@ -2462,7 +2683,7 @@ Review it, then adopt it into a skill library (e.g. headjack add <dir>).`);
     case "stats": {
       let s;
       try {
-        s = JSON.parse(fs10.readFileSync(path12.join(cfg.root, cfg.stats || ".groundhog-stats.json"), "utf8"));
+        s = JSON.parse(fs11.readFileSync(path13.join(cfg.root, cfg.stats || ".groundhog-stats.json"), "utf8"));
       } catch {
         return console.log("no stats yet");
       }

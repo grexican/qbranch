@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { sessions } from '@qbranch/core';
+import { escapeRisk, inlineScript } from './guard.mjs';
 
 const SHELL = /^(Bash|PowerShell|run_shell_command|Shell)$/;
 const ERR = /exit code [1-9]|\berror[: ]|not found|not recognized|cannot find|command not found|failed|denied|ENOENT|Exception|No such file/i;
@@ -86,13 +87,115 @@ export function shellCalls(session) {
   return seq;
 }
 
+// ---------- tool switches and rtk retries ----------
+// Some fixes are not another shell command: an inline script that kept failing is written with the Write tool and run
+// as a file, a `sed -i` becomes an Edit. The command shape hides the cause (a heredoc looks the same with or without the
+// backslashes that broke it), so these group by the risky construct, not the shape.
+const EDIT = /^(Write|Edit|MultiEdit|NotebookEdit)$/;
+const SCRIPT_FILE = /\.(m?[jt]s|c[jt]s|py|sh|ps1|rb|pl|php|sql)$/i;
+
+/** Shell calls and file edits of one session, in order: [{ kind: 'shell', tool, cmd, err } | { kind: 'edit', tool, file }] */
+export function trail(session) {
+  const seq = [], byId = new Map();
+  for (const e of session.events()) {
+    if (e.t === 'tool' && SHELL.test(e.name) && e.input?.command) { const c = { kind: 'shell', tool: e.name, cmd: e.input.command, err: false }; byId.set(e.id, c); seq.push(c); }
+    else if (e.t === 'tool' && EDIT.test(e.name)) seq.push({ kind: 'edit', tool: e.name, file: String(e.input?.file_path || e.input?.notebook_path || e.input?.path || '') });
+    else if (e.t === 'result' && byId.has(e.id)) byId.get(e.id).err = e.isError || ERR.test((e.text || '').slice(0, 600));
+  }
+  return seq;
+}
+
+/** The file a heredoc command writes (cat > f <<EOF, tee f <<EOF), or null. */
+export function heredocFile(cmd) {
+  const m = cmd.match(/\b(?:cat|tee)\s+(?:-a\s+)?>{0,2}\s*("[^"]+"|'[^']+'|[^\s<>|;&]+)\s*<</) || cmd.match(/<<-?\s*['"]?\w+['"]?\s*>{1,2}\s*("[^"]+"|'[^']+'|[^\s<>|;&]+)/);
+  return m ? m[1].replace(/^["']|["']$/g, '') : null;
+}
+
+/** The risky construct a shell command uses, or null. Ordered: the most specific cause first. */
+export function riskKind(cmd) {
+  const esc = escapeRisk(cmd);
+  if (esc) return `inline-backslash-${esc}`;
+  const s = inlineScript(cmd);
+  if (s) return s.kind === 'heredoc' ? 'heredoc-script' : 'inline-eval';
+  if (/\b(sed\s+(-\S*\s+)*-\S*i|perl\s+-\S*p\S*i|perl\s+-\S*i\S*p)/.test(cmd)) return 'sed-in-place';
+  if (/(^|[;&|]\s*)(echo|printf)\b[^|]*?>{1,2}\s*[^\s&|]/.test(cmd)) return 'echo-to-file';
+  return null;
+}
+const base = (f) => (f ? f.split(/[\\/]/).pop() : '');
+
+/**
+ * Tool-switch recoveries in one trail: a failing risky shell construct, then within a few steps a Write/Edit of a file
+ * that is then run and works (for scripts), or simply the Edit/Write (for sed -i / echo > file).
+ * Returns [{ tool, kind, fromExample, toExample }].
+ */
+export function toolSwitches(seq) {
+  const out = [];
+  const blamed = new Set(); // a risky construct already counted: its later failures (the run, retries) are the same incident
+  for (let i = 0; i < seq.length; i++) {
+    const c = seq[i];
+    if (c.kind !== 'shell' || !c.err) continue;
+    let kind = riskKind(c.cmd), from = c;
+    if (!kind) { // the failing call ran a file a heredoc wrote a step or two earlier: blame the heredoc
+      const prev = seq.slice(Math.max(0, i - 3), i).reverse().find(p => p.kind === 'shell' && heredocFile(p.cmd) && c.cmd.includes(base(heredocFile(p.cmd))));
+      if (prev) { kind = riskKind(prev.cmd); from = prev; }
+    }
+    if (!kind || blamed.has(from)) continue;
+    const ahead = seq.slice(i + 1, i + 7);
+    let fixAt = -1, toExample = null; // fixAt: index in `ahead` of the step that completed the recovery
+    if (kind === 'sed-in-place' || kind === 'echo-to-file') {
+      // the same file, now through the Edit/Write tool
+      fixAt = ahead.findIndex(x => x.kind === 'edit' && base(x.file) && from.cmd.includes(base(x.file)));
+      if (fixAt >= 0) toExample = `${ahead[fixAt].tool} ${base(ahead[fixAt].file)}`;
+    } else {
+      // a script: written fresh with the Write tool, then executed by an interpreter (a grep that names it is not a run)
+      const ed = ahead.findIndex(x => x.kind === 'edit' && x.tool === 'Write' && SCRIPT_FILE.test(x.file));
+      if (ed >= 0) {
+        const edit = ahead[ed], name = base(edit.file);
+        const runs = (cmd) => cmd.split(/&&|;|\|\|/).some(part => { const t = part.trim().split(/\s+/); return /^(node|nodejs|bun|deno|tsx|ts-node|python3?|py|bash|sh|pwsh|powershell|ruby|perl|php)$/i.test(t[0] || '') && part.includes(name); });
+        const r = ahead.slice(ed + 1, ed + 5).findIndex(x => x.kind === 'shell' && runs(x.cmd));
+        const run = r >= 0 ? ahead[ed + 1 + r] : null;
+        if (run && !run.err) { fixAt = ed + 1 + r; toExample = `${edit.tool} ${name}, then: ${run.cmd.split('\n')[0]}`; }
+      }
+    }
+    if (fixAt < 0) continue;
+    out.push({ tool: c.tool, kind, fromExample: from.cmd, toExample });
+    blamed.add(from);
+    i += 1 + fixAt; // one incident, one count: resume after the step that fixed it
+  }
+  return out;
+}
+
+// rtk (a token-saving proxy) rewrites and filters command output. When an agent reruns the same command as
+// `rtk proxy <cmd>`, the filtered output was not enough: that command shape wants raw output.
+const RTK_PROXY = /^\s*rtk\s+proxy\s+/;
+// the command itself: cd prefixes, rtk/rtk proxy and the output post-processing (| tail, | grep, 2>&1) removed, since
+// a retry for raw output usually changes how the output is cut
+const strip = (cmd) => cmd.trim().replace(/^(cd\s+[^;&]+(?:&&|;)\s*)+/, '').replace(RTK_PROXY, '').replace(/^rtk\s+(?!proxy\b)/, '')
+  .split(/\s\|\s?|\s\|\|/)[0].replace(/\s*\d?>&\d\s*/g, ' ').replace(/\s+/g, ' ').trim();
+/** rtk raw-output retries in one trail: [{ tool, shape, example }]. */
+export function rtkRetries(seq) {
+  const shells = seq.filter(x => x.kind === 'shell');
+  const out = [];
+  const used = new Set(); // one retry is one event, however many filtered copies came before it
+  shells.forEach((c, i) => {
+    const own = c.cmd.trim().replace(/^(cd\s+[^;&]+(?:&&|;)\s*)+/, '');
+    if (RTK_PROXY.test(own)) return; // already raw
+    const inner = strip(c.cmd);
+    const retry = shells.slice(i + 1, i + 4).find(n => RTK_PROXY.test(n.cmd.trim().replace(/^(cd\s+[^;&]+(?:&&|;)\s*)+/, '')) && strip(n.cmd) === inner);
+    if (retry && !used.has(retry)) { used.add(retry); out.push({ tool: c.tool, shape: shape(inner), example: retry.cmd.split('\n')[0].slice(0, 200) }); }
+  });
+  return out;
+}
+
 export function mine(cfg, { days = cfg.days, allProjects = false } = {}) {
-  const shapes = new Map(), seqs = new Map(), recov = new Map();
+  const shapes = new Map(), seqs = new Map(), recov = new Map(), switches = new Map(), rtk = new Map();
   let nSessions = 0, nCalls = 0;
   const calls = []; // flat, for lesson recurrence checks (not persisted)
   const bump = (m, k, sid, init) => { const e = m.get(k) || m.set(k, { ...init(), sessions: new Set() }).get(k); e.sessions.add(sid); return e; };
   for (const s of sessions({ root: allProjects ? null : cfg.root, days })) {
-    const seq = shellCalls(s);
+    const tr = trail(s);
+    // the shell calls, shaped (one pass over the transcript serves both views)
+    const seq = tr.filter(x => x.kind === 'shell').map(x => ({ shape: shape(x.cmd), lead: lead(x.cmd), tool: x.tool, cmd: x.cmd.slice(0, 300), err: x.err }));
     if (!seq.length) continue;
     nSessions++; nCalls += seq.length;
     const sid = s.parent ? `${s.parent}/${s.id}` : s.id;
@@ -110,6 +213,14 @@ export function mine(cfg, { days = cfg.days, allProjects = false } = {}) {
       const r = bump(recov, `${c.tool}: ${from} => ${to}`, sid, () => ({ count: 0, tool: c.tool, from, to, fromExample: c.cmd, toExample: next.cmd, mtimes: [] }));
       r.count++; r.mtimes.push(s.mtime);
     });
+    for (const w of toolSwitches(tr)) {
+      const e = bump(switches, `${w.tool}: ${w.kind}`, sid, () => ({ count: 0, tool: w.tool, kind: w.kind, fromExample: w.fromExample.slice(0, 300), toExample: w.toExample.slice(0, 200), mtimes: [] }));
+      e.count++; e.mtimes.push(s.mtime);
+    }
+    for (const k of rtkRetries(tr)) {
+      const e = bump(rtk, `${k.tool}: ${k.shape}`, sid, () => ({ count: 0, tool: k.tool, shape: k.shape, example: k.example }));
+      e.count++;
+    }
     const work = seq.filter(c => !inspect(c.shape));
     work.forEach((c, i, seq) => {
       const e = bump(shapes, c.shape, sid, () => ({ count: 0, errors: 0, example: c.cmd }));
@@ -136,7 +247,10 @@ export function mine(cfg, { days = cfg.days, allProjects = false } = {}) {
   let sequences = flat(seqs).filter(e => e.sessions >= cfg.minSequence).sort((a, b) => b.steps.length - a.steps.length || b.sessions - a.sessions);
   sequences = sequences.filter((e, i) => !sequences.slice(0, i).some(l => l.steps.length > e.steps.length && l.sessions >= e.sessions && l.steps.join('\n').includes(e.steps.join('\n'))))
     .sort((a, b) => b.sessions * b.steps.length - a.sessions * a.steps.length).slice(0, 50);
-  const index = { scanned: new Date().toISOString(), days, sessions: nSessions, calls: nCalls, repeats: repeats.slice(0, 100), friction, lessons: lessons.slice(0, 100), sequences };
+  // gated on distinct sessions: one bad afternoon of retries is not a habit (count is kept for display)
+  const recurring = (m) => flat(m).filter(e => e.sessions >= Math.max(2, cfg.minRecoveries)).sort((a, b) => b.sessions - a.sessions || b.count - a.count);
+  const index = { scanned: new Date().toISOString(), days, sessions: nSessions, calls: nCalls, repeats: repeats.slice(0, 100), friction, lessons: lessons.slice(0, 100), sequences,
+    switches: recurring(switches).slice(0, 30), rtk: recurring(rtk).slice(0, 30) };
   fs.mkdirSync(cfg.dataDir, { recursive: true });
   if (!fs.existsSync(path.join(cfg.dataDir, '.gitignore'))) fs.writeFileSync(path.join(cfg.dataDir, '.gitignore'), '*\n');
   fs.writeFileSync(path.join(cfg.dataDir, 'index.json'), JSON.stringify(index, null, 2));
