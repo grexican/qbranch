@@ -1,7 +1,7 @@
 {
   "name": "headjack",
   "description": "Skills, loaded the moment you need them. Two root skills + a per-prompt retrieval hook replace a preloaded skill listing: the library stays indexed and out of context until a task needs it.",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "author": {
     "name": "Eli Gassert"
   },

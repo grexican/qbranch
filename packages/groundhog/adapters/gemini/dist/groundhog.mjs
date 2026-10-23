@@ -1175,7 +1175,7 @@ async function runHook(handler, argv = process.argv.slice(2)) {
 import fs4 from "node:fs";
 import os3 from "node:os";
 import path5 from "node:path";
-var VERSION = true ? "0.5.1" : null;
+var VERSION = true ? "0.5.2" : null;
 var qbranchHome = (env = process.env) => env.QBRANCH_HOME || path5.join(os3.homedir(), ".qbranch");
 var repoOf = (env) => env.QBRANCH_REPO || "grexican/qbranch";
 function installCommand(platform = process.platform, env = process.env) {

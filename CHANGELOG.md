@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.2 (2026-10-23)
+
+**core**
+- core: the binary PATH-shadow check looked up lowercased paths, which never exist on Linux (case-sensitive): compare case-folded only on Windows/macOS, look files up by their real spelling
+
 ## v0.5.1 (2026-10-23)
 
 **other**

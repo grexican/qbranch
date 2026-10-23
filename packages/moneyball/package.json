@@ -1,6 +1,6 @@
 {
   "name": "moneyball",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Measure what every subagent run cost and whether it worked, then route each job to the cheapest model that does it.",
   "tagline": "Pay for the model each job needs: measure every subagent run, graduate repeat work to cheaper models on evidence.",
   "spec": "right-sized models",
@@ -21,7 +21,7 @@
     "node": ">=22.13"
   },
   "dependencies": {
-    "@qbranch/core": "0.5.1"
+    "@qbranch/core": "0.5.2"
   },
   "repository": {
     "type": "git",
