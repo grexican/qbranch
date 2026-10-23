@@ -46,3 +46,34 @@ test('renders one decision per platform', () => {
   assert.equal(render(ups('windsurf'), ctx).stdout, '');
   assert.equal(render(pre('claude'), null).stdout, '');
 });
+
+test('a replacement tool result renders in each platform\'s shape, and is dropped where it cannot be clean', async () => {
+  const { canRewriteOutput } = await import('../src/hooks.mjs');
+  const post = (platform) => render({ platform, event: 'PostToolUse' }, { updatedOutput: 'SMALL' });
+  assert.equal(JSON.parse(post('claude').stdout).hookSpecificOutput.updatedToolOutput, 'SMALL');
+  assert.deepEqual(JSON.parse(post('cursor').stdout).updated_mcp_tool_output, { content: [{ type: 'text', text: 'SMALL' }] });
+  assert.deepEqual(JSON.parse(post('copilot').stdout).modifiedResult, { resultType: 'success', textResultForLlm: 'SMALL' });
+  const codex = JSON.parse(post('codex').stdout);
+  assert.deepEqual([codex.decision, codex.reason], ['block', 'SMALL']);
+  assert.ok(!JSON.stringify(codex).includes('updatedMCPToolOutput')); // codex marks that field as a failed hook
+  assert.equal(post('gemini').stdout, '');
+  assert.equal(post('windsurf').stdout, '');
+  assert.deepEqual(['claude', 'cursor', 'copilot', 'codex', 'gemini', 'windsurf'].map(canRewriteOutput), [true, true, true, true, false, false]);
+});
+
+test('input rewrite: Claude Code keeps the permission flow when asked; codex needs allow', () => {
+  const d = { updatedInput: { a: 1 }, keepPermission: true };
+  const c = JSON.parse(render({ platform: 'claude', event: 'PreToolUse' }, d).stdout).hookSpecificOutput;
+  assert.deepEqual(c.updatedInput, { a: 1 });
+  assert.equal(c.permissionDecision, undefined);
+  assert.equal(JSON.parse(render({ platform: 'codex', event: 'PreToolUse' }, d).stdout).hookSpecificOutput.permissionDecision, 'allow');
+  // without keepPermission a rewrite still approves (moneyball's model rewrite relies on it)
+  assert.equal(JSON.parse(render({ platform: 'claude', event: 'PreToolUse' }, { updatedInput: {} }).stdout).hookSpecificOutput.permissionDecision, 'allow');
+});
+
+test('MCP tool names: gemini via mcp_context, cursor without a server name', () => {
+  const g = normalize({ hook_event_name: 'AfterTool', tool_name: 'mcp_my_crm_list_deals', mcp_context: { server_name: 'my_crm', tool_name: 'list_deals' }, tool_response: {} });
+  assert.equal(g.tool, 'mcp__my_crm__list_deals');
+  const c = normalize({ hook_event_name: 'postToolUse', conversation_id: 'c', tool_name: 'MCP:list_deals', tool_output: '{}' });
+  assert.equal(c.tool, 'mcp__mcp__list_deals');
+});
