@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Stop re-living the same session: mine transcripts for repeated procedures and re-learned lessons, keep them in a committed ledger, and enforce them with hooks instead of longer prompts.",
-    "version": "0.5.0"
+    "version": "0.5.1"
   },
   "plugins": [
     {
       "name": "groundhog",
       "source": "./adapters/cursor",
       "description": "Stop re-living the same session: mine transcripts for repeated procedures and re-learned lessons, keep them in a committed ledger, and enforce them with hooks instead of longer prompts.",
-      "version": "0.5.0"
+      "version": "0.5.1"
     }
   ]
 }

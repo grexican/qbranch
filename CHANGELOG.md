@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.1 (2026-10-23)
+
+**other**
+- qbranch update + binary skew check: installers record VERSION (and replace a running qbranch.exe by renaming it away), every plugin says once per session when the installed binary is older than the plugins or shadows their commands on PATH, with the one-command fix; Command Prompt install line in the docs
+
 ## v0.5.0 (2026-10-23)
 
 **sync**

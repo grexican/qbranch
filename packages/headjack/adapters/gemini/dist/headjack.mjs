@@ -433,7 +433,7 @@ function binaryNote({ sessionId = "", version: version2 = VERSION, env = process
 var VERSION, qbranchHome, repoOf, user, markDirDefault, SHIMS;
 var init_binary = __esm({
   "packages/core/src/binary.mjs"() {
-    VERSION = true ? "0.5.0" : null;
+    VERSION = true ? "0.5.1" : null;
     qbranchHome = (env = process.env) => env.QBRANCH_HOME || path4.join(os3.homedir(), ".qbranch");
     repoOf = (env) => env.QBRANCH_REPO || "grexican/qbranch";
     user = () => {
