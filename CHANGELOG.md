@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.4.0 (2026-10-23)
+
+**middleout**
+- middleout: pagination for every common API style (cursor/token families incl. nested Slack/HubSpot/GraphQL, next-page URLs and Link headers, page numbers 0/1-based, offsets, Stripe starting_after, DynamoDB keys), request params taken from the tool's own schema, loop and duplicate-page guards, and a capped or incomplete result is reported (INCOMPLETE footer), never silent
+
+**core**
+- core: --help/-h on any gadget subcommand prints help instead of running it (moneyball scan --help rescanned); plugin bin/ ships a headjack/middleout/moneyball/groundhog command (sh + .cmd) so plugin installs get them on PATH without the binary
+
+**groundhog**
+- groundhog: an interpreter's script is kept by name in shapes (node tools/cu/x.mjs -> node cu/x.mjs), so repeats, sequences and drafts name the tool; another script is never a fix for a failing one
+
+**moneyball**
+- moneyball: class keys skip ids, namespaced commands and a re- prefix ("/ns:qa", "Re-QA CU-12" pool with qa) and re-key the index on scan; scan says which --days window it read apart from the index window, and rejects a bad --days
+
 ## v0.3.2 (2026-10-23)
 
 **core**
