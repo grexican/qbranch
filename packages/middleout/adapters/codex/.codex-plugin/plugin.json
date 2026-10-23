@@ -1,7 +1,7 @@
 {
   "name": "middleout",
   "description": "API calls, compressed. Wraps this project's MCP servers so agents fetch only the fields they need: hierarchical plans, one-to-many fan-out, automatic pagination, read-only by default. A hook measures raw MCP traffic and nudges toward middleout.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": {
     "name": "Eli Gassert"
   },

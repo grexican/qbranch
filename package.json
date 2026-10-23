@@ -1,6 +1,6 @@
 {
   "name": "qbranch",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Q Branch: where the gadgets for AI agents get built and proven. headjack (skills just in time), middleout (API calls, compressed), moneyball (right-sized models), groundhog (lessons that stick).",
   "license": "MIT",

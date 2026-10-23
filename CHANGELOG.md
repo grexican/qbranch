@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.3.0 (2026-10-23)
+
+**other**
+- qbranch stats: every installed tool's worth-it summary in one view
+- marketplace: the Agensi listing source (self-contained install skill) + a cross-platform pack script
+- declare the repo's MCP surface: root .mcp.json (both servers), README table of all six tools, mcp keyword on headjack
+
+**moneyball**
+- moneyball: judge background subagents by their real reports, measured failure words, parent rework, Wilson lower bound for judgment classes, run duration and minutes saved, why each dispatch was or was not routed, schema upgrade keeps aged-out evidence
+
+**headjack**
+- headjack: no suggestions on harness prompts (task notifications), once per session per skill, relevance-gated registry fallback, startup-saving vs injected accounting and a tuning trail
+
+**middleout**
+- middleout: wrap HTTP/SSE MCP servers (headers with env expansion, one-time `middleout login` OAuth), per-tool savings, bypass split into addressable/unwrapped/binary/write, nudge conversion, scrubbed error log, a summary that leads with coverage
+
+**core**
+- core: background subagent reports (task-notification, plain or queued) are read as late results; older stats files gain newer counters
+
 ## v0.2.0 (2026-10-19)
 
 **middleout**
