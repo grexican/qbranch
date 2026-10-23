@@ -13,16 +13,29 @@ const CD = /^(cd|Set-Location|pushd|export|set)\b/i;
 // wrappers that do not change what runs: token-saving proxies, timeouts, env prefixes
 const WRAPPER = /^(rtk proxy|rtk|timeout\s+\S+|time|sudo|env|command)\s+/;
 
+// For an interpreter the script is the program: `node tools/a.mjs` and `node tools/b.mjs` are different tools.
+const INTERP = /^(node|bun|deno|tsx|ts-node|python3?|py|bash|sh|zsh|pwsh|powershell|ruby|perl|php)$/i;
+const SCRIPT = /\.(m?[jt]s|c[jt]s|py|sh|ps1|rb|pl|php)$/i;
+/** A script argument kept by name: its last two path segments ("tools/cu/x.mjs" -> "cu/x.mjs"), stable across clones. */
+const scriptName = (t) => t.split(/[\\/]/).filter(Boolean).slice(-2).join('/');
+/** The script token of a shape whose program is an interpreter, or null. */
+export const scriptOf = (s) => { const t = s.split(' '); return INTERP.test(t[0]) ? t.slice(1).find(x => SCRIPT.test(x)) || null : null; };
+
 /** A command's shape: the first real command (leading cd / Set-Location / env assignments and wrappers stripped), args generalized. */
 export function shape(cmd) {
   let parts = cmd.split(/&&|\|\||;|\n/).map(s => s.trim()).filter(Boolean);
   while (parts.length > 1 && CD.test(parts[0])) parts = parts.slice(1);
   let first = (parts[0] || '').replace(/^(\w+=\S+\s+)+/, '');
   while (WRAPPER.test(first)) first = first.replace(WRAPPER, '');
-  return first
+  const tokens = first
     .replace(/"[^"]*"|'[^']*'/g, 'S')
     .replace(/\b[0-9a-f]{7,}\b|\b\d+(\.\d+)*\b/g, 'N')
-    .split(/\s+/).filter(Boolean).map(t => (/[\\/]/.test(t) ? 'P' : t)).slice(0, 4).join(' ');
+    .split(/\s+/).filter(Boolean);
+  let script = !INTERP.test(tokens[0] || '');
+  return tokens.map((t, i) => {
+    if (i > 0 && !script && !t.startsWith('-') && SCRIPT.test(t)) { script = true; return scriptName(t); }
+    return /[\\/]/.test(t) ? 'P' : t;
+  }).slice(0, 4).join(' ');
 }
 /** The directory-change keyword a command starts with (cd, Set-Location, ...), or ''. */
 export const lead = (cmd) => (cmd.trim().match(CD)?.[1] || '');
@@ -32,6 +45,8 @@ const RUNNERS = new Set(['npx', 'npm', 'pnpm', 'yarn', 'bun', 'bunx', 'dotnet', 
 /** The head of a shape: the program (python3, npx tsc, npm run lint, dotnet test ...), flags skipped. */
 export function head(s) {
   const t = s.split(' ');
+  const script = scriptOf(s);
+  if (script) return `${t[0]} ${script}`;
   if (!RUNNERS.has(t[0])) return t[0];
   const rest = t.slice(1).filter(x => !x.startsWith('-'));
   return [t[0], ...(/^(run|exec|x)$/.test(rest[0] || '') ? rest.slice(0, 2) : rest.slice(0, 1))].join(' ');
@@ -50,6 +65,7 @@ export function related(failed, fix) {
   if (head(failed) === head(fix)) return true;
   const tail = (s) => s.split(' ').slice(1).join(' ');
   if (tail(failed) && tail(failed) === tail(fix)) return true; // same call, different program
+  if ((scriptOf(failed) || scriptOf(fix)) && scriptOf(failed) !== scriptOf(fix)) return false; // another script is another tool, not a fix
 
   const args = (s) => s.split(' ').slice(1).filter(t => !/^([SPN]|N>&N|\||-\w)$/.test(t));
   const a = args(failed), b = new Set(args(fix));

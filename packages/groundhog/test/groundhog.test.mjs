@@ -23,6 +23,19 @@ test('shape strips cd prefixes and generalizes paths, strings and numbers', () =
   assert.equal(shape('FOO=1 gh run view 123456'), 'gh run view N');
 });
 
+test('an interpreter script is kept by name, so repeats and sequences can name the tool', () => {
+  assert.equal(shape('node tools/cu/handoff.mjs --task abc'), 'node cu/handoff.mjs --task abc');
+  assert.equal(shape('node C:\\work\\wt\\tools\\pr\\gate.mjs 12'), 'node pr/gate.mjs N');
+  assert.equal(shape('python3 manage.py migrate'), 'python3 manage.py migrate');
+  assert.equal(shape('node --test tests/a.test.mjs tests/b.test.mjs'), 'node --test tests/a.test.mjs P');
+  assert.equal(shape('git add tools/x.mjs'), 'git add P');
+  assert.equal(head('node cu/handoff.mjs --task abc'), 'node cu/handoff.mjs');
+  assert.ok(!related('node cu/a.mjs --task abc', 'node cu/b.mjs --task abc')); // another script is another tool
+  const re = new RegExp(shapeRegex('node cu/handoff.mjs --task'));
+  assert.ok(re.test('node tools/cu/handoff.mjs --task x') && re.test('node C:\\w\\tools\\cu\\handoff.mjs --task x'));
+  assert.ok(!re.test('node tools/cu/other.mjs --task x'));
+});
+
 test('runner subcommands are the program; wrappers and cd style are stripped', () => {
   assert.equal(head('npx tsc --noEmit N>&N'), 'npx tsc');
   assert.equal(head('npm run lint'), 'npm run lint');
@@ -69,7 +82,7 @@ test('mine finds lessons, sequences and repeats across sessions', () => {
     const ix = mine(cfg, { days: 1 });
     assert.equal(ix.sessions, 3);
     const pairs = ix.lessons.map(l => `${l.tool}: ${l.from} => ${l.to}`);
-    for (const p of ['Bash: python3 P => py P', 'Bash: Set-Location P => cd P', 'Bash: python3 - <<EOF => py - <<EOF']) assert.ok(pairs.includes(p), p);
+    for (const p of ['Bash: python3 tools/gen.py => py tools/gen.py', 'Bash: Set-Location P => cd P', 'Bash: python3 - <<EOF => py - <<EOF']) assert.ok(pairs.includes(p), p);
     assert.ok(ix.sequences.some(s => s.steps.join(' > ').endsWith('dotnet build P > dotnet test P --no-build'))); // maximal sequence kept
     assert.ok(!ix.repeats.some(r => r.shape.startsWith('grep')));
     assert.ok(fs.existsSync(path.join(cfg.dataDir, 'index.json')));

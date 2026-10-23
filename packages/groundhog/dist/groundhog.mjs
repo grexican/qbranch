@@ -1188,17 +1188,34 @@ var SHELL = /^(Bash|PowerShell|run_shell_command|Shell)$/;
 var ERR = /exit code [1-9]|\berror[: ]|not found|not recognized|cannot find|command not found|failed|denied|ENOENT|Exception|No such file/i;
 var CD = /^(cd|Set-Location|pushd|export|set)\b/i;
 var WRAPPER = /^(rtk proxy|rtk|timeout\s+\S+|time|sudo|env|command)\s+/;
+var INTERP = /^(node|bun|deno|tsx|ts-node|python3?|py|bash|sh|zsh|pwsh|powershell|ruby|perl|php)$/i;
+var SCRIPT = /\.(m?[jt]s|c[jt]s|py|sh|ps1|rb|pl|php)$/i;
+var scriptName = (t) => t.split(/[\\/]/).filter(Boolean).slice(-2).join("/");
+var scriptOf = (s) => {
+  const t = s.split(" ");
+  return INTERP.test(t[0]) ? t.slice(1).find((x) => SCRIPT.test(x)) || null : null;
+};
 function shape(cmd2) {
   let parts = cmd2.split(/&&|\|\||;|\n/).map((s) => s.trim()).filter(Boolean);
   while (parts.length > 1 && CD.test(parts[0])) parts = parts.slice(1);
   let first = (parts[0] || "").replace(/^(\w+=\S+\s+)+/, "");
   while (WRAPPER.test(first)) first = first.replace(WRAPPER, "");
-  return first.replace(/"[^"]*"|'[^']*'/g, "S").replace(/\b[0-9a-f]{7,}\b|\b\d+(\.\d+)*\b/g, "N").split(/\s+/).filter(Boolean).map((t) => /[\\/]/.test(t) ? "P" : t).slice(0, 4).join(" ");
+  const tokens = first.replace(/"[^"]*"|'[^']*'/g, "S").replace(/\b[0-9a-f]{7,}\b|\b\d+(\.\d+)*\b/g, "N").split(/\s+/).filter(Boolean);
+  let script = !INTERP.test(tokens[0] || "");
+  return tokens.map((t, i) => {
+    if (i > 0 && !script && !t.startsWith("-") && SCRIPT.test(t)) {
+      script = true;
+      return scriptName(t);
+    }
+    return /[\\/]/.test(t) ? "P" : t;
+  }).slice(0, 4).join(" ");
 }
 var lead = (cmd2) => cmd2.trim().match(CD)?.[1] || "";
 var RUNNERS = /* @__PURE__ */ new Set(["npx", "npm", "pnpm", "yarn", "bun", "bunx", "dotnet", "git", "gh", "docker", "cargo", "go", "uv", "uvx", "az", "kubectl"]);
 function head(s) {
   const t = s.split(" ");
+  const script = scriptOf(s);
+  if (script) return `${t[0]} ${script}`;
   if (!RUNNERS.has(t[0])) return t[0];
   const rest2 = t.slice(1).filter((x) => !x.startsWith("-"));
   return [t[0], .../^(run|exec|x)$/.test(rest2[0] || "") ? rest2.slice(0, 2) : rest2.slice(0, 1)].join(" ");
@@ -1211,6 +1228,7 @@ function related(failed, fix) {
   if (head(failed) === head(fix)) return true;
   const tail = (s) => s.split(" ").slice(1).join(" ");
   if (tail(failed) && tail(failed) === tail(fix)) return true;
+  if ((scriptOf(failed) || scriptOf(fix)) && scriptOf(failed) !== scriptOf(fix)) return false;
   const args = (s) => s.split(" ").slice(1).filter((t) => !/^([SPN]|N>&N|\||-\w)$/.test(t));
   const a = args(failed), b = new Set(args(fix));
   return a.length > 0 && a.filter((t) => b.has(t)).length / a.length >= 0.5;
@@ -1325,13 +1343,14 @@ function saveLessons(cfg, lessons) {
   fs5.writeFileSync(file(cfg), JSON.stringify({ lessons }, null, 2) + "\n");
 }
 var esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var tok = (t) => /^[SPN]$/.test(t) ? "\\S+" : t.includes("/") ? `(?:\\S*[\\\\/])?${t.split("/").map(esc).join("[\\\\/]")}` : esc(t);
 function shapeRegex(shape2) {
-  return shape2.split(" ").map((t) => /^[SPN]$/.test(t) ? "\\S+" : esc(t)).join("\\s+");
+  return shape2.split(" ").map(tok).join("\\s+");
 }
 function fromRecovery(r) {
   const a = head(r.from), b = head(r.to);
   const tool = r.tool ? { tool: r.tool } : {};
-  const prog = a.split(" ").map(esc).join("\\s+(?:-\\S+\\s+)*");
+  const prog = a.split(" ").map(tok).join("\\s+(?:-\\S+\\s+)*");
   if (a !== b) return { ...tool, when: `(^|[\\s;&|(])${prog}(\\s|$)`, instead: `use \`${b}\`, not \`${a}\` (e.g. ${r.toExample.split("\n")[0].slice(0, 120)})`, seen: r.count };
   return { ...tool, when: shapeRegex(r.from), instead: `this form fails here; what worked: ${r.toExample.split("\n")[0].slice(0, 160)}`, seen: r.count };
 }
@@ -2362,6 +2381,7 @@ async function verifyOpts(cfg) {
 }
 var showVerified = (v) => !v ? "" : v.before ? `${v.verdict}: pass ${v.before.passRate} -> ${v.after.passRate}, score ${v.before.meanScore} -> ${v.after.meanScore} on ${v.tasks} task(s)${v.regressions.length ? `, regressions: ${v.regressions.join(", ")}` : ""}, $${v.costUsd}` + (v.repeats === 1 && v.verdict !== "neutral" ? " (one sample per task and variant: confirm with --repeats 3)" : "") : `${v.verdict}${v.note ? ` (${v.note})` : ""}`;
 async function main() {
+  if (cmd !== "hook" && (rest.includes("--help") || rest.includes("-h"))) return console.log(HELP);
   const cfg = loadConfig();
   switch (cmd) {
     case "scan": {

@@ -56,6 +56,7 @@ const showVerified = (v) => !v ? '' : v.before
   : `${v.verdict}${v.note ? ` (${v.note})` : ''}`;
 
 async function main() {
+  if (cmd !== 'hook' && (rest.includes('--help') || rest.includes('-h'))) return console.log(HELP);
   const cfg = loadConfig();
   switch (cmd) {
     case 'scan': {

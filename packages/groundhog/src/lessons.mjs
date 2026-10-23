@@ -16,16 +16,18 @@ export function saveLessons(cfg, lessons) {
 }
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// a kept script name ("cu/x.mjs") also matches deeper or absolute paths and Windows separators
+const tok = (t) => (/^[SPN]$/.test(t) ? '\\S+' : t.includes('/') ? `(?:\\S*[\\\\/])?${t.split('/').map(esc).join('[\\\\/]')}` : esc(t));
 /** Regex source matching a shape: literal tokens kept, generalized ones (S, P, N) become \S+. */
 export function shapeRegex(shape) {
-  return shape.split(' ').map(t => (/^[SPN]$/.test(t) ? '\\S+' : esc(t))).join('\\s+');
+  return shape.split(' ').map(tok).join('\\s+');
 }
 
 /** Turn a mined error -> workaround pair into a ledger entry. */
 export function fromRecovery(r) {
   const a = head(r.from), b = head(r.to);
   const tool = r.tool ? { tool: r.tool } : {}; // a lesson learned in Bash must not block the same text in PowerShell
-  const prog = a.split(' ').map(esc).join('\\s+(?:-\\S+\\s+)*'); // "npx tsc" also matches "npx -y tsc"
+  const prog = a.split(' ').map(tok).join('\\s+(?:-\\S+\\s+)*'); // "npx tsc" also matches "npx -y tsc"
   if (a !== b) return { ...tool, when: `(^|[\\s;&|(])${prog}(\\s|$)`, instead: `use \`${b}\`, not \`${a}\` (e.g. ${r.toExample.split('\n')[0].slice(0, 120)})`, seen: r.count };
   return { ...tool, when: shapeRegex(r.from), instead: `this form fails here; what worked: ${r.toExample.split('\n')[0].slice(0, 160)}`, seen: r.count };
 }
