@@ -32,6 +32,11 @@ export function createStats({ tool, fresh, dayFresh, derive }) {
     const release = lock(f);
     try {
       let s; try { s = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { s = { tool, schema: 1, since: new Date().toISOString(), ...fresh() }; }
+      // files written by an older version lack newer counters: fill them in (one level deep) so mutate can use ++ safely
+      for (const [k, v] of Object.entries(fresh())) {
+        if (!(k in s)) s[k] = v;
+        else if (v && typeof v === 'object' && !Array.isArray(v) && s[k] && typeof s[k] === 'object') s[k] = { ...v, ...s[k] };
+      }
       s.days ??= {};
       s.days[today()] ??= dayFresh();
       mutate(s, s.days[today()]);

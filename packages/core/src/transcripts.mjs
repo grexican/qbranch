@@ -93,8 +93,21 @@ function claudeProjectDirs(root) {
   return fs.readdirSync(base).filter(d => d === enc || d.startsWith(enc + '-')).map(d => path.join(base, d));
 }
 
+// A background subagent's tool_result is only the "Async agent launched ... agentId: X" stub. Its real report
+// arrives later as a <task-notification> user turn (or a queued_command attachment when the parent was busy), keyed by
+// <tool-use-id> or, in the queued form, only by <task-id> = the agentId. Yield it as a second, later result for the
+// same tool call, so readers that let the last result win see the report the parent actually got.
+const tag = (s, n) => s.match(new RegExp(`<${n}>([\\s\\S]*?)</${n}>`))?.[1];
+function lateResult(text, agents) {
+  const id = tag(text, 'tool-use-id') || agents.get(tag(text, 'task-id'));
+  if (!id) return null;
+  const status = tag(text, 'status') || '';
+  return { t: 'result', id, late: true, isError: !!status && status !== 'completed', text: tag(text, 'result') ?? tag(text, 'summary') ?? '' };
+}
+
 export function* claudeEvents(file) {
   const seen = new Map();
+  const agents = new Map(); // agentId -> the Agent tool_use id that launched it
   let meta = false;
   for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
     if (!line) continue;
@@ -106,11 +119,20 @@ export function* claudeEvents(file) {
         if (b.type === 'tool_use') yield { t: 'tool', name: b.name, input: b.input || {}, id: b.id };
         else if (b.type === 'text' && b.text) yield { t: 'text', text: b.text };
       }
-    } else if (m.type === 'user' && m.message) {
-      const c = m.message.content;
-      if (typeof c === 'string') { if (!c.startsWith('<')) yield { t: 'user', text: c }; continue; }
+    } else if (m.type === 'user' || (m.type === 'attachment' && m.attachment?.type === 'queued_command')) {
+      const c = m.type === 'user' ? m.message?.content : m.attachment.prompt;
+      if (typeof c === 'string') {
+        if (c.startsWith('<task-notification>')) { const r = lateResult(c, agents); if (r) yield r; }
+        else if (!c.startsWith('<')) yield { t: 'user', text: c };
+        continue;
+      }
       for (const b of c || []) {
-        if (b.type === 'tool_result') yield { t: 'result', id: b.tool_use_id, isError: !!b.is_error, text: typeof b.content === 'string' ? b.content : JSON.stringify(b.content || '') };
+        if (b.type === 'tool_result') {
+          const text = typeof b.content === 'string' ? b.content : JSON.stringify(b.content || '');
+          // only a launch stub maps an agent to its call (not, say, a Read of some other transcript that mentions one)
+          const a = text.slice(0, 600).match(/Async agent launched[\s\S]{0,400}?agentId: (\w+)/); if (a) agents.set(a[1], b.tool_use_id);
+          yield { t: 'result', id: b.tool_use_id, isError: !!b.is_error, text };
+        }
         else if (b.type === 'text' && !b.text.startsWith('<')) yield { t: 'user', text: b.text };
       }
     }

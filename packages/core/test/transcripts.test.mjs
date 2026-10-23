@@ -250,3 +250,18 @@ test('one unreadable platform store does not hide the others', () => {
   fs.writeFileSync(process.env.OPENCODE_DB, 'not a database');
   assert.doesNotThrow(() => [...sessions({ root, days: 1 })]);
 });
+
+test('claude code: a background subagent report (task-notification, plain or queued) is a late result for its launch call', async () => {
+  const { claudeEvents } = await import('../src/transcripts.mjs');
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'qb-late-')), 's.jsonl');
+  const note = (body) => `<task-notification>\n${body}\n<status>completed</status>\n<summary>Agent "x" finished</summary>\n<result>REPORT</result>\n</task-notification>`;
+  fs.writeFileSync(f, [
+    { type: 'assistant', cwd: '/p', timestamp: '2026-01-01T00:00:00Z', message: { id: 'm1', content: [{ type: 'tool_use', id: 'tu1', name: 'Agent', input: {} }, { type: 'tool_use', id: 'tu2', name: 'Agent', input: {} }] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: [{ type: 'text', text: 'Async agent launched successfully.\nagentId: aaa111' }] }] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu2', content: 'Async agent launched successfully.\nagentId: bbb222' }] } },
+    { type: 'user', message: { content: note('<task-id>aaa111</task-id>\n<tool-use-id>tu1</tool-use-id>') } },
+    { type: 'attachment', attachment: { type: 'queued_command', prompt: note('<task-id>bbb222</task-id>') } },
+  ].map(x => JSON.stringify(x)).join('\n'));
+  const late = [...claudeEvents(f)].filter(e => e.t === 'result' && e.late);
+  assert.deepEqual(late.map(e => [e.id, e.text, e.isError]), [['tu1', 'REPORT', false], ['tu2', 'REPORT', false]]);
+});
