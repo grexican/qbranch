@@ -18,8 +18,13 @@ else
   echo "downloading $url"
   curl -fsSL "$url" -o "$tmp/qbranch.tar.gz"
 fi
-rm -rf "$DEST"; mkdir -p "$DEST"
-tar -xzf "$tmp/qbranch.tar.gz" -C "$DEST" --strip-components=1
+# replace only what the release ships: tool data lives next to it (middleout sign-ins, cached models) and must survive upgrades
+mkdir -p "$tmp/x" "$DEST"
+tar -xzf "$tmp/qbranch.tar.gz" -C "$tmp/x" --strip-components=1
+for item in "$tmp/x"/* "$tmp/x"/.[!.]*; do
+  [ -e "$item" ] || continue
+  rm -rf "$DEST/$(basename "$item")"; mv "$item" "$DEST/"
+done
 chmod +x "$DEST/qbranch"
 mkdir -p "$HOME/.local/bin"; ln -sf "$DEST/qbranch" "$HOME/.local/bin/qbranch"
 # one command per gadget (`middleout login x`, `moneyball scan`)

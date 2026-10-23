@@ -19,18 +19,31 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
   Write-Host "downloading $url"
   Invoke-WebRequest $url -OutFile $zip
 }
-if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
 Expand-Archive $zip -DestinationPath $tmp
-Move-Item (Join-Path $tmp $name) $dest
+# replace only what the release ships: tool data lives next to it (middleout sign-ins, cached models) and must survive upgrades
+New-Item -ItemType Directory -Force $dest | Out-Null
+foreach ($item in Get-ChildItem (Join-Path $tmp $name)) {
+  $target = Join-Path $dest $item.Name
+  if (Test-Path $target) { Remove-Item -Recurse -Force $target }
+  Move-Item $item.FullName $target
+}
 Remove-Item -Recurse -Force $tmp
-# one command per gadget (`middleout login x`, `moneyball scan`): .cmd for PowerShell/cmd, a sh script for Git Bash
+# one command per gadget (`middleout login x`, `moneyball scan`) in bin\, apart from the tools' data folders:
+# .cmd for PowerShell/cmd, a sh script for Git Bash
+$bin = Join-Path $dest 'bin'
+New-Item -ItemType Directory -Force $bin | Out-Null
 foreach ($tool in 'headjack', 'middleout', 'moneyball', 'groundhog') {
-  Set-Content -Encoding ascii -Path (Join-Path $dest "$tool.cmd") -Value "@`"%~dp0qbranch.exe`" $tool %*"
-  [IO.File]::WriteAllText((Join-Path $dest $tool), "#!/bin/sh`nexec `"`$(dirname `"`$0`")/qbranch.exe`" $tool `"`$@`"`n")
+  Set-Content -Encoding ascii -Path (Join-Path $bin "$tool.cmd") -Value "@`"%~dp0..\qbranch.exe`" $tool %*"
+  [IO.File]::WriteAllText((Join-Path $bin $tool), "#!/bin/sh`nexec `"`$(dirname `"`$0`")/../qbranch.exe`" $tool `"`$@`"`n")
+  # 0.3.1 put the shims in $dest itself, where a file named middleout blocks middleout's data folder
+  foreach ($old in (Join-Path $dest $tool), (Join-Path $dest "$tool.cmd")) { if (Test-Path $old -PathType Leaf) { Remove-Item -Force $old } }
 }
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if (($userPath -split ';') -notcontains $dest) {
-  [Environment]::SetEnvironmentVariable('Path', "$userPath;$dest", 'User')
-  Write-Host "added $dest to your user PATH (open a new terminal)"
+foreach ($dir in $dest, $bin) {
+  if (($userPath -split ';') -notcontains $dir) {
+    $userPath = "$userPath;$dir"
+    [Environment]::SetEnvironmentVariable('Path', $userPath, 'User')
+    Write-Host "added $dir to your user PATH (open a new terminal)"
+  }
 }
 Write-Host "installed: $dest\qbranch.exe"
