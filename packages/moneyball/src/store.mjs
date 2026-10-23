@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
+export const SCHEMA = 3; // bump when a run's measurement changes; older rows are re-measured while their transcript exists
+
 const dbs = new Map();
 export function db(cfg) {
   if (dbs.has(cfg.dataDir)) return dbs.get(cfg.dataDir);
@@ -15,10 +17,13 @@ export function db(cfg) {
       redo integer, fail_words integer, ok integer, explored integer default 0, mtime real);
     create table if not exists classes (id integer primary key, label text, key text unique, n integer default 0, prior text);
     create table if not exists meta (k text primary key, v text);`);
-  // schema 2: startup tokens + delegation credit per run. Older indexes are re-measured from scratch on the next scan.
-  if (d.prepare("select v from meta where k = 'schema'").get()?.v !== '2') {
-    for (const c of ['startup_tokens integer default 0', 'credit real default 0']) try { d.exec(`alter table runs add column ${c}`); } catch { /* already there */ }
-    d.exec("delete from runs; insert or replace into meta values ('schema', '2')");
+  // schema 2: startup tokens + delegation credit per run. schema 3: wall-clock seconds + parent rework per run.
+  // Rows measured by an older schema are re-measured on the next scan while their transcript is still on disk; rows whose
+  // transcript has aged out keep their old measurement (evidence is never thrown away). measured_by marks which is which.
+  if (d.prepare("select v from meta where k = 'schema'").get()?.v !== String(SCHEMA)) {
+    for (const c of ['startup_tokens integer default 0', 'credit real default 0', 'secs real', 'rework integer default 0', 'measured_by integer default 0'])
+      try { d.exec(`alter table runs add column ${c}`); } catch { /* already there */ }
+    d.prepare("insert or replace into meta values ('schema', ?)").run(String(SCHEMA));
   }
   dbs.set(cfg.dataDir, d);
   return d;

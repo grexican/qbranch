@@ -5,7 +5,7 @@ import path from 'node:path';
 import { runHook } from '@qbranch/core/hooks';
 import { loadConfig } from '../src/config.mjs';
 import { scan } from '../src/scan.mjs';
-import { plan, routes } from '../src/recommend.mjs';
+import { plan, routes, overview, signal } from '../src/recommend.mjs';
 import { preToolUse, sessionStart, writeRoutes } from '../src/route.mjs';
 import { upsert, summarize } from '../src/stats.mjs';
 import { measureOverhead, staticContributors, attribute } from '../src/overhead.mjs';
@@ -39,6 +39,7 @@ const HELP = `moneyball: pay for the model each job needs, not the one you defau
 Modes (moneyball.config.json "mode" or MONEYBALL_MODE): report | suggest (default) | enforce | explore`;
 
 const money = (x) => `$${x.toFixed(2)}`;
+const pctOf = (x) => `${Math.round((x || 0) * 100)}%`;
 const num = (x) => (x == null ? '?' : Math.round(x).toLocaleString('en-US'));
 const budgetOpt = () => { const b = Number(opt('--budget')); if (!(b > 0)) throw new Error('this spends money: pass --budget <usd>'); return b; };
 
@@ -70,11 +71,7 @@ async function doScan(cfg) {
   const p = plan(cfg);
   const rt = routes(cfg);
   writeRoutes(cfg, rt);
-  const last = {
-    runs: p.reduce((a, c) => a + c.n, 0), classes: p.length, spend: p.reduce((a, c) => a + c.cost, 0), credit: p.reduce((a, c) => a + (c.credit || 0), 0),
-    graduate: p.filter(c => c.action === 'graduate').length, explore: p.filter(c => c.action === 'explore').length,
-    est_saving: p.reduce((a, c) => a + (c.saving || 0), 0),
-  };
+  const last = overview(cfg, p);
   upsert(cfg, (s) => { s.totals.scans++; s.last_scan = last; });
   return { ...r, ...last };
 }
@@ -147,7 +144,8 @@ async function main() {
   switch (cmd) {
     case 'scan': {
       const r = await doScan(cfg);
-      if (!flag('--quiet')) console.log(`scanned ${r.scanned} subagent transcripts (+${r.added} new): ${r.runs} runs, ${r.classes} classes, ${money(r.spend)}; ${r.graduate} graduated, ${r.explore} exploring, est. saving ${money(r.est_saving)}`);
+      if (!flag('--quiet')) console.log(`scanned ${r.scanned} subagent transcripts (+${r.added} new): ${r.runs} runs over ${r.window_days} days, ${r.classes} classes, ${money(r.spend)} (API-equivalent); `
+        + `${r.graduate} graduated, ${r.explore} exploring, est. saving ${money(r.est_saving)} (${money(r.est_saving_30d || 0)}/30d)${r.est_minutes_30d != null ? `, ~${num(r.est_minutes_30d)} min/30d` : ''}`);
       return;
     }
     case 'report': {
@@ -155,11 +153,16 @@ async function main() {
       if (flag('--json')) return console.log(JSON.stringify(p, null, 2));
       if (!p.length) return console.log('no runs measured yet: run `moneyball scan`');
       const gross = p.reduce((a, c) => a + c.cost, 0), credit = p.reduce((a, c) => a + (c.credit || 0), 0);
-      console.log(`subagent spend ${money(gross)}, delegation credit ${money(credit)} (parent context kept out), net ${money(gross - credit)}; savings are judged net, per completed task\n`);
+      const sig = signal(cfg);
+      console.log(`subagent spend ${money(gross)} over ${sig.window_days} days (API-equivalent), delegation credit ${money(credit)} (parent context kept out), net ${money(gross - credit)}; savings are judged net, per completed task`);
+      console.log(`success signals: ${pctOf(sig.fail_rate)} of ${sig.runs} runs failed (redo ${sig.by.redo}, failure words ${sig.by.fail_words}, parent rework ${sig.by.rework}, tool errors ${sig.by.errors})` +
+        (sig.saturated ? '\n  SATURATED: almost nothing fails, so a pass means "no failure signal fired", not "proven good". Treat graduations as hypotheses; explore mode tests them.' : ''));
+      console.log('');
       const shown = flag('--all') ? p : p.filter(c => c.action !== 'keep' || c.cost > 1).slice(0, 30);
       for (const c of shown) {
-        const tiers = Object.entries(c.tiers).map(([t, v]) => `${t} ${v.ok}/${v.n}`).join(', ');
-        console.log(`${c.action.padEnd(10)} ${money(c.cost).padStart(9)}  ${c.label.slice(0, 70)}\n${''.padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${c.saving ? ` (est. ${money(c.saving)})` : ''}`);
+        const tiers = Object.entries(c.tiers).map(([t, v]) => `${t} ${v.ok}/${v.n} (lb ${pctOf(v.lb)}${v.secs != null ? `, ${secs(v.secs * 1000)}` : ''})`).join(', ');
+        const gain = [c.saving ? `est. ${money(c.saving)}` : '', c.minutes != null ? `${num(c.minutes)} min` : ''].filter(Boolean).join(', ');
+        console.log(`${c.action.padEnd(10)} ${money(c.cost).padStart(9)}  ${c.label.slice(0, 70)}\n${''.padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${gain ? ` (${gain})` : ''}`);
       }
       return;
     }

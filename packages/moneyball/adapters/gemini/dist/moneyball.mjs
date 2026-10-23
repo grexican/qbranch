@@ -74,8 +74,15 @@ function claudeProjectDirs(root) {
   const enc = encodeProject(root);
   return fs3.readdirSync(base).filter((d) => d === enc || d.startsWith(enc + "-")).map((d) => path4.join(base, d));
 }
+function lateResult(text, agents) {
+  const id = tag(text, "tool-use-id") || agents.get(tag(text, "task-id"));
+  if (!id) return null;
+  const status = tag(text, "status") || "";
+  return { t: "result", id, late: true, isError: !!status && status !== "completed", text: tag(text, "result") ?? tag(text, "summary") ?? "" };
+}
 function* claudeEvents(file) {
   const seen = /* @__PURE__ */ new Map();
+  const agents = /* @__PURE__ */ new Map();
   let meta = false;
   for (const line of fs3.readFileSync(file, "utf8").split("\n")) {
     if (!line) continue;
@@ -95,15 +102,22 @@ function* claudeEvents(file) {
         if (b.type === "tool_use") yield { t: "tool", name: b.name, input: b.input || {}, id: b.id };
         else if (b.type === "text" && b.text) yield { t: "text", text: b.text };
       }
-    } else if (m.type === "user" && m.message) {
-      const c = m.message.content;
+    } else if (m.type === "user" || m.type === "attachment" && m.attachment?.type === "queued_command") {
+      const c = m.type === "user" ? m.message?.content : m.attachment.prompt;
       if (typeof c === "string") {
-        if (!c.startsWith("<")) yield { t: "user", text: c };
+        if (c.startsWith("<task-notification>")) {
+          const r = lateResult(c, agents);
+          if (r) yield r;
+        } else if (!c.startsWith("<")) yield { t: "user", text: c };
         continue;
       }
       for (const b of c || []) {
-        if (b.type === "tool_result") yield { t: "result", id: b.tool_use_id, isError: !!b.is_error, text: typeof b.content === "string" ? b.content : JSON.stringify(b.content || "") };
-        else if (b.type === "text" && !b.text.startsWith("<")) yield { t: "user", text: b.text };
+        if (b.type === "tool_result") {
+          const text = typeof b.content === "string" ? b.content : JSON.stringify(b.content || "");
+          const a = text.slice(0, 600).match(/Async agent launched[\s\S]{0,400}?agentId: (\w+)/);
+          if (a) agents.set(a[1], b.tool_use_id);
+          yield { t: "result", id: b.tool_use_id, isError: !!b.is_error, text };
+        } else if (b.type === "text" && !b.text.startsWith("<")) yield { t: "user", text: b.text };
       }
     }
   }
@@ -779,7 +793,7 @@ function* sessions({ root = null, days = 30, platforms = Object.keys(READERS) } 
     }
   }
 }
-var PRICES, modelId, home, mtimeOf, isDir, ls, within, textOf, parseArgs, SHELLS, FILES, toolName, require_, claudeHome, encodeProject, cursorSlug, uriPath, CURSOR_TOOLS2, cursorTool, VSCODE_TOOLS, vscodeTool, READERS;
+var PRICES, modelId, home, mtimeOf, isDir, ls, within, textOf, parseArgs, SHELLS, FILES, toolName, require_, claudeHome, encodeProject, tag, cursorSlug, uriPath, CURSOR_TOOLS2, cursorTool, VSCODE_TOOLS, vscodeTool, READERS;
 var init_transcripts = __esm({
   "packages/core/src/transcripts.mjs"() {
     PRICES = {
@@ -837,6 +851,7 @@ var init_transcripts = __esm({
     require_ = createRequire(import.meta.url);
     claudeHome = () => home("CLAUDE_CONFIG_DIR", ".claude");
     encodeProject = (dir) => path4.resolve(dir).replace(/[^A-Za-z0-9]/g, "-");
+    tag = (s, n) => s.match(new RegExp(`<${n}>([\\s\\S]*?)</${n}>`))?.[1];
     cursorSlug = (dir) => path4.resolve(dir).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
     uriPath = (u) => {
       try {
@@ -911,7 +926,7 @@ __export(replay_exports, {
 });
 import fs8 from "node:fs";
 import os5 from "node:os";
-import path10 from "node:path";
+import path11 from "node:path";
 import crypto2 from "node:crypto";
 import { spawn as spawn2, spawnSync } from "node:child_process";
 function unsafeAction({ tool = "", input = {} } = {}, { root = "", allow = [] } = {}) {
@@ -975,7 +990,7 @@ function unsafeAction({ tool = "", input = {} } = {}, { root = "", allow = [] } 
     [/(^|[\s;&|(])sudo\s|\b(shutdown|reboot|diskpart|mkfs|setx|schtasks|crontab|launchctl|systemctl)\b|\breg\s+(add|delete|import)\b|\bsc\s+(create|delete|stop|start|config)\b|\b(Set|New|Remove)-ItemProperty\b.*\bHK(LM|CU)/i, "changes the machine"],
     [/\b(claude|codex|gemini|copilot|opencode|cursor-agent|aider)\s+(-p|--print|exec|run|-c)\b/, "starts another agent (spend outside the budget)"]
   ];
-  for (const [re, why] of OUT) if (re.test(cmd2)) return why;
+  for (const [re, why2] of OUT) if (re.test(cmd2)) return why2;
   const WRITERS = /^(rm|rmdir|del|erase|rd|mv|move|cp|copy|xcopy|robocopy|mkdir|md|touch|ln|chmod|chown|tee|install|truncate|remove-item|move-item|copy-item|new-item|set-content|add-content|out-file|rename-item|ri|mi|cpi|ni|sc|ac)$/i;
   let cwd = root;
   for (const seg of cmd2.split(/&&|\|\||;|\n|\|/)) {
@@ -1007,7 +1022,7 @@ function signature(prompt) {
 function commandKey(cmd2) {
   const seg = String(cmd2).split(/&&|\|\||;|\n/).map((s) => s.trim()).find((s) => s && !/^(cd|Set-Location|pushd|export|set)\b/i.test(s)) || "";
   const t = seg.replace(/^(\w+=\S+\s+)+/, "").replace(/^(rtk proxy|rtk|timeout\s+\S+|time|sudo|env|command)\s+/, "").split(/\s+/);
-  const prog = path10.basename(t[0] || "").replace(/\.(exe|cmd|bat)$/i, "").toLowerCase();
+  const prog = path11.basename(t[0] || "").replace(/\.(exe|cmd|bat)$/i, "").toLowerCase();
   return /^[a-z][\w:-]*$/i.test(t[1] || "") ? `${prog} ${t[1]}` : prog;
 }
 function digest(s, root) {
@@ -1020,15 +1035,15 @@ function digest(s, root) {
     else if (e.t === "usage") cost += costOf(e.model, e.usage);
     else if (e.t === "tool") {
       const cwd2 = meta.cwd || s.meta?.cwd || root;
-      const why = unsafeAction({ tool: e.name, input: e.input }, { root: cwd2, allow: [os5.tmpdir()] });
-      if (why) unsafe.push(why);
+      const why2 = unsafeAction({ tool: e.name, input: e.input }, { root: cwd2, allow: [os5.tmpdir()] });
+      if (why2) unsafe.push(why2);
       if (SHELL.test(e.name) && e.input?.command) {
         const c = { tool: e.name, cmd: String(e.input.command).slice(0, 300), err: false, ran: false };
         calls.push(c);
         if (e.id) byId.set(e.id, c);
       }
       const f = e.input?.file_path ?? e.input?.path;
-      if (/^(Write|Edit|MultiEdit)$/.test(e.name) && f && within(path10.resolve(cwd2, f), cwd2)) files.push(path10.relative(cwd2, path10.resolve(cwd2, f)).split(path10.sep).join("/"));
+      if (/^(Write|Edit|MultiEdit)$/.test(e.name) && f && within(path11.resolve(cwd2, f), cwd2)) files.push(path11.relative(cwd2, path11.resolve(cwd2, f)).split(path11.sep).join("/"));
     } else if (e.t === "result" && byId.has(e.id)) {
       const c = byId.get(e.id);
       c.ran = true;
@@ -1041,7 +1056,7 @@ function digest(s, root) {
   if (!cwd || /qbranch-replay-/.test(cwd)) return null;
   for (const p of prompt.match(/(?:\b[A-Za-z]:[\\/]|(?<![\w.])\/(?:[a-z]|Users|home|mnt|var|opt|etc|srv)\/)[^\s'"`<>|)]*/g) || []) {
     const abs = /^\/[a-z]\//i.test(p) ? `${p[1].toUpperCase()}:${p.slice(2)}` : p;
-    if (!within(path10.resolve(abs), cwd) && !within(path10.resolve(abs), os5.tmpdir())) unsafe.push(`prompt names a path outside the project (${p.slice(0, 60)})`);
+    if (!within(path11.resolve(abs), cwd) && !within(path11.resolve(abs), os5.tmpdir())) unsafe.push(`prompt names a path outside the project (${p.slice(0, 60)})`);
   }
   const ok = calls.filter((c) => c.ran && !c.err && !READS.test(commandKey(c.cmd).split(" ")[0]));
   const keys = [...new Map(ok.map((c) => [commandKey(c.cmd), c])).values()].slice(-3);
@@ -1114,12 +1129,12 @@ function splitTasks(tasks, { holdout = 0.34, seed = 42 } = {}) {
 }
 function makeSandbox(cwd, { mode = "auto" } = {}) {
   if (!fs8.existsSync(cwd)) throw new Error(`task directory no longer exists: ${cwd}`);
-  const base = fs8.realpathSync.native(fs8.mkdtempSync(path10.join(os5.tmpdir(), "qbranch-replay-")));
-  const hooks = path10.join(base, "git-hooks");
+  const base = fs8.realpathSync.native(fs8.mkdtempSync(path11.join(os5.tmpdir(), "qbranch-replay-")));
+  const hooks = path11.join(base, "git-hooks");
   fs8.mkdirSync(hooks);
-  fs8.writeFileSync(path10.join(hooks, "pre-push"), '#!/bin/sh\necho "qbranch replay sandbox: push refused" >&2\nexit 1\n', { mode: 493 });
+  fs8.writeFileSync(path11.join(hooks, "pre-push"), '#!/bin/sh\necho "qbranch replay sandbox: push refused" >&2\nexit 1\n', { mode: 493 });
   const top = mode === "copy" ? "" : (git(["-C", cwd, "rev-parse", "--show-toplevel"]).stdout || "").trim();
-  const work = path10.join(base, "work");
+  const work = path11.join(base, "work");
   let dir = work;
   if (top) {
     const r = git(["-c", `core.hooksPath=${hooks}`, "-C", top, "worktree", "add", "--detach", work, "HEAD"]);
@@ -1127,7 +1142,7 @@ function makeSandbox(cwd, { mode = "auto" } = {}) {
       fs8.rmSync(base, { recursive: true, force: true });
       throw new Error(`git worktree add failed: ${(r.stderr || "").trim()}`);
     }
-    dir = path10.join(work, path10.relative(path10.resolve(top), path10.resolve(cwd)));
+    dir = path11.join(work, path11.relative(path11.resolve(top), path11.resolve(cwd)));
   } else {
     fs8.cpSync(cwd, work, { recursive: true, filter: (src) => !/[\\/](node_modules|\.git|\.venv|venv|dist|build|\.next)$/.test(src) });
   }
@@ -1146,12 +1161,12 @@ function makeSandbox(cwd, { mode = "auto" } = {}) {
   return { base, root: work, dir, git: !!top, env, status, cleanup };
 }
 function which(bin) {
-  if (path10.isAbsolute(bin)) return bin;
+  if (path11.isAbsolute(bin)) return bin;
   const exts = process.platform === "win32" ? (process.env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
-  for (const d of (process.env.PATH || "").split(path10.delimiter)) for (const e of exts) {
-    const f = path10.join(d, bin + e.toLowerCase());
+  for (const d of (process.env.PATH || "").split(path11.delimiter)) for (const e of exts) {
+    const f = path11.join(d, bin + e.toLowerCase());
     if (fs8.existsSync(f)) return f;
-    const g = path10.join(d, bin + e);
+    const g = path11.join(d, bin + e);
     if (fs8.existsSync(g)) return g;
   }
   return bin;
@@ -1201,7 +1216,7 @@ function exec(bin, args, { cwd, env, input = "", timeoutMs = 3e5 } = {}) {
     child.stdin.end(input);
   });
 }
-async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeoutMs = 3e5, sandbox: sandbox2 = "auto", after, keep = false, allowUnsafe = false, artifactsDir = path10.join(os5.tmpdir(), "qbranch-replay-runs") } = {}) {
+async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeoutMs = 3e5, sandbox: sandbox2 = "auto", after, keep = false, allowUnsafe = false, artifactsDir = path11.join(os5.tmpdir(), "qbranch-replay-runs") } = {}) {
   if (!(budgetUsd > 0)) throw new Error("runTask needs an explicit budgetUsd (spending is opt-in)");
   if (!task.readOnly && !allowUnsafe) throw new Error(`task ${task.id} is not read-only (${(task.unsafe || []).join("; ")}): refusing to replay it`);
   const adapter = AGENTS[agent];
@@ -1212,10 +1227,10 @@ async function runTask(task, { agent = "claude", model, setup, budgetUsd, timeou
     const variant = setup && await setup(sb.dir, { task, sandbox: sb }) || {};
     const before = new Set(sb.status().split("\n").filter(Boolean));
     const r = await adapter({ prompt: swapRoot(task.prompt, task.cwd, sb.dir), dir: sb.dir, base: sb.base, model, budgetUsd, timeoutMs, settings: variant.settings, env: sb.env, artifactsDir });
-    const changed = new Set(sb.status().split("\n").filter((l) => l && !before.has(l)).map((l) => path10.relative(sb.dir, path10.join(sb.root, l.slice(3).replace(/^"|"$/g, ""))).split(path10.sep).join("/")));
+    const changed = new Set(sb.status().split("\n").filter((l) => l && !before.has(l)).map((l) => path11.relative(sb.dir, path11.join(sb.root, l.slice(3).replace(/^"|"$/g, ""))).split(path11.sep).join("/")));
     for (const e of r.events || []) {
       const f = e.t === "tool" && /^(Write|Edit|MultiEdit)$/.test(e.name) && (e.input?.file_path ?? e.input?.path);
-      if (f && within(path10.resolve(sb.dir, f), sb.dir)) changed.add(path10.relative(sb.dir, path10.resolve(sb.dir, f)).split(path10.sep).join("/"));
+      if (f && within(path11.resolve(sb.dir, f), sb.dir)) changed.add(path11.relative(sb.dir, path11.resolve(sb.dir, f)).split(path11.sep).join("/"));
     }
     const usage = r.events?.find((e) => e.t === "usage")?.usage;
     const run = {
@@ -1267,12 +1282,12 @@ async function gradeRun(task, run, { judge } = {}) {
   let got = 0, total = 0, pass = true;
   const reasons = [];
   for (const c of det) {
-    const [ok, why] = CHECKS[c.kind](task, run, c);
+    const [ok, why2] = CHECKS[c.kind](task, run, c);
     const w = c.weight ?? (c.hard ? 1 : 0.5);
     total += w;
     if (ok) got += w;
     else {
-      reasons.push(why);
+      reasons.push(why2);
       if (c.hard) pass = false;
     }
   }
@@ -1382,18 +1397,18 @@ process.stdin.on('end', () => {
     registerAgent = (name, adapter) => {
       AGENTS[name] = adapter;
     };
-    claudeHome2 = () => process.env.CLAUDE_CONFIG_DIR || path10.join(os5.homedir(), ".claude");
+    claudeHome2 = () => process.env.CLAUDE_CONFIG_DIR || path11.join(os5.homedir(), ".claude");
     mergeHooks = (...sets) => {
       const out = {};
       for (const s of sets) for (const [ev, list] of Object.entries(s?.hooks || {})) out[ev] = [...out[ev] || [], ...list];
       return out;
     };
-    fwd = (p) => p.split(path10.sep).join("/");
+    fwd = (p) => p.split(path11.sep).join("/");
     registerAgent("claude", async ({ prompt, dir, base, model, budgetUsd, timeoutMs, settings, env, artifactsDir }) => {
-      const guard = path10.join(base, "guard.mjs");
+      const guard = path11.join(base, "guard.mjs");
       fs8.writeFileSync(guard, guardSource());
       const all = { ...settings || {}, hooks: mergeHooks({ hooks: { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: `node "${fwd(guard)}"` }] }] } }, settings) };
-      const settingsFile = path10.join(base, "settings.json");
+      const settingsFile = path11.join(base, "settings.json");
       fs8.writeFileSync(settingsFile, JSON.stringify(all, null, 2));
       const args = [
         "-p",
@@ -1422,14 +1437,14 @@ process.stdin.on('end', () => {
         j = Array.isArray(v) ? v.find((x) => x.type === "result") : v;
       } catch {
       }
-      const pdir = path10.join(claudeHome2(), "projects", encodeProject(dir));
-      let transcript = j?.session_id && path10.join(pdir, `${j.session_id}.jsonl`);
-      if (!transcript || !fs8.existsSync(transcript)) transcript = (fs8.existsSync(pdir) ? fs8.readdirSync(pdir).filter((f) => f.endsWith(".jsonl")).map((f) => path10.join(pdir, f)) : [])[0] || null;
+      const pdir = path11.join(claudeHome2(), "projects", encodeProject(dir));
+      let transcript = j?.session_id && path11.join(pdir, `${j.session_id}.jsonl`);
+      if (!transcript || !fs8.existsSync(transcript)) transcript = (fs8.existsSync(pdir) ? fs8.readdirSync(pdir).filter((f) => f.endsWith(".jsonl")).map((f) => path11.join(pdir, f)) : [])[0] || null;
       let events = [], transcriptPath = null;
       if (transcript) {
         events = [...claudeEvents(transcript)];
         fs8.mkdirSync(artifactsDir, { recursive: true });
-        transcriptPath = path10.join(artifactsDir, `${path10.basename(base)}.jsonl`);
+        transcriptPath = path11.join(artifactsDir, `${path11.basename(base)}.jsonl`);
         fs8.copyFileSync(transcript, transcriptPath);
       }
       if (/qbranch-replay-/.test(pdir)) fs8.rmSync(pdir, { recursive: true, force: true });
@@ -1494,7 +1509,7 @@ ${String(run.finalText).slice(0, 3e3)}`;
 
 // packages/moneyball/bin/moneyball.mjs
 import fs10 from "node:fs";
-import path12 from "node:path";
+import path13 from "node:path";
 
 // packages/core/src/project.mjs
 import fs from "node:fs";
@@ -1700,6 +1715,10 @@ function createStats({ tool, fresh, dayFresh, derive }) {
       } catch {
         s = { tool, schema: 1, since: (/* @__PURE__ */ new Date()).toISOString(), ...fresh() };
       }
+      for (const [k, v] of Object.entries(fresh())) {
+        if (!(k in s)) s[k] = v;
+        else if (v && typeof v === "object" && !Array.isArray(v) && s[k] && typeof s[k] === "object") s[k] = { ...v, ...s[k] };
+      }
       s.days ??= {};
       s.days[today()] ??= dayFresh();
       mutate(s, s.days[today()]);
@@ -1770,6 +1789,9 @@ function loadConfig(root = projectRoot2()) {
   if (process.env.MONEYBALL_MODE) cfg.mode = process.env.MONEYBALL_MODE;
   return cfg;
 }
+
+// packages/moneyball/src/scan.mjs
+import path7 from "node:path";
 
 // packages/moneyball/src/ladder.mjs
 var EFFORT = ["minimal", "low", "medium", "high", "xhigh", "max"];
@@ -1842,6 +1864,7 @@ var sameModel = (a, b) => parseKey(a).base === parseKey(b).base;
 import fs4 from "node:fs";
 import path6 from "node:path";
 import { DatabaseSync } from "node:sqlite";
+var SCHEMA = 3;
 var dbs = /* @__PURE__ */ new Map();
 function db(cfg) {
   if (dbs.has(cfg.dataDir)) return dbs.get(cfg.dataDir);
@@ -1854,12 +1877,13 @@ function db(cfg) {
       redo integer, fail_words integer, ok integer, explored integer default 0, mtime real);
     create table if not exists classes (id integer primary key, label text, key text unique, n integer default 0, prior text);
     create table if not exists meta (k text primary key, v text);`);
-  if (d.prepare("select v from meta where k = 'schema'").get()?.v !== "2") {
-    for (const c of ["startup_tokens integer default 0", "credit real default 0"]) try {
-      d.exec(`alter table runs add column ${c}`);
-    } catch {
-    }
-    d.exec("delete from runs; insert or replace into meta values ('schema', '2')");
+  if (d.prepare("select v from meta where k = 'schema'").get()?.v !== String(SCHEMA)) {
+    for (const c of ["startup_tokens integer default 0", "credit real default 0", "secs real", "rework integer default 0", "measured_by integer default 0"])
+      try {
+        d.exec(`alter table runs add column ${c}`);
+      } catch {
+      }
+    d.prepare("insert or replace into meta values ('schema', ?)").run(String(SCHEMA));
   }
   dbs.set(cfg.dataDir, d);
   return d;
@@ -1891,7 +1915,23 @@ function delegationCredit({ startup, peak, report = "", parent }) {
   const kept = Math.max(0, peak - startup - Math.ceil(report.length / 4));
   return kept * Math.min(parent.turns, MAX_CARRY) * (PRICES[modelId(parent.model)]?.[3] || 0) / 1e6;
 }
-var FAIL = /\b(could not|couldn't|unable to|failed to|did not complete|blocked( on)?|gave up|not able to|cannot proceed|no access|timed out)\b/i;
+var REWORK_WINDOW = 10;
+var EDIT_TOOLS = /* @__PURE__ */ new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
+var fileKey = (p) => {
+  const r = path7.resolve(p).replace(/\\/g, "/");
+  return process.platform === "win32" ? r.toLowerCase() : r;
+};
+function editedFile(e) {
+  if (!EDIT_TOOLS.has(e.name)) return null;
+  const p = e.input?.file_path ?? e.input?.notebook_path ?? e.input?.path;
+  return typeof p === "string" && p ? fileKey(p) : null;
+}
+var MAX_SECS = 6 * 3600;
+var duration = (startMs, endMs) => {
+  const s = (endMs - startMs) / 1e3;
+  return Number.isFinite(s) && s >= 0 && s <= MAX_SECS ? Math.round(s) : null;
+};
+var FAIL = /\bI (could not|couldn't|was unable to|wasn't able to|am unable to|was not able to|failed to|did not (finish|complete|get to)|didn't (finish|complete|get to)|gave up|ran out of)\b(?![^.\n]{0,100}\b(so I|instead|by using|using)\b)/i;
 var REDO_WINDOW_MS = 30 * 6e4;
 var words = (t) => new Set(t.toLowerCase().split(/[^a-z0-9#]+/).filter(Boolean));
 function similar(a, b) {
@@ -1905,20 +1945,28 @@ function similar(a, b) {
 }
 async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = {}) {
   const d = db(cfg);
-  const known = new Set(d.prepare("select id from runs").all().map((r) => r.id));
+  const known = new Set(d.prepare("select id from runs where measured_by >= ?").all(SCHEMA).map((r) => r.id));
   const parentReports = /* @__PURE__ */ new Map();
   const parentAfter = /* @__PURE__ */ new Map();
+  const parentFailed = /* @__PURE__ */ new Set();
+  const parentEdits = /* @__PURE__ */ new Map();
   const subs = [];
   for (const s of sessions({ root: allProjects ? null : cfg.root, days })) {
     if (s.kind === "main") {
-      const tools = [], models = {};
+      const tools = [], models = {}, files = [], returned = [];
       for (const e of s.events()) {
-        if (e.t === "result") parentReports.set(e.id, e.text);
-        else if (e.t === "tool") tools.push(e.id);
-        else if (e.t === "usage") models[e.model] = (models[e.model] || 0) + 1;
+        if (e.t === "result") {
+          parentReports.set(e.id, e.text);
+          if (e.late && e.isError) parentFailed.add(e.id);
+          returned.push([e.id, tools.length]);
+        } else if (e.t === "tool") {
+          tools.push(e.id);
+          files.push(editedFile(e));
+        } else if (e.t === "usage") models[e.model] = (models[e.model] || 0) + 1;
       }
       const model = Object.entries(models).sort((a, b) => b[1] - a[1])[0]?.[0];
       tools.forEach((id, i) => parentAfter.set(id, { turns: tools.length - 1 - i, model }));
+      for (const [id, at] of returned) parentEdits.set(id, new Set(files.slice(at, at + REWORK_WINDOW).filter(Boolean)));
       continue;
     }
     subs.push(s);
@@ -1929,8 +1977,14 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
     const id = `${s.platform}:${s.id}`;
     if (known.has(id)) continue;
     const models = {};
-    let cost = 0, priced = false, calls = 0, toolCalls = 0, toolErrors = 0, startup = null, peak = 0;
+    let cost = 0, priced = false, calls = 0, toolCalls = 0, toolErrors = 0, startup = null, peak = 0, startedAt = null;
+    const edited = /* @__PURE__ */ new Set();
     for (const e of s.events()) {
+      if (e.t === "meta") startedAt = Date.parse(e.at);
+      if (e.t === "tool") {
+        const f = editedFile(e);
+        if (f) edited.add(f);
+      }
       if (e.t === "usage") {
         const m = modelId(e.model);
         models[m] = (models[m] || 0) + 1;
@@ -1951,7 +2005,11 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
     const model = Object.entries(models).sort((a, b) => b[1] - a[1])[0][0];
     const desc = s.meta.description || "";
     const report = parentReports.get(s.meta.toolUseId) || "";
+    const after = parentEdits.get(s.meta.toolUseId);
+    const rework = after && [...edited].some((f) => after.has(f)) ? 1 : 0;
     rows.push({
+      secs: duration(startedAt, s.mtime),
+      rework,
       id,
       session: s.parent || s.id,
       platform: s.platform,
@@ -1963,7 +2021,7 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
       calls,
       tool_calls: toolCalls,
       tool_errors: toolErrors,
-      fail_words: FAIL.test(report.slice(-1500)) ? 1 : 0,
+      fail_words: FAIL.test(report.slice(-1500)) || parentFailed.has(s.meta.toolUseId) ? 1 : 0,
       mtime: s.mtime,
       startup_tokens: startup || 0,
       credit: delegationCredit({ startup, peak, report, parent: parentAfter.get(s.meta.toolUseId) })
@@ -1983,14 +2041,14 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
     });
   }
   const ins = d.prepare(`insert or replace into runs (id, session, platform, agent_type, description, class_id, model, tier, cost, calls,
-    tool_calls, tool_errors, redo, fail_words, ok, mtime, startup_tokens, credit) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    tool_calls, tool_errors, redo, fail_words, ok, mtime, startup_tokens, credit, secs, rework, measured_by) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   d.exec("begin");
   for (const x of d.prepare("select id, model, tier from runs").all()) {
     const k = rung(x.model).key;
     if (k !== x.tier) d.prepare("update runs set tier = ? where id = ?").run(k, x.id);
   }
   for (const r of rows) {
-    const ok = !r.redo && !r.fail_words && !(r.tool_calls >= 4 && r.tool_errors / r.tool_calls > 0.5) ? 1 : 0;
+    const ok = !r.redo && !r.fail_words && !r.rework && !(r.tool_calls >= 4 && r.tool_errors / r.tool_calls > 0.5) ? 1 : 0;
     ins.run(
       r.id,
       r.session,
@@ -2009,11 +2067,14 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
       ok,
       r.mtime,
       r.startup_tokens,
-      r.credit
+      r.credit,
+      r.secs,
+      r.rework,
+      SCHEMA
     );
     added++;
   }
-  for (const c of d.prepare("select class_id, count(*) n from runs group by class_id").all()) d.prepare("update classes set n = ? where id = ?").run(c.n, c.class_id);
+  d.exec("update classes set n = (select count(*) from runs where runs.class_id = classes.id)");
   d.prepare("insert or replace into meta values ('last_scan', ?)").run((/* @__PURE__ */ new Date()).toISOString());
   d.exec("commit");
   return { scanned: subs.length, added };
@@ -2032,6 +2093,15 @@ function classStats(cfg) {
     c.cost += r.cost;
     c.credit += r.credit;
   }
+  const secs2 = /* @__PURE__ */ new Map();
+  for (const r of d.prepare("select class_id, tier, secs from runs where secs is not null").all()) {
+    const k = `${r.class_id}|${r.tier}`;
+    (secs2.get(k) || secs2.set(k, []).get(k)).push(r.secs);
+  }
+  for (const c of classes.values()) for (const [t, v] of Object.entries(c.tiers)) {
+    v.lb = wilson(v.ok, v.n);
+    v.secs = median(secs2.get(`${c.id}|${t}`));
+  }
   return [...classes.values()];
 }
 function decide(cfg, c) {
@@ -2048,6 +2118,15 @@ function decide(cfg, c) {
   const down = ladder.find((t) => c.tiers[t]?.n >= cfg.minRuns) || ladder[0];
   const step = sameModel(top, down) ? "lower effort, same model" : "smaller model";
   const cand = c.tiers[down];
+  if (cand && c.prior === "judgment" && !sameModel(top, down) && cand.n >= cfg.minRuns && cand.rate >= cfg.bar && wilson(cand.ok, cand.n) < cfg.bar) {
+    return {
+      action: "keep",
+      from: top,
+      to: down,
+      step,
+      why: `judgment work: ${down} passed ${cand.ok}/${cand.n} but the 95% lower bound is ${pct(wilson(cand.ok, cand.n))} (< ${pct(cfg.bar)}); about ${runsFor(cfg.bar)} clean runs would settle it`
+    };
+  }
   if (cand && cand.n >= cfg.minRuns && cand.rate >= cfg.bar && cand.rate >= cur.rate - cfg.margin) {
     const perRun = cur.cost / cur.n, perRunDown = cand.cost / cand.n;
     if (cur.priced === 0 || cand.priced === 0) {
@@ -2087,8 +2166,71 @@ function decide(cfg, c) {
 var RATIO = { fable: { opus: 0.4 }, opus: { sonnet: 0.5 }, sonnet: { haiku: 0.05 } };
 var priceRatio = (from, to) => sameModel(from, to) ? 0.6 : RATIO[parseKey(from).base]?.[parseKey(to).base] ?? null;
 var pct = (x) => `${Math.round(x * 100)}%`;
+function wilson(ok, n, z = 1.96) {
+  if (!n) return 0;
+  const p = ok / n, z2 = z * z;
+  return (p + z2 / (2 * n) - z * Math.sqrt((p * (1 - p) + z2 / (4 * n)) / n)) / (1 + z2 / n);
+}
+var runsFor = (bar) => {
+  let n = 1;
+  while (wilson(n, n) < bar && n < 1e3) n++;
+  return n;
+};
+var median = (xs) => {
+  if (!xs?.length) return null;
+  const s = [...xs].sort((a, b) => a - b), m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+function minutesSaved(c, p) {
+  const cur = c.tiers[p.from], cand = c.tiers[p.to];
+  if (cur?.secs == null || cand?.secs == null) return null;
+  return (cur.secs - cand.secs) * cur.n / 60;
+}
 function plan(cfg) {
-  return classStats(cfg).map((c) => ({ ...c, ...decide(cfg, c) })).sort((a, b) => (b.saving || 0) - (a.saving || 0) || b.cost - a.cost);
+  return classStats(cfg).map((c) => {
+    const p = { ...c, ...decide(cfg, c) };
+    if (p.action === "graduate" || p.action === "explore") p.minutes = minutesSaved(c, p);
+    return p;
+  }).sort((a, b) => (b.saving || 0) - (a.saving || 0) || b.cost - a.cost);
+}
+var SATURATED = 0.03;
+function signal(cfg) {
+  const r = db(cfg).prepare(`select count(*) n, coalesce(sum(1 - ok), 0) failed, coalesce(sum(redo), 0) redo, coalesce(sum(fail_words), 0) fail_words,
+    coalesce(sum(rework), 0) rework, coalesce(sum(tool_calls >= 4 and tool_errors * 2 > tool_calls), 0) errors, min(mtime) lo, max(mtime) hi from runs`).get();
+  const window_days = r.n ? Math.max(1, (r.hi - r.lo) / 864e5) : 0;
+  const fail_rate = r.n ? r.failed / r.n : 0;
+  return {
+    runs: r.n,
+    window_days: +window_days.toFixed(1),
+    fail_rate,
+    saturated: r.n > 0 && fail_rate < SATURATED,
+    by: { redo: r.redo, fail_words: r.fail_words, rework: r.rework, errors: r.errors }
+  };
+}
+function overview(cfg, p = plan(cfg), sig = signal(cfg)) {
+  const keys = new Map(db(cfg).prepare("select id, key from classes").all().map((r) => [r.id, r.key]));
+  const acting = p.filter((c) => c.action === "graduate" || c.action === "explore");
+  const est_saving = p.reduce((a, c) => a + (c.saving || 0), 0);
+  const mins2 = acting.filter((c) => c.minutes != null);
+  const est_minutes_saved = mins2.length ? mins2.reduce((a, c) => a + c.minutes, 0) : null;
+  const per30 = (x) => x == null || !sig.window_days ? null : x * 30 / Math.max(sig.window_days, 1);
+  return {
+    runs: p.reduce((a, c) => a + c.n, 0),
+    classes: p.length,
+    spend: p.reduce((a, c) => a + c.cost, 0),
+    credit: p.reduce((a, c) => a + (c.credit || 0), 0),
+    graduate: p.filter((c) => c.action === "graduate").length,
+    explore: p.filter((c) => c.action === "explore").length,
+    est_saving,
+    est_saving_30d: per30(est_saving),
+    est_minutes_saved,
+    est_minutes_30d: per30(est_minutes_saved),
+    window_days: sig.window_days,
+    fail_rate: sig.fail_rate,
+    saturated: sig.saturated,
+    signals: sig.by,
+    routed: acting.map((c) => ({ key: keys.get(c.id), action: c.action, from: c.from, to: c.to, lb: c.tiers[c.to] ? +c.tiers[c.to].lb.toFixed(2) : null, n: c.tiers[c.to]?.n || 0 }))
+  };
 }
 function routes(cfg) {
   const d = db(cfg);
@@ -2104,7 +2246,7 @@ function routes(cfg) {
 
 // packages/moneyball/src/route.mjs
 import fs5 from "node:fs";
-import path7 from "node:path";
+import path8 from "node:path";
 import { spawn } from "node:child_process";
 
 // packages/moneyball/src/stats.mjs
@@ -2112,8 +2254,12 @@ var upsertFile = createStats({
   tool: "moneyball",
   fresh: () => ({
     totals: { dispatches_seen: 0, explicit_model: 0, matched_class: 0, suggestions: 0, rewrites: 0, explored: 0, scans: 0 },
+    skips: {},
+    // why each dispatch was (not) acted on: no_class | explicit_pinned | explore_needs_explore_mode | explore_not_sampled | mode_report | mode_unknown | acted
+    seen: {},
+    // class key -> { n, action, to, why: {reason: n} } (first 50 keys)
     last_scan: null,
-    // { runs, classes, spend, credit, graduate, explore, est_saving }
+    // overview(): runs, window_days, est_saving(_30d), est_minutes_saved/_30d, fail_rate, saturated, routed[] ...
     overhead: null,
     // { at, days, sessions, subagents: {n, median, p90}, startup_usd, total_usd, share, attribution? }
     last_experiment: null
@@ -2122,21 +2268,64 @@ var upsertFile = createStats({
   dayFresh: () => ({ dispatches: 0, rewrites: 0, explored: 0 })
 });
 var upsert = (cfg, mutate) => upsertFile(cfg.root, cfg.stats, mutate);
+var money = (x) => `$${(x || 0).toFixed(2)}`;
+var pct2 = (x) => `${Math.round((x || 0) * 100)}%`;
+var mins = (m) => m == null ? null : Math.abs(m) >= 90 ? `${(m / 60).toFixed(1)} h` : `${Math.round(m)} min`;
+var REASON = {
+  explicit_pinned: "the caller pinned a model (respectExplicit)",
+  explore_needs_explore_mode: "class is exploring; only explore mode trials the cheaper tier",
+  explore_not_sampled: "exploring, not sampled this time",
+  mode_report: "report mode measures only",
+  mode_unknown: "the mode is not one of report, suggest, enforce, explore",
+  acted: "acted on"
+};
+function headline(s) {
+  const l = s.last_scan;
+  if (!l) return ["worth it? unknown yet: no scan (run: moneyball scan)"];
+  if (!("routed" in l)) return ["worth it? unknown yet: the last scan predates v0.3 (run: moneyball scan to refresh it)"];
+  const routed = l.routed?.length ? l.routed.map((r) => `${r.key} ${r.from}->${r.to} (${r.action === "graduate" ? "graduated" : "exploring"}${r.n ? `, ${r.n} runs, lb ${pct2(r.lb)}` : ""})`).join("; ") : "nothing yet: no class has evidence for a cheaper tier";
+  const per30 = l.est_saving_30d != null ? `${money(l.est_saving_30d)}/30d${l.est_minutes_30d != null ? ` and ~${mins(l.est_minutes_30d)}/30d of wall-clock` : ""} (window ${l.window_days} days: ${money(l.est_saving)})` : `${money(l.est_saving)} over the scan window`;
+  const conf = l.saturated ? `confidence: LOW. Only ${pct2(l.fail_rate)} of ${l.runs} runs fail on any signal, so a pass means "no failure signal fired", not proven quality; treat graduations as hypotheses and test them in explore mode.` : l.fail_rate != null ? `confidence: success signals fire on ${pct2(l.fail_rate)} of ${l.runs} runs (redo, failure words, parent rework, tool errors), so pass rates discriminate.` : null;
+  return [
+    `worth it? routing now: ${routed}`,
+    `  projected: ${per30}. $ is API-equivalent: on a subscription plan it is quota share, not cash.`,
+    conf && `  ${conf}`
+  ].filter(Boolean);
+}
+function why(s) {
+  const t = s.totals, sk = s.skips || {};
+  if (!t.dispatches_seen) return null;
+  const matched = Object.entries(s.seen || {}).filter(([, v]) => v.action).sort((a, b) => b[1].n - a[1].n);
+  const parts = matched.slice(0, 4).map(([k, v]) => {
+    const top = Object.entries(v.why || {}).sort((a, b) => b[1] - a[1])[0];
+    return `${v.n} ${k} (${v.action === "explore" ? "exploring" : "graduated"} -> ${v.to}; ${REASON[top?.[0]] || top?.[0] || ""})`;
+  });
+  const lines = [`${t.matched_class} of ${t.dispatches_seen} dispatches matched a measured class${parts.length ? `: ${parts.join(", ")}` : ""}`];
+  if (t.matched_class && !matched.length) lines.push("  (why each dispatch was or was not acted on is recorded from v0.3 on)");
+  if (sk.no_class) lines.push(`  ${sk.no_class} had no measured class yet (new task kinds collect evidence as scans run)`);
+  const other = Object.entries(sk).filter(([k]) => k !== "no_class" && k !== "acted");
+  if (other.length) lines.push(`  not acted on: ${other.map(([k, n]) => `${n} ${REASON[k] || k}`).join(", ")}`);
+  return lines.join("\n");
+}
 function summarize(s) {
   const t = s.totals, l = s.last_scan, o = s.overhead, x = s.last_experiment;
   return [
+    ...headline(s),
+    "",
     `moneyball stats since ${s.since.slice(0, 10)} (updated ${s.updated.slice(0, 16).replace("T", " ")})`,
     `subagent dispatches seen ${t.dispatches_seen} | caller pinned a model ${t.explicit_model} | matched a measured class ${t.matched_class}`,
     `suggestions ${t.suggestions} | rewrites (enforce) ${t.rewrites} | exploration trials ${t.explored}`,
-    l ? `last scan: ${l.runs} runs in ${l.classes} classes, $${l.spend.toFixed(2)} measured; ${l.graduate} graduated, ${l.explore} exploring; est. saving $${l.est_saving.toFixed(2)} over the window` : "no scan yet (run: moneyball scan)",
-    o ? `startup tax (${o.at.slice(0, 10)}): median ${o.subagents.median} tokens per subagent, ${o.sessions.median} per session; $${o.startup_usd.toFixed(2)} = ${(o.share * 100).toFixed(1)}% of spend` : "startup tax not measured yet (run: moneyball overhead)",
-    x ? `last experiment (${x.at.slice(0, 10)}): ${x.variants} variants over ${x.tasks} tasks, $${x.spent.toFixed(2)} spent; recommended: ${x.recommended.join(", ") || "none"}` : null
-  ].filter(Boolean).join("\n");
+    why(s),
+    l ? `last scan: ${l.runs} runs in ${l.classes} classes, ${money(l.spend)} measured${l.window_days ? ` over ${l.window_days} days` : ""}; ${l.graduate} graduated, ${l.explore} exploring` : "no scan yet (run: moneyball scan)",
+    o ? `startup tax (${o.at.slice(0, 10)}): median ${o.subagents.median} tokens per subagent, ${o.sessions.median} per session; ${money(o.startup_usd)} = ${(o.share * 100).toFixed(1)}% of spend` : "startup tax not measured yet (run: moneyball overhead)",
+    x ? `last experiment (${x.at.slice(0, 10)}): ${x.variants} variants over ${x.tasks} tasks, ${money(x.spent)} spent; recommended: ${x.recommended.join(", ") || "none"}` : null
+  ].filter((v) => v != null).join("\n");
 }
 
 // packages/moneyball/src/route.mjs
 var SUBAGENT_TOOLS = /^(Agent|Task)$/;
-var routesFile = (cfg) => path7.join(cfg.dataDir, "routes.json");
+var SEEN_CAP = 50;
+var routesFile = (cfg) => path8.join(cfg.dataDir, "routes.json");
 function writeRoutes(cfg, routes2) {
   fs5.mkdirSync(cfg.dataDir, { recursive: true });
   fs5.writeFileSync(routesFile(cfg), JSON.stringify({ updated: (/* @__PURE__ */ new Date()).toISOString(), routes: routes2 }, null, 2));
@@ -2147,19 +2336,22 @@ function preToolUse(cfg, h, rand = Math.random) {
   const explicit = !!input.model;
   const key = lexKey(input.subagent_type || "general-purpose", input.description || "");
   const r = readJson(routesFile(cfg), { routes: {} }).routes[key];
-  let decision = null, kind = null;
-  if (r && !(explicit && cfg.respectExplicit) && cfg.mode !== "report") {
-    if (r.action === "graduate" && cfg.mode === "suggest") {
-      kind = "suggest";
-      decision = { context: `moneyball: "${input.description}" is a measured task class that succeeds on ${r.to} (graduated from ${r.from}). Prefer model "${r.to}" for this dispatch.` };
-    } else if (r.action === "graduate" && (cfg.mode === "enforce" || cfg.mode === "explore")) {
-      kind = "rewrite";
-      decision = { updatedInput: { ...input, model: r.to } };
-    } else if (r.action === "explore" && cfg.mode === "explore" && rand() < cfg.exploreRate) {
-      kind = "explore";
-      decision = { updatedInput: { ...input, model: r.to } };
-    }
-  }
+  let decision = null, kind = null, why2;
+  if (!r) why2 = "no_class";
+  else if (explicit && cfg.respectExplicit) why2 = "explicit_pinned";
+  else if (cfg.mode === "report") why2 = "mode_report";
+  else if (r.action === "graduate" && cfg.mode === "suggest") {
+    kind = "suggest";
+    decision = { context: `moneyball: "${input.description}" is a measured task class that succeeds on ${r.to} (graduated from ${r.from}). Prefer model "${r.to}" for this dispatch.` };
+  } else if (r.action === "graduate" && (cfg.mode === "enforce" || cfg.mode === "explore")) {
+    kind = "rewrite";
+    decision = { updatedInput: { ...input, model: r.to } };
+  } else if (r.action === "explore" && cfg.mode !== "explore") why2 = "explore_needs_explore_mode";
+  else if (r.action === "explore" && rand() < cfg.exploreRate) {
+    kind = "explore";
+    decision = { updatedInput: { ...input, model: r.to } };
+  } else why2 = r.action === "explore" ? "explore_not_sampled" : "mode_unknown";
+  why2 ??= "acted";
   upsert(cfg, (s, day) => {
     s.totals.dispatches_seen++;
     day.dispatches++;
@@ -2173,6 +2365,14 @@ function preToolUse(cfg, h, rand = Math.random) {
     if (kind === "explore") {
       s.totals.explored++;
       day.explored++;
+    }
+    s.skips[why2] = (s.skips[why2] || 0) + 1;
+    if (s.seen[key] || Object.keys(s.seen).length < SEEN_CAP) {
+      const k = s.seen[key] ??= { n: 0, action: null, to: null, why: {} };
+      k.n++;
+      k.why[why2] = (k.why[why2] || 0) + 1;
+      k.action = r?.action ?? null;
+      k.to = r?.to ?? null;
     }
   });
   return decision;
@@ -2192,7 +2392,7 @@ async function sessionStart(cfg, script, now = Date.now()) {
 // packages/moneyball/src/overhead.mjs
 import fs6 from "node:fs";
 import os3 from "node:os";
-import path8 from "node:path";
+import path9 from "node:path";
 import { execFileSync } from "node:child_process";
 var tok = (s) => Math.ceil((s || "").length / 4);
 var promptTokens2 = (u) => !u ? 0 : (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
@@ -2252,11 +2452,11 @@ var read = (p) => {
     return "";
   }
 };
-var home2 = () => process.env.CLAUDE_CONFIG_DIR || path8.join(os3.homedir(), ".claude");
+var home2 = () => process.env.CLAUDE_CONFIG_DIR || path9.join(os3.homedir(), ".claude");
 function instructionFiles(root) {
   const out = [], seen = /* @__PURE__ */ new Set();
   const add = (file, kind, depth = 0) => {
-    const f = path8.resolve(file);
+    const f = path9.resolve(file);
     if (seen.has(f) || !exists(f)?.isFile()) return;
     seen.add(f);
     const text = read(f);
@@ -2264,19 +2464,19 @@ function instructionFiles(root) {
     if (depth >= 4) return;
     for (const m of text.matchAll(/(?:^|\s)@((?:~[\\/]|\.{1,2}[\\/]|[\w-])[^\s`]*)/gm)) {
       const p = m[1].replace(/^~(?=[\\/])/, os3.homedir());
-      add(path8.resolve(path8.dirname(f), p), "import", depth + 1);
+      add(path9.resolve(path9.dirname(f), p), "import", depth + 1);
     }
   };
-  for (let d = path8.resolve(root); ; d = path8.dirname(d)) {
-    for (const n of ["CLAUDE.md", "CLAUDE.local.md", path8.join(".claude", "CLAUDE.md")]) add(path8.join(d, n), d === path8.resolve(root) ? "project" : "ancestor");
-    if (path8.dirname(d) === d) break;
+  for (let d = path9.resolve(root); ; d = path9.dirname(d)) {
+    for (const n of ["CLAUDE.md", "CLAUDE.local.md", path9.join(".claude", "CLAUDE.md")]) add(path9.join(d, n), d === path9.resolve(root) ? "project" : "ancestor");
+    if (path9.dirname(d) === d) break;
   }
-  add(path8.join(home2(), "CLAUDE.md"), "user");
+  add(path9.join(home2(), "CLAUDE.md"), "user");
   return out;
 }
 var walk2 = (dir, test, acc = []) => {
   for (const e of exists(dir)?.isDirectory() ? fs6.readdirSync(dir, { withFileTypes: true }) : []) {
-    const p = path8.join(dir, e.name);
+    const p = path9.join(dir, e.name);
     if (e.isDirectory()) walk2(p, test, acc);
     else if (test(p)) acc.push(p);
   }
@@ -2284,48 +2484,48 @@ var walk2 = (dir, test, acc = []) => {
 };
 var listingTokens = (file) => {
   const { meta } = parseFrontmatter(read(file));
-  return tok(`- ${meta.name || path8.basename(file)}: ${meta.description || ""}`);
+  return tok(`- ${meta.name || path9.basename(file)}: ${meta.description || ""}`);
 };
 function enabledPlugins(root) {
   const on = {};
-  for (const f of [path8.join(home2(), "settings.json"), path8.join(root, ".claude", "settings.json"), path8.join(root, ".claude", "settings.local.json")]) Object.assign(on, readJson(f, {}).enabledPlugins || {});
-  const installed = readJson(path8.join(home2(), "plugins", "installed_plugins.json"), {}).plugins || {};
+  for (const f of [path9.join(home2(), "settings.json"), path9.join(root, ".claude", "settings.json"), path9.join(root, ".claude", "settings.local.json")]) Object.assign(on, readJson(f, {}).enabledPlugins || {});
+  const installed = readJson(path9.join(home2(), "plugins", "installed_plugins.json"), {}).plugins || {};
   return Object.entries(on).filter(([, v]) => v).map(([id]) => {
-    const inst = (installed[id] || []).find((i) => !i.projectPath || path8.resolve(i.projectPath) === path8.resolve(root)) || (installed[id] || [])[0];
+    const inst = (installed[id] || []).find((i) => !i.projectPath || path9.resolve(i.projectPath) === path9.resolve(root)) || (installed[id] || [])[0];
     return { id, dir: inst?.installPath };
   });
 }
 function mcpServers(root) {
   const servers = {};
-  for (const n of Object.keys(readJson(path8.join(root, ".mcp.json"), {}).mcpServers || {})) servers[n] = ".mcp.json";
-  const user = readJson(process.env.CLAUDE_CONFIG_DIR ? path8.join(process.env.CLAUDE_CONFIG_DIR, ".claude.json") : path8.join(os3.homedir(), ".claude.json"), {});
+  for (const n of Object.keys(readJson(path9.join(root, ".mcp.json"), {}).mcpServers || {})) servers[n] = ".mcp.json";
+  const user = readJson(process.env.CLAUDE_CONFIG_DIR ? path9.join(process.env.CLAUDE_CONFIG_DIR, ".claude.json") : path9.join(os3.homedir(), ".claude.json"), {});
   for (const n of Object.keys(user.mcpServers || {})) servers[n] ??= "user";
-  const proj = Object.entries(user.projects || {}).find(([p]) => path8.resolve(p) === path8.resolve(root))?.[1];
+  const proj = Object.entries(user.projects || {}).find(([p]) => path9.resolve(p) === path9.resolve(root))?.[1];
   for (const n of Object.keys(proj?.mcpServers || {})) servers[n] ??= "local";
   return servers;
 }
 var mcpKey = (name) => name.replace(/[^A-Za-z0-9_-]/g, "_");
 function staticContributors(root, usage = null) {
   const rows = instructionFiles(root).map((f) => ({ ...f, label: f.path }));
-  for (const [kind, dir] of [["rules", path8.join(root, ".claude", "rules")], ["rules", path8.join(home2(), "rules")]]) {
+  for (const [kind, dir] of [["rules", path9.join(root, ".claude", "rules")], ["rules", path9.join(home2(), "rules")]]) {
     for (const f of walk2(dir, (p) => p.endsWith(".md"))) rows.push({ kind, label: f, tokens: tok(read(f)) });
   }
   const listing = (kind, label, files) => files.length && rows.push({ kind, label, count: files.length, tokens: files.reduce((a, f) => a + listingTokens(f), 0) });
-  const skillFiles = (d) => walk2(d, (p) => path8.basename(p) === "SKILL.md");
+  const skillFiles = (d) => walk2(d, (p) => path9.basename(p) === "SKILL.md");
   const mdFiles = (d) => walk2(d, (p) => p.endsWith(".md"));
-  listing("skills", path8.join(root, ".claude", "skills"), skillFiles(path8.join(root, ".claude", "skills")));
-  listing("skills", path8.join(home2(), "skills"), skillFiles(path8.join(home2(), "skills")));
-  listing("commands", path8.join(root, ".claude", "commands"), mdFiles(path8.join(root, ".claude", "commands")));
-  listing("commands", path8.join(home2(), "commands"), mdFiles(path8.join(home2(), "commands")));
-  listing("agents", path8.join(root, ".claude", "agents"), mdFiles(path8.join(root, ".claude", "agents")));
-  listing("agents", path8.join(home2(), "agents"), mdFiles(path8.join(home2(), "agents")));
+  listing("skills", path9.join(root, ".claude", "skills"), skillFiles(path9.join(root, ".claude", "skills")));
+  listing("skills", path9.join(home2(), "skills"), skillFiles(path9.join(home2(), "skills")));
+  listing("commands", path9.join(root, ".claude", "commands"), mdFiles(path9.join(root, ".claude", "commands")));
+  listing("commands", path9.join(home2(), "commands"), mdFiles(path9.join(home2(), "commands")));
+  listing("agents", path9.join(root, ".claude", "agents"), mdFiles(path9.join(root, ".claude", "agents")));
+  listing("agents", path9.join(home2(), "agents"), mdFiles(path9.join(home2(), "agents")));
   for (const p of enabledPlugins(root)) {
     if (!p.dir || !exists(p.dir)) {
       rows.push({ kind: "plugin", label: `${p.id} (enabled, not installed)`, tokens: 0 });
       continue;
     }
-    const manifest = readJson(path8.join(p.dir, ".claude-plugin", "plugin.json"), {});
-    const dirs = (k) => [manifest[k] ?? k].flat().map((d) => path8.join(p.dir, d));
+    const manifest = readJson(path9.join(p.dir, ".claude-plugin", "plugin.json"), {});
+    const dirs = (k) => [manifest[k] ?? k].flat().map((d) => path9.join(p.dir, d));
     const files = [...dirs("skills").flatMap(skillFiles), ...dirs("commands").flatMap(mdFiles), ...dirs("agents").flatMap(mdFiles)];
     rows.push({ kind: "plugin", label: p.id, count: files.length, tokens: files.reduce((a, f) => a + listingTokens(f), 0) });
   }
@@ -2337,18 +2537,18 @@ function staticContributors(root, usage = null) {
   for (const [key, calls] of Object.entries(usage || {})) if (!known.has(key)) rows.push({ kind: "mcp", label: `${key} (seen in transcripts)`, server: key, tokens: null, calls });
   return rows;
 }
-var STARTUP = ["CLAUDE.md", "CLAUDE.local.md", ".mcp.json", ...["CLAUDE.md", "settings.json", "settings.local.json", "rules", "skills", "commands", "agents", "output-styles"].map((n) => path8.join(".claude", n))];
-var INSTRUCTIONS = ["CLAUDE.md", "CLAUDE.local.md", path8.join(".claude", "CLAUDE.md"), path8.join(".claude", "rules")];
+var STARTUP = ["CLAUDE.md", "CLAUDE.local.md", ".mcp.json", ...["CLAUDE.md", "settings.json", "settings.local.json", "rules", "skills", "commands", "agents", "output-styles"].map((n) => path9.join(".claude", n))];
+var INSTRUCTIONS = ["CLAUDE.md", "CLAUDE.local.md", path9.join(".claude", "CLAUDE.md"), path9.join(".claude", "rules")];
 function sandbox(root, { instructions = true } = {}) {
-  const dir = fs6.mkdtempSync(path8.join(os3.tmpdir(), "moneyball-probe-"));
+  const dir = fs6.mkdtempSync(path9.join(os3.tmpdir(), "moneyball-probe-"));
   const copy = (rel) => {
-    const src = path8.join(root, rel);
-    if (exists(src)) fs6.cpSync(src, path8.join(dir, rel), { recursive: true });
+    const src = path9.join(root, rel);
+    if (exists(src)) fs6.cpSync(src, path9.join(dir, rel), { recursive: true });
   };
   for (const rel of STARTUP) if (instructions || !INSTRUCTIONS.includes(rel)) copy(rel);
   if (instructions) for (const f of instructionFiles(root)) {
-    const rel = path8.relative(root, f.path);
-    if (f.kind === "import" && !rel.startsWith("..") && !path8.isAbsolute(rel)) copy(rel);
+    const rel = path9.relative(root, f.path);
+    if (f.kind === "import" && !rel.startsWith("..") && !path9.isAbsolute(rel)) copy(rel);
   }
   return dir;
 }
@@ -2432,8 +2632,8 @@ async function attribute(root, { budget, model = "haiku", run = claudeProbe, pro
 // packages/moneyball/src/experiments.mjs
 import fs7 from "node:fs";
 import os4 from "node:os";
-import path9 from "node:path";
-var expDir = (cfg) => path9.join(cfg.dataDir, "experiments");
+import path10 from "node:path";
+var expDir = (cfg) => path10.join(cfg.dataDir, "experiments");
 var read2 = (p) => {
   try {
     return fs7.readFileSync(p, "utf8");
@@ -2449,7 +2649,7 @@ var isDir2 = (p) => {
   }
 };
 var slug = (s) => s.toLowerCase().replace(/^[\d.\s]+/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "section";
-var posix = (p) => p.split(path9.sep).join("/");
+var posix = (p) => p.split(path10.sep).join("/");
 function sections(md) {
   const out = [{ title: null, text: "" }];
   let fence = false;
@@ -2462,7 +2662,7 @@ function sections(md) {
 }
 function deriveVariants(root, { condensed = null, usage = null } = {}) {
   const out = [];
-  const claudeMd = read2(path9.join(root, "CLAUDE.md"));
+  const claudeMd = read2(path10.join(root, "CLAUDE.md"));
   if (claudeMd != null) {
     const secs2 = sections(claudeMd);
     secs2.forEach((s, i) => {
@@ -2472,15 +2672,15 @@ function deriveVariants(root, { condensed = null, usage = null } = {}) {
     });
     if (condensed) out.push({ id: "condensed", kind: "condensed", description: "model-written condensed CLAUDE.md", estTokensSaved: tok(claudeMd) - tok(condensed), ops: [{ op: "write", path: "CLAUDE.md", content: condensed }] });
   }
-  const instr = ["CLAUDE.md", "CLAUDE.local.md", ".claude/CLAUDE.md", ".claude/rules"].filter((p) => fs7.existsSync(path9.join(root, p)));
+  const instr = ["CLAUDE.md", "CLAUDE.local.md", ".claude/CLAUDE.md", ".claude/rules"].filter((p) => fs7.existsSync(path10.join(root, p)));
   if (instr.length) out.push({
     id: "fresh-start",
     kind: "fresh-start",
     description: "no project instruction files (CLAUDE.md, CLAUDE.local.md, rules)",
-    estTokensSaved: instr.reduce((a, p) => a + sizeOf(path9.join(root, p)), 0),
+    estTokensSaved: instr.reduce((a, p) => a + sizeOf(path10.join(root, p)), 0),
     ops: instr.map((p) => ({ op: "remove", path: p }))
   });
-  const skills = path9.join(root, ".claude", "skills");
+  const skills = path10.join(root, ".claude", "skills");
   if (isDir2(skills) && fs7.readdirSync(skills).length) out.push({
     id: "no-project-skills",
     kind: "trim-skills",
@@ -2488,7 +2688,7 @@ function deriveVariants(root, { condensed = null, usage = null } = {}) {
     estTokensSaved: null,
     ops: [{ op: "remove", path: ".claude/skills" }]
   });
-  const mcpFile = path9.join(root, ".mcp.json");
+  const mcpFile = path10.join(root, ".mcp.json");
   const mcp = JSON.parse(read2(mcpFile) || "{}");
   if (usage && mcp.mcpServers) {
     const unused = Object.keys(mcp.mcpServers).filter((n) => !usage[mcpKey(n)]);
@@ -2499,13 +2699,13 @@ function deriveVariants(root, { condensed = null, usage = null } = {}) {
   return out;
 }
 var sizeOf = (p) => isDir2(p) ? walk3(p).reduce((a, f) => a + tok(read2(f)), 0) : tok(read2(p));
-var walk3 = (d) => fs7.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk3(path9.join(d, e.name)) : [path9.join(d, e.name)]);
+var walk3 = (d) => fs7.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk3(path10.join(d, e.name)) : [path10.join(d, e.name)]);
 function applyVariant(dir, v) {
   for (const o of v.ops) {
-    const p = path9.join(dir, o.path);
+    const p = path10.join(dir, o.path);
     if (o.op === "remove") fs7.rmSync(p, { recursive: true, force: true });
     else {
-      fs7.mkdirSync(path9.dirname(p), { recursive: true });
+      fs7.mkdirSync(path10.dirname(p), { recursive: true });
       fs7.writeFileSync(p, o.content);
     }
   }
@@ -2559,10 +2759,10 @@ var binary = (f) => {
 function patchFor(root, v) {
   const parts = [], manual = [];
   for (const o of v.ops) {
-    const p = path9.join(root, o.path);
+    const p = path10.join(root, o.path);
     if (o.op === "write") parts.push(unifiedDiff(read2(p), o.content, o.path));
     else for (const f of isDir2(p) ? walk3(p) : [p]) {
-      const rel = posix(path9.relative(root, f));
+      const rel = posix(path10.relative(root, f));
       if (binary(f)) manual.push(rel);
       else parts.push(unifiedDiff(read2(f), null, rel));
     }
@@ -2576,28 +2776,28 @@ ${manual.map((f) => `  ${f}`).join("\n")}
 function writeVariants(cfg, variants) {
   const dir = expDir(cfg);
   if (isDir2(dir)) {
-    for (const d of fs7.readdirSync(dir)) if (fs7.existsSync(path9.join(dir, d, "manifest.json"))) fs7.rmSync(path9.join(dir, d), { recursive: true, force: true });
+    for (const d of fs7.readdirSync(dir)) if (fs7.existsSync(path10.join(dir, d, "manifest.json"))) fs7.rmSync(path10.join(dir, d), { recursive: true, force: true });
   }
   for (const v of variants) {
-    const vd = path9.join(dir, v.id);
+    const vd = path10.join(dir, v.id);
     fs7.mkdirSync(vd, { recursive: true });
-    const gi = path9.join(cfg.dataDir, ".gitignore");
+    const gi = path10.join(cfg.dataDir, ".gitignore");
     if (!fs7.existsSync(gi)) fs7.writeFileSync(gi, "*\n");
-    fs7.writeFileSync(path9.join(vd, "manifest.json"), JSON.stringify({ ...v, created: (/* @__PURE__ */ new Date()).toISOString(), root: cfg.root }, null, 2) + "\n");
-    fs7.writeFileSync(path9.join(vd, "patch.diff"), patchFor(cfg.root, v));
+    fs7.writeFileSync(path10.join(vd, "manifest.json"), JSON.stringify({ ...v, created: (/* @__PURE__ */ new Date()).toISOString(), root: cfg.root }, null, 2) + "\n");
+    fs7.writeFileSync(path10.join(vd, "patch.diff"), patchFor(cfg.root, v));
   }
   return dir;
 }
 function loadVariants(cfg) {
   const dir = expDir(cfg);
   if (!isDir2(dir)) return [];
-  return fs7.readdirSync(dir).map((d) => read2(path9.join(dir, d, "manifest.json"))).filter(Boolean).map((t) => JSON.parse(t));
+  return fs7.readdirSync(dir).map((d) => read2(path10.join(dir, d, "manifest.json"))).filter(Boolean).map((t) => JSON.parse(t));
 }
 async function condense(root, { budget, model = "sonnet", run = claudeProbe }) {
   if (!(budget > 0)) throw new Error("condensing calls a model: pass --budget <usd>");
-  const src = read2(path9.join(root, "CLAUDE.md"));
+  const src = read2(path10.join(root, "CLAUDE.md"));
   if (src == null) return null;
-  const dir = fs7.mkdtempSync(path9.join(os4.tmpdir(), "moneyball-condense-"));
+  const dir = fs7.mkdtempSync(path10.join(os4.tmpdir(), "moneyball-condense-"));
   try {
     const r = await run(["-p", CONDENSE, "--output-format", "json", "--model", model, "--no-session-persistence", "--max-budget-usd", String(budget)], dir, src);
     return { text: String(r.result || "").trim() + "\n", cost: Number(r.total_cost_usd) || 0 };
@@ -2637,7 +2837,7 @@ async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats 
     const keeps = (k) => (base[k] ?? 0) === 0 || (r[k] ?? 0) >= cfg.bar * base[k];
     const chance = noise?.regressions ?? 0;
     const beyond = regressions.length - chance;
-    const why = runs < cfg.minRuns ? `only ${runs} task runs (< ${cfg.minRuns})` : saved <= 0 ? "saves no startup tokens" : beyond > 0 ? `${regressions.length} regression(s)${chance ? `, ${chance} expected from noise` : ""}` : !keeps("passRate") ? "pass rate below the bar" : !keeps("meanScore") ? "mean score below the bar" : tooNoisy ? `inconclusive: two identical setups differed by ${Math.round(noise.passDelta * 100)} pts pass / ${noise.scoreDelta.toFixed(2)} score, more than the ${Math.round((1 - cfg.bar) * 100)}% bar can resolve (add --repeats)` : null;
+    const why2 = runs < cfg.minRuns ? `only ${runs} task runs (< ${cfg.minRuns})` : saved <= 0 ? "saves no startup tokens" : beyond > 0 ? `${regressions.length} regression(s)${chance ? `, ${chance} expected from noise` : ""}` : !keeps("passRate") ? "pass rate below the bar" : !keeps("meanScore") ? "mean score below the bar" : tooNoisy ? `inconclusive: two identical setups differed by ${Math.round(noise.passDelta * 100)} pts pass / ${noise.scoreDelta.toFixed(2)} score, more than the ${Math.round((1 - cfg.bar) * 100)}% bar can resolve (add --repeats)` : null;
     return {
       id: v.id,
       description: v.description,
@@ -2646,9 +2846,9 @@ async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats 
       costUsd: r.costUsd,
       startupTokensSaved: saved,
       regressions: regressions.length,
-      recommend: !why,
-      why: why || `keeps ${Math.round(r.passRate / (base.passRate || 1) * 100)}% of baseline outcomes, saves ${saved} tokens per startup`,
-      patch: path9.join(expDir(cfg), v.id, "patch.diff")
+      recommend: !why2,
+      why: why2 || `keeps ${Math.round(r.passRate / (base.passRate || 1) * 100)}% of baseline outcomes, saves ${saved} tokens per startup`,
+      patch: path10.join(expDir(cfg), v.id, "patch.diff")
     };
   });
   const result = {
@@ -2664,7 +2864,7 @@ async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats 
     spent: Object.values(report.perVariant).reduce((a, r) => a + (r.costUsd || 0), 0),
     variants: rows
   };
-  fs7.writeFileSync(path9.join(expDir(cfg), "last-tune.json"), JSON.stringify(result, null, 2) + "\n");
+  fs7.writeFileSync(path10.join(expDir(cfg), "last-tune.json"), JSON.stringify(result, null, 2) + "\n");
   return result;
 }
 
@@ -2672,7 +2872,7 @@ async function tune(cfg, { budget, replay, days = cfg.days, limit = 20, repeats 
 init_replay();
 import fs9 from "node:fs";
 import os6 from "node:os";
-import path11 from "node:path";
+import path12 from "node:path";
 import { spawn as spawn3, spawnSync as spawnSync2 } from "node:child_process";
 var git2 = (args, opts = {}) => spawnSync2("git", args, { encoding: "utf8", windowsHide: true, maxBuffer: 256 * 1024 * 1024, ...opts });
 var json = (t) => {
@@ -2682,7 +2882,7 @@ var json = (t) => {
     return null;
   }
 };
-var posix2 = (p) => p.split(path11.sep).join("/");
+var posix2 = (p) => p.split(path12.sep).join("/");
 var isTestFile = (p) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(p) || /(^|\/)__tests__\/.+\.[cm]?[jt]sx?$/.test(p) || /(^|\/)test\/.+\.[cm]?js$/.test(p);
 var isTestSupport = (p) => /(^|\/)(tests?|__tests__|__fixtures__|fixtures|__snapshots__)\//.test(p) || /\.snap$/.test(p);
 var DEP_FILES = /(^|\/)(package\.json|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|yarn\.lock|bun\.lockb?)$/;
@@ -2696,7 +2896,7 @@ function glob(g) {
   return new RegExp(`^${re}$`);
 }
 function scenarioConfig(root) {
-  const file = process.env.QBRANCH_SCENARIOS_CONFIG || path11.join(root, "qbranch.scenarios.json");
+  const file = process.env.QBRANCH_SCENARIOS_CONFIG || path12.join(root, "qbranch.scenarios.json");
   const c = json(fs9.existsSync(file) ? fs9.readFileSync(file, "utf8") : "null") || {};
   return { maxFiles: 20, neighbours: 10, testTimeoutSec: 600, ...c, include: (c.include || []).map(glob), exclude: (c.exclude || []).map(glob) };
 }
@@ -2734,7 +2934,7 @@ var hasConfig = (read3, d, cmd2, pkg) => {
 function testCommand(read3, file, cfg = {}) {
   if (cfg.test) return { cwd: "", cmd: cfg.test };
   const found = [];
-  for (let d = path11.posix.dirname(file); ; d = path11.posix.dirname(d)) {
+  for (let d = path12.posix.dirname(file); ; d = path12.posix.dirname(d)) {
     const pkg = json(read3(d === "." ? "package.json" : `${d}/package.json`));
     const cmd2 = pkg && (pkg.scripts?.test && runnerFromScript(pkg.scripts.test) || runnerFromDeps(pkg));
     if (cmd2) {
@@ -2752,7 +2952,7 @@ function testPlan(read3, files, cfg) {
     if (!t) continue;
     const k = `${t.cwd}\0${t.cmd}`;
     if (!groups.has(k)) groups.set(k, { ...t, files: [] });
-    groups.get(k).files.push(t.cwd ? path11.posix.relative(t.cwd, f) : f);
+    groups.get(k).files.push(t.cwd ? path12.posix.relative(t.cwd, f) : f);
   }
   return [...groups.values()];
 }
@@ -2800,11 +3000,11 @@ function cmdEnv(sb, cwd) {
   delete env.NODE_TEST_CONTEXT;
   const key = Object.keys(env).find((k) => /^path$/i.test(k)) || "PATH";
   const bins = [];
-  for (let d = cwd; ; d = path11.dirname(d)) {
-    bins.push(path11.join(d, "node_modules", ".bin"));
-    if (path11.resolve(d) === path11.resolve(sb.root) || path11.dirname(d) === d) break;
+  for (let d = cwd; ; d = path12.dirname(d)) {
+    bins.push(path12.join(d, "node_modules", ".bin"));
+    if (path12.resolve(d) === path12.resolve(sb.root) || path12.dirname(d) === d) break;
   }
-  env[key] = [...bins, env[key]].join(path11.delimiter);
+  env[key] = [...bins, env[key]].join(path12.delimiter);
   return env;
 }
 async function runGroups(sb, groups, cfg) {
@@ -2812,7 +3012,7 @@ async function runGroups(sb, groups, cfg) {
   for (const g of groups) {
     const files = g.files.map(quote).join(" ");
     const cmd2 = g.cmd.includes("{files}") ? g.cmd.replace("{files}", files) : `${g.cmd} ${files}`;
-    const cwd = path11.join(sb.root, g.cwd);
+    const cwd = path12.join(sb.root, g.cwd);
     results.push({ cmd: cmd2, cwd: g.cwd, ...await sh(cmd2, { cwd, env: cmdEnv(sb, cwd), timeoutMs: cfg.testTimeoutSec * 1e3 }) });
   }
   return { pass: results.length > 0 && results.every((r) => r.pass), ms: results.reduce((a, r) => a + r.ms, 0), tail: results.filter((r) => !r.pass).map((r) => `$ ${r.cmd}
@@ -2820,21 +3020,21 @@ ${r.tail}`).join("\n").slice(-2e3), groups: results.map(({ tail, ...r }) => r) }
 }
 var runOne = async (sb, cmd2, cfg) => ({ cmd: cmd2, ...await sh(cmd2, { cwd: sb.root, env: cmdEnv(sb, sb.root), timeoutMs: cfg.testTimeoutSec * 1e3 }) });
 function snapshotSandbox(root, ref) {
-  const base = fs9.realpathSync.native(fs9.mkdtempSync(path11.join(os6.tmpdir(), "qbranch-replay-")));
-  const hooks = path11.join(base, "git-hooks"), work = path11.join(base, "work");
+  const base = fs9.realpathSync.native(fs9.mkdtempSync(path12.join(os6.tmpdir(), "qbranch-replay-")));
+  const hooks = path12.join(base, "git-hooks"), work = path12.join(base, "work");
   fs9.mkdirSync(hooks);
   fs9.mkdirSync(work);
-  fs9.writeFileSync(path11.join(hooks, "pre-push"), '#!/bin/sh\necho "qbranch replay sandbox: push refused" >&2\nexit 1\n', { mode: 493 });
+  fs9.writeFileSync(path12.join(hooks, "pre-push"), '#!/bin/sh\necho "qbranch replay sandbox: push refused" >&2\nexit 1\n', { mode: 493 });
   const fail = (what, r2) => {
     fs9.rmSync(base, { recursive: true, force: true });
     throw new Error(`${what} failed: ${(r2.stderr || "").trim().slice(0, 300)}`);
   };
-  const idx = { env: { ...process.env, GIT_INDEX_FILE: path11.join(base, "index") } };
+  const idx = { env: { ...process.env, GIT_INDEX_FILE: path12.join(base, "index") } };
   let r = git2(["-C", root, "read-tree", ref], idx);
   if (r.status !== 0) fail(`git read-tree ${ref}`, r);
   r = git2(["-C", root, `--work-tree=${work}`, "checkout-index", "-a", "-f"], idx);
   if (r.status !== 0) fail("git checkout-index", r);
-  fs9.rmSync(path11.join(base, "index"), { force: true });
+  fs9.rmSync(path12.join(base, "index"), { force: true });
   const env = { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "core.hooksPath", GIT_CONFIG_VALUE_0: hooks };
   const genv = { env: { ...process.env, ...env } };
   const id = ["-c", "user.name=qbranch", "-c", "user.email=qbranch@localhost", "-c", "commit.gpgsign=false", "-c", "core.safecrlf=false"];
@@ -2845,7 +3045,7 @@ function snapshotSandbox(root, ref) {
   const links = [];
   const status = () => git2(["-C", work, "status", "--porcelain", "-uall"], genv).stdout || "";
   const cleanup = () => {
-    killStrays(path11.basename(base));
+    killStrays(path12.basename(base));
     for (const l of links.splice(0)) try {
       fs9.unlinkSync(l);
     } catch {
@@ -2857,26 +3057,26 @@ function snapshotSandbox(root, ref) {
   };
   return { base, root: work, dir: work, git: true, env, status, cleanup, links };
 }
-function killStrays(tag) {
-  if (!/^qbranch-replay-\w{6}$/.test(tag)) return;
+function killStrays(tag2) {
+  if (!/^qbranch-replay-\w{6}$/.test(tag2)) return;
   if (process.platform === "win32") spawnSync2("powershell", [
     "-NoProfile",
     "-NonInteractive",
     "-Command",
-    `Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*${tag}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
+    `Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*${tag2}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
   ], { windowsHide: true, timeout: 3e4 });
-  else spawnSync2("pkill", ["-9", "-f", tag], { timeout: 3e4 });
+  else spawnSync2("pkill", ["-9", "-f", tag2], { timeout: 3e4 });
 }
 function applyFiles(work, root, sha, entries) {
   for (const e of entries) {
-    const dst = path11.join(work, e.path);
+    const dst = path12.join(work, e.path);
     if (e.status === "D") {
       fs9.rmSync(dst, { force: true });
       continue;
     }
     const r = spawnSync2("git", ["-C", root, "cat-file", "blob", `${sha}:${e.path}`], { windowsHide: true, maxBuffer: 256 * 1024 * 1024 });
     if (r.status !== 0) throw new Error(`cannot read ${e.path} at ${sha.slice(0, 8)}`);
-    fs9.mkdirSync(path11.dirname(dst), { recursive: true });
+    fs9.mkdirSync(path12.dirname(dst), { recursive: true });
     fs9.writeFileSync(dst, r.stdout);
   }
 }
@@ -2885,14 +3085,14 @@ function linkDeps(live, work, links = []) {
   const pkgs = (git2(["-C", live, "ls-files", "--", "package.json", "*/package.json"]).stdout || "").split("\n").filter(Boolean).filter((p) => !/node_modules\//.test(p));
   const liveReal = fs9.realpathSync.native(live);
   const target = (real) => {
-    const rel = path11.relative(liveReal, real);
-    return !rel.startsWith("..") && !path11.isAbsolute(rel) && !rel.split(path11.sep).includes("node_modules") ? path11.join(work, rel) : real;
+    const rel = path12.relative(liveReal, real);
+    return !rel.startsWith("..") && !path12.isAbsolute(rel) && !rel.split(path12.sep).includes("node_modules") ? path12.join(work, rel) : real;
   };
   const linkDir = (src, dst) => {
     fs9.mkdirSync(dst, { recursive: true });
     for (const e of fs9.readdirSync(src, { withFileTypes: true })) {
       if (SKIP_NM.has(e.name)) continue;
-      const s = path11.join(src, e.name), d = path11.join(dst, e.name);
+      const s = path12.join(src, e.name), d = path12.join(dst, e.name);
       if (fs9.existsSync(d)) continue;
       let real;
       try {
@@ -2916,13 +3116,13 @@ function linkDeps(live, work, links = []) {
     }
   };
   for (const p of pkgs) {
-    const rel = path11.posix.dirname(p), src = path11.join(live, rel, "node_modules"), dst = path11.join(work, rel, "node_modules");
-    if (fs9.existsSync(src) && fs9.existsSync(path11.dirname(dst)) && !fs9.existsSync(dst)) linkDir(src, dst);
+    const rel = path12.posix.dirname(p), src = path12.join(live, rel, "node_modules"), dst = path12.join(work, rel, "node_modules");
+    if (fs9.existsSync(src) && fs9.existsSync(path12.dirname(dst)) && !fs9.existsSync(dst)) linkDir(src, dst);
   }
   return links;
 }
 async function installDeps(sb, cfg) {
-  const has = (f) => fs9.existsSync(path11.join(sb.root, f));
+  const has = (f) => fs9.existsSync(path12.join(sb.root, f));
   const pm = packageManager(has);
   const cmd2 = {
     npm: has("package-lock.json") ? "npm ci --ignore-scripts --no-audit --no-fund" : "npm install --ignore-scripts --no-audit --no-fund",
@@ -2976,8 +3176,8 @@ function prFor(root, sha) {
 }
 function mineScenarios({ root, limit = 100, since, pr = true } = {}) {
   root = (git2(["-C", root, "rev-parse", "--show-toplevel"]).stdout || "").trim() || root;
-  if (!root || !fs9.existsSync(path11.join(root, ".git"))) throw new Error(`not a git repository: ${root}`);
-  root = path11.resolve(root);
+  if (!root || !fs9.existsSync(path12.join(root, ".git"))) throw new Error(`not a git repository: ${root}`);
+  root = path12.resolve(root);
   const cfg = scenarioConfig(root);
   const log = git2(["-C", root, "log", "--no-merges", "--no-renames", "--name-status", `-n${limit}`, ...since ? [`--since=${since}`] : [], "--format=%x1e%H%x1f%P%x1f%aI%x1f%B%x1f"]);
   if (log.status !== 0) throw new Error(`git log failed: ${log.stderr.trim()}`);
@@ -3081,7 +3281,7 @@ function tsAliases(read3) {
   const paths = json(t)?.compilerOptions?.paths || {};
   const base = String(json(t)?.compilerOptions?.baseUrl || ".");
   return Object.entries(paths).filter(([k, v]) => k.endsWith("/*") && String(v?.[0] || "").endsWith("/*")).map(([k, v]) => {
-    const dir = path11.posix.normalize(path11.posix.join(base, v[0].slice(0, -1))).replace(/\/$/, "");
+    const dir = path12.posix.normalize(path12.posix.join(base, v[0].slice(0, -1))).replace(/\/$/, "");
     return { prefix: k.slice(0, -1), target: dir === "." ? "" : dir + "/" };
   });
 }
@@ -3090,9 +3290,9 @@ var exportsName = (src, n) => new RegExp(`export\\s+(declare\\s+)?(default\\s+)?
 function missingInterface(read3, tests, existsAtCommit, aliases = tsAliases(read3)) {
   const out = [], seen = /* @__PURE__ */ new Set();
   const resolve = (t, spec) => {
-    if (spec.startsWith(".")) return path11.posix.normalize(path11.posix.join(path11.posix.dirname(t), spec));
+    if (spec.startsWith(".")) return path12.posix.normalize(path12.posix.join(path12.posix.dirname(t), spec));
     const a = aliases.find((x) => spec.startsWith(x.prefix));
-    return a ? path11.posix.normalize(a.target + spec.slice(a.prefix.length)) : null;
+    return a ? path12.posix.normalize(a.target + spec.slice(a.prefix.length)) : null;
   };
   for (const t of tests) {
     const src = read3(t) || "";
@@ -3116,10 +3316,10 @@ function missingInterface(read3, tests, existsAtCommit, aliases = tsAliases(read
 var DEPS_ERROR = /Cannot find (module|package) ['"](?![./])|ERR_MODULE_NOT_FOUND|Failed to resolve (import|entry for package) ["'](?![./])|Failed to load url (?![./])/;
 function neighbours(work, s, cfg) {
   const out = [], hidden = new Set(s.files.hidden.map((h) => h.path));
-  for (const d of [...new Set(s.files.tests.map((t) => path11.posix.dirname(t)))]) {
+  for (const d of [...new Set(s.files.tests.map((t) => path12.posix.dirname(t)))]) {
     let names = [];
     try {
-      names = fs9.readdirSync(path11.join(work, d));
+      names = fs9.readdirSync(path12.join(work, d));
     } catch {
       continue;
     }
@@ -3152,12 +3352,12 @@ async function validateScenario(s, { install = s.install || false, log = () => {
     await prepareDeps(s, sb, cfg, install);
     const read3 = (p) => {
       try {
-        return fs9.readFileSync(path11.join(sb.root, p), "utf8");
+        return fs9.readFileSync(path12.join(sb.root, p), "utf8");
       } catch {
         return null;
       }
     };
-    const has = (f) => fs9.existsSync(path11.join(sb.root, f));
+    const has = (f) => fs9.existsSync(path12.join(sb.root, f));
     applyFiles(sb.root, s.repo, s.sha, s.files.hidden);
     const tests = testPlan(read3, s.files.tests, cfg);
     if (!tests.length) return done("rejected", "no test runner found at the parent");
@@ -3207,13 +3407,13 @@ async function runScenario(s, { agent = "claude", model, setup, budgetUsd, timeo
       await prepareDeps(s, ctx.sandbox, cfg, s.install);
       const v = setup && await setup(dir, ctx) || {};
       if (s.install) return v;
-      const guard = path11.join(ctx.sandbox.base, "deps-guard.mjs");
+      const guard = path12.join(ctx.sandbox.base, "deps-guard.mjs");
       fs9.writeFileSync(guard, depsGuardSource());
       const hooks = v.settings?.hooks || {};
       return { ...v, settings: { ...v.settings, hooks: { ...hooks, PreToolUse: [...hooks.PreToolUse || [], { matcher: "*", hooks: [{ type: "command", command: `node "${posix2(guard)}"` }] }] } } };
     },
     after: async (sb) => {
-      killStrays(path11.basename(sb.base));
+      killStrays(path12.basename(sb.base));
       applyFiles(sb.root, s.repo, s.sha, s.files.hidden);
       const suites = { "fail-to-pass": await runGroups(sb, s.plan.tests, cfg) };
       if (s.plan.neighbours?.length) suites["pass-to-pass"] = await runGroups(sb, s.plan.neighbours, cfg);
@@ -3223,16 +3423,16 @@ async function runScenario(s, { agent = "claude", model, setup, budgetUsd, timeo
     }
   });
 }
-var scenariosDir = (root) => path11.join(root, ".qbranch", "scenarios");
+var scenariosDir = (root) => path12.join(root, ".qbranch", "scenarios");
 function saveScenario(s, dir = scenariosDir(s.repo)) {
   fs9.mkdirSync(dir, { recursive: true });
-  const gi = path11.join(dir, ".gitignore");
+  const gi = path12.join(dir, ".gitignore");
   if (!fs9.existsSync(gi)) fs9.writeFileSync(gi, "*\n");
-  fs9.writeFileSync(path11.join(dir, `${s.id}.json`), JSON.stringify(s, null, 2) + "\n");
+  fs9.writeFileSync(path12.join(dir, `${s.id}.json`), JSON.stringify(s, null, 2) + "\n");
 }
 function loadScenarios(root, { dir = scenariosDir(root), status } = {}) {
   if (!fs9.existsSync(dir)) return [];
-  return fs9.readdirSync(dir).filter((f) => /^scn_.*\.json$/.test(f)).map((f) => json(fs9.readFileSync(path11.join(dir, f), "utf8"))).filter(Boolean).filter((s) => !status || [].concat(status).includes(s.status)).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  return fs9.readdirSync(dir).filter((f) => /^scn_.*\.json$/.test(f)).map((f) => json(fs9.readFileSync(path12.join(dir, f), "utf8"))).filter(Boolean).filter((s) => !status || [].concat(status).includes(s.status)).sort((a, b) => String(b.at).localeCompare(String(a.at)));
 }
 
 // packages/moneyball/bin/moneyball.mjs
@@ -3263,7 +3463,8 @@ var HELP = `moneyball: pay for the model each job needs, not the one you default
   moneyball hook pre|session [--platform P]              PreToolUse (subagent dispatch) / SessionStart hooks
 
 Modes (moneyball.config.json "mode" or MONEYBALL_MODE): report | suggest (default) | enforce | explore`;
-var money = (x) => `$${x.toFixed(2)}`;
+var money2 = (x) => `$${x.toFixed(2)}`;
+var pctOf = (x) => `${Math.round((x || 0) * 100)}%`;
 var num = (x) => x == null ? "?" : Math.round(x).toLocaleString("en-US");
 var budgetOpt = () => {
   const b = Number(opt("--budget"));
@@ -3285,12 +3486,12 @@ function printOverhead(m, st, attr) {
   console.log(line("subagents", m.subagents));
   console.log(line("sessions", m.sessions));
   console.log(`  by model (same prompt, any model): ${Object.entries(m.byModel).map(([k, d]) => `${k} ${num(d.median)}`).join(" | ")}`);
-  console.log(`  tax ${money(m.startupUsd)} of ${money(m.totalUsd)} total = ${(m.share * 100).toFixed(1)}% of spend; the work itself: ${money(m.totalUsd - m.startupUsd)}`);
+  console.log(`  tax ${money2(m.startupUsd)} of ${money2(m.totalUsd)} total = ${(m.share * 100).toFixed(1)}% of spend; the work itself: ${money2(m.totalUsd - m.startupUsd)}`);
   console.log("\nstatic contributors (on disk, ~4 chars/token, no spend)");
   for (const r of st) console.log(`  ${r.kind.padEnd(9)} ${(r.tokens == null ? "probe" : num(r.tokens)).padStart(7)}  ${r.label}${r.count ? ` (${r.count} entries)` : ""}${r.calls != null ? `  ${r.calls} tool calls in window` : ""}`);
   if (!attr) return console.log("\nattribute it to components: moneyball overhead --probe --budget 0.25");
   console.log(`
-probe attribution (${attr.model}, ${money(attr.spent)} spent): full startup prompt ${num(attr.full)} tokens`);
+probe attribution (${attr.model}, ${money2(attr.spent)} spent): full startup prompt ${num(attr.full)} tokens`);
   for (const p of attr.parts) console.log(`  ${p.id.padEnd(13)} ${num(p.tokens).padStart(7)}  ${p.label}${p.note ? ` [${p.note}]` : ""}`);
 }
 async function doScan(cfg) {
@@ -3298,27 +3499,19 @@ async function doScan(cfg) {
   const p = plan(cfg);
   const rt = routes(cfg);
   writeRoutes(cfg, rt);
-  const last = {
-    runs: p.reduce((a, c) => a + c.n, 0),
-    classes: p.length,
-    spend: p.reduce((a, c) => a + c.cost, 0),
-    credit: p.reduce((a, c) => a + (c.credit || 0), 0),
-    graduate: p.filter((c) => c.action === "graduate").length,
-    explore: p.filter((c) => c.action === "explore").length,
-    est_saving: p.reduce((a, c) => a + (c.saving || 0), 0)
-  };
+  const last = overview(cfg, p);
   upsert(cfg, (s) => {
     s.totals.scans++;
     s.last_scan = last;
   });
   return { ...r, ...last };
 }
-var cacheDir = (cfg) => opt("--cache") ? path12.resolve(opt("--cache")) : process.env.QBRANCH_SCENARIOS_DIR || scenariosDir(cfg.root);
+var cacheDir = (cfg) => opt("--cache") ? path13.resolve(opt("--cache")) : process.env.QBRANCH_SCENARIOS_DIR || scenariosDir(cfg.root);
 var secs = (ms) => `${Math.round((ms || 0) / 1e3)}s`;
 async function scenarios(cfg) {
   const [sub] = rest, dir = cacheDir(cfg);
   fs10.mkdirSync(dir, { recursive: true });
-  if (!fs10.existsSync(path12.join(dir, ".gitignore"))) fs10.writeFileSync(path12.join(dir, ".gitignore"), "*\n");
+  if (!fs10.existsSync(path13.join(dir, ".gitignore"))) fs10.writeFileSync(path13.join(dir, ".gitignore"), "*\n");
   const cached = (status) => loadScenarios(cfg.root, { dir, status });
   const ids = opt("--id") ? opt("--id").split(",") : null;
   switch (sub) {
@@ -3330,14 +3523,14 @@ async function scenarios(cfg) {
         saveScenario(s, dir);
         added++;
       }
-      const why = {};
+      const why2 = {};
       for (const r of m.rejected) {
         const k = r.reason.replace(/\s*\(.*\)$/, "");
-        why[k] = (why[k] || 0) + 1;
+        why2[k] = (why2[k] || 0) + 1;
       }
-      fs10.writeFileSync(path12.join(dir, "last-mine.json"), JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), scanned: m.scanned, candidates: m.scenarios.length, rejected: m.rejected }, null, 2) + "\n");
+      fs10.writeFileSync(path13.join(dir, "last-mine.json"), JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), scanned: m.scanned, candidates: m.scenarios.length, rejected: m.rejected }, null, 2) + "\n");
       console.log(`scanned ${m.scanned} commits: ${m.scenarios.length} candidates (${added} new), ${m.rejected.length} skipped`);
-      for (const [k, n] of Object.entries(why).sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${k}`);
+      for (const [k, n] of Object.entries(why2).sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${k}`);
       return console.log(`cache: ${dir}. Next: moneyball scenarios validate`);
     }
     case "validate": {
@@ -3376,11 +3569,11 @@ async function scenarios(cfg) {
         model: opt("--model"),
         timeoutMs: Number(opt("--timeout", 1200)) * 1e3,
         runner: runScenario,
-        onRun: ({ task, run, grade, inconclusive }) => console.log(`${(inconclusive ? "cut off" : grade.pass ? "pass" : "fail").padEnd(8)} ${task.id}  ${money(run.costUsd || 0)} ${secs(run.durationMs)}  ${Object.entries(run.suites || {}).map(([k, v]) => `${k} ${v.pass ? "ok" : "FAIL"}`).join(", ")}${inconclusive ? `  (${run.error || "timeout"})` : ""}  ${task.subject.slice(0, 50)}`)
+        onRun: ({ task, run, grade, inconclusive }) => console.log(`${(inconclusive ? "cut off" : grade.pass ? "pass" : "fail").padEnd(8)} ${task.id}  ${money2(run.costUsd || 0)} ${secs(run.durationMs)}  ${Object.entries(run.suites || {}).map(([k, v]) => `${k} ${v.pass ? "ok" : "FAIL"}`).join(", ")}${inconclusive ? `  (${run.error || "timeout"})` : ""}  ${task.subject.slice(0, 50)}`)
       });
       const b = r.perVariant.baseline;
-      fs10.writeFileSync(path12.join(dir, "last-run.json"), JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), model: opt("--model") || null, ...r }, null, 2) + "\n");
-      return console.log(`baseline: ${b.runs} scored, pass ${b.runs ? Math.round(b.passRate * 100) + "%" : "n/a"}, mean score ${b.meanScore?.toFixed(2) ?? "n/a"}, ${money(r.spentUsd)} spent; ${r.inconclusive.length} cut off, ${r.skipped.length} skipped (budget)`);
+      fs10.writeFileSync(path13.join(dir, "last-run.json"), JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), model: opt("--model") || null, ...r }, null, 2) + "\n");
+      return console.log(`baseline: ${b.runs} scored, pass ${b.runs ? Math.round(b.passRate * 100) + "%" : "n/a"}, mean score ${b.meanScore?.toFixed(2) ?? "n/a"}, ${money2(r.spentUsd)} spent; ${r.inconclusive.length} cut off, ${r.skipped.length} skipped (budget)`);
     }
     default:
       console.log(HELP);
@@ -3391,7 +3584,7 @@ async function main() {
   switch (cmd) {
     case "scan": {
       const r = await doScan(cfg);
-      if (!flag("--quiet")) console.log(`scanned ${r.scanned} subagent transcripts (+${r.added} new): ${r.runs} runs, ${r.classes} classes, ${money(r.spend)}; ${r.graduate} graduated, ${r.explore} exploring, est. saving ${money(r.est_saving)}`);
+      if (!flag("--quiet")) console.log(`scanned ${r.scanned} subagent transcripts (+${r.added} new): ${r.runs} runs over ${r.window_days} days, ${r.classes} classes, ${money2(r.spend)} (API-equivalent); ${r.graduate} graduated, ${r.explore} exploring, est. saving ${money2(r.est_saving)} (${money2(r.est_saving_30d || 0)}/30d)${r.est_minutes_30d != null ? `, ~${num(r.est_minutes_30d)} min/30d` : ""}`);
       return;
     }
     case "report": {
@@ -3399,20 +3592,23 @@ async function main() {
       if (flag("--json")) return console.log(JSON.stringify(p, null, 2));
       if (!p.length) return console.log("no runs measured yet: run `moneyball scan`");
       const gross = p.reduce((a, c) => a + c.cost, 0), credit = p.reduce((a, c) => a + (c.credit || 0), 0);
-      console.log(`subagent spend ${money(gross)}, delegation credit ${money(credit)} (parent context kept out), net ${money(gross - credit)}; savings are judged net, per completed task
-`);
+      const sig = signal(cfg);
+      console.log(`subagent spend ${money2(gross)} over ${sig.window_days} days (API-equivalent), delegation credit ${money2(credit)} (parent context kept out), net ${money2(gross - credit)}; savings are judged net, per completed task`);
+      console.log(`success signals: ${pctOf(sig.fail_rate)} of ${sig.runs} runs failed (redo ${sig.by.redo}, failure words ${sig.by.fail_words}, parent rework ${sig.by.rework}, tool errors ${sig.by.errors})` + (sig.saturated ? '\n  SATURATED: almost nothing fails, so a pass means "no failure signal fired", not "proven good". Treat graduations as hypotheses; explore mode tests them.' : ""));
+      console.log("");
       const shown = flag("--all") ? p : p.filter((c) => c.action !== "keep" || c.cost > 1).slice(0, 30);
       for (const c of shown) {
-        const tiers = Object.entries(c.tiers).map(([t, v]) => `${t} ${v.ok}/${v.n}`).join(", ");
-        console.log(`${c.action.padEnd(10)} ${money(c.cost).padStart(9)}  ${c.label.slice(0, 70)}
-${"".padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${c.saving ? ` (est. ${money(c.saving)})` : ""}`);
+        const tiers = Object.entries(c.tiers).map(([t, v]) => `${t} ${v.ok}/${v.n} (lb ${pctOf(v.lb)}${v.secs != null ? `, ${secs(v.secs * 1e3)}` : ""})`).join(", ");
+        const gain = [c.saving ? `est. ${money2(c.saving)}` : "", c.minutes != null ? `${num(c.minutes)} min` : ""].filter(Boolean).join(", ");
+        console.log(`${c.action.padEnd(10)} ${money2(c.cost).padStart(9)}  ${c.label.slice(0, 70)}
+${"".padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${gain ? ` (${gain})` : ""}`);
       }
       return;
     }
     case "stats": {
       let s;
       try {
-        s = JSON.parse(fs10.readFileSync(path12.join(cfg.root, cfg.stats || ".moneyball-stats.json"), "utf8"));
+        s = JSON.parse(fs10.readFileSync(path13.join(cfg.root, cfg.stats || ".moneyball-stats.json"), "utf8"));
       } catch {
         return console.log("no stats yet");
       }
@@ -3443,7 +3639,7 @@ ${"".padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${c.saving ? ` (est. ${money(c.
       if (flag("--condense")) {
         const c = await condense(cfg.root, { budget: budgetOpt(), model: opt("--model", "sonnet") });
         condensed = c?.text;
-        if (c) console.log(`condensed CLAUDE.md written by ${opt("--model", "sonnet")} (${money(c.cost)})`);
+        if (c) console.log(`condensed CLAUDE.md written by ${opt("--model", "sonnet")} (${money2(c.cost)})`);
       }
       const usage = measureOverhead({ root: cfg.root, days: Number(opt("--days", cfg.days)) }).mcpCalls;
       const vs = deriveVariants(cfg.root, { condensed, usage });
@@ -3473,14 +3669,14 @@ ${"".padEnd(21)}[${c.prior}] ${tiers} -- ${c.why}${c.saving ? ` (est. ${money(c.
         s.last_experiment = { at: r.at, tasks: r.tasks, variants: r.variants.length, recommended: r.variants.filter((v) => v.recommend).map((v) => v.id), spent: r.spent };
       });
       if (flag("--json")) return console.log(JSON.stringify(r, null, 2));
-      console.log(`replayed ${r.tasks} tasks x ${r.repeats} under baseline + ${r.variants.length} variants, ${money(r.spent)} spent; baseline pass ${r.baseline.runs ? Math.round(r.baseline.passRate * 100) + "%" : "n/a (no scored runs)"}` + (r.inconclusive ? `; ${r.inconclusive} replays cut off by budget or time (not scored)` : ""));
+      console.log(`replayed ${r.tasks} tasks x ${r.repeats} under baseline + ${r.variants.length} variants, ${money2(r.spent)} spent; baseline pass ${r.baseline.runs ? Math.round(r.baseline.passRate * 100) + "%" : "n/a (no scored runs)"}` + (r.inconclusive ? `; ${r.inconclusive} replays cut off by budget or time (not scored)` : ""));
       if (r.noise) console.log(`A/A control (the unchanged setup, run again): pass ${Math.round((r.aa.passRate || 0) * 100)}%, score ${(r.aa.meanScore ?? 0).toFixed(2)}; noise ${Math.round(r.noise.passDelta * 100)} pts pass, ${r.noise.scoreDelta.toFixed(2)} score, ${r.noise.regressions} chance regression(s)${r.tooNoisy ? " -- TOO NOISY to judge a 10% change: add --repeats" : ""}`);
       for (const v of r.variants) {
         if (v.skipped) {
           console.log(`skip       ${v.id}: ${v.skipped}`);
           continue;
         }
-        console.log(`${(v.recommend ? "recommend" : "reject").padEnd(10)} ${v.id.padEnd(30)} pass ${Math.round(v.passRate * 100)}% score ${v.meanScore.toFixed(2)} ${money(v.costUsd)} saves ${num(v.startupTokensSaved)} tok -- ${v.why}`);
+        console.log(`${(v.recommend ? "recommend" : "reject").padEnd(10)} ${v.id.padEnd(30)} pass ${Math.round(v.passRate * 100)}% score ${v.meanScore.toFixed(2)} ${money2(v.costUsd)} saves ${num(v.startupTokensSaved)} tok -- ${v.why}`);
         if (v.recommend) console.log(`${"".padEnd(11)}review, then apply by hand: ${v.patch}`);
       }
       return;
