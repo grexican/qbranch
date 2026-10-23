@@ -248,9 +248,9 @@ function normalize(raw, platform = detectPlatform(raw), eventHint) {
       input2 = { value: input2 };
     }
   }
-  if (platform === "gemini") tool = GEMINI_TOOLS[tool] || tool;
+  if (platform === "gemini") tool = raw.mcp_context?.server_name ? `mcp__${raw.mcp_context.server_name}__${raw.mcp_context.tool_name || tool}` : GEMINI_TOOLS[tool] || tool;
   if (platform === "cursor") {
-    if (tool.startsWith("MCP:")) tool = `mcp__${raw.server || raw.mcp_server || "mcp"}__${tool.slice(4)}`;
+    if (tool.startsWith("MCP:")) tool = `mcp__${raw.server || raw.mcp_server || raw.server_name || raw.mcp_server_name || "mcp"}__${tool.slice(4)}`;
     tool = CURSOR_TOOLS[tool] || tool;
   }
   if (platform === "windsurf" && raw.tool_info?.mcp_server_name) tool = `mcp__${raw.tool_info.mcp_server_name}__${tool}`;
@@ -271,42 +271,54 @@ function normalize(raw, platform = detectPlatform(raw), eventHint) {
   };
 }
 function render(h, d) {
-  if (!d || !d.context && !d.deny && !d.updatedInput) return { stdout: "", exitCode: 0 };
+  if (!d || !d.context && !d.deny && !d.updatedInput && d.updatedOutput == null) return { stdout: "", exitCode: 0 };
   const { platform, event } = h;
+  const out = event === "PostToolUse" && d.updatedOutput != null && canRewriteOutput(platform) ? String(d.updatedOutput) : null;
   if (platform === "windsurf") return d.deny ? { stdout: "", stderr: d.deny, exitCode: 2 } : { stdout: "", exitCode: 0 };
   if (platform === "cursor") {
     if (event === "PreToolUse") {
-      const o = d.deny ? { permission: "deny", agent_message: d.deny, user_message: d.deny } : { permission: "allow" };
-      if (d.updatedInput && !d.deny) o.updated_input = d.updatedInput;
-      return { stdout: JSON.stringify(o), exitCode: 0 };
+      const o2 = d.deny ? { permission: "deny", agent_message: d.deny, user_message: d.deny } : { permission: "allow" };
+      if (d.updatedInput && !d.deny) o2.updated_input = d.updatedInput;
+      return { stdout: JSON.stringify(o2), exitCode: 0 };
     }
     if (event === "UserPromptSubmit") return { stdout: JSON.stringify(d.deny ? { continue: false, user_message: d.deny } : { continue: true }), exitCode: 0 };
-    return { stdout: d.context ? JSON.stringify({ additional_context: d.context }) : "", exitCode: 0 };
+    const o = {};
+    if (out != null) o.updated_mcp_tool_output = { content: [{ type: "text", text: out }] };
+    if (d.context) o.additional_context = d.context;
+    return { stdout: Object.keys(o).length ? JSON.stringify(o) : "", exitCode: 0 };
   }
   if (platform === "copilot") {
     if (event === "PreToolUse") {
-      const o = d.deny ? { permissionDecision: "deny", permissionDecisionReason: d.deny } : { permissionDecision: "allow" };
-      if (d.updatedInput && !d.deny) o.modifiedArgs = d.updatedInput;
-      return { stdout: JSON.stringify(o), exitCode: 0 };
+      const o2 = d.deny ? { permissionDecision: "deny", permissionDecisionReason: d.deny } : { permissionDecision: "allow" };
+      if (d.updatedInput && !d.deny) o2.modifiedArgs = d.updatedInput;
+      return { stdout: JSON.stringify(o2), exitCode: 0 };
     }
-    return { stdout: d.context ? JSON.stringify({ additionalContext: d.context }) : "", exitCode: 0 };
+    const o = {};
+    if (out != null) o.modifiedResult = { resultType: "success", textResultForLlm: out };
+    if (d.context) o.additionalContext = d.context;
+    return { stdout: Object.keys(o).length ? JSON.stringify(o) : "", exitCode: 0 };
   }
   if (platform === "gemini") {
     if (d.deny) return { stdout: JSON.stringify({ decision: "deny", reason: d.deny }), exitCode: 0 };
     const hso2 = {};
     if (d.context) hso2.additionalContext = d.context;
     if (d.updatedInput) hso2.tool_input = d.updatedInput;
-    return { stdout: JSON.stringify({ hookSpecificOutput: hso2 }), exitCode: 0 };
+    return { stdout: Object.keys(hso2).length ? JSON.stringify({ hookSpecificOutput: hso2 }) : "", exitCode: 0 };
   }
   const hso = { hookEventName: event };
   if (event === "PreToolUse") {
     if (d.deny) Object.assign(hso, { permissionDecision: "deny", permissionDecisionReason: d.deny });
-    else if (d.updatedInput) Object.assign(hso, { permissionDecision: "allow", updatedInput: d.updatedInput });
+    else if (d.updatedInput) {
+      if (!(d.keepPermission && platform === "claude")) hso.permissionDecision = "allow";
+      hso.updatedInput = d.updatedInput;
+    }
     if (d.context) hso.additionalContext = d.context;
     return { stdout: JSON.stringify({ hookSpecificOutput: hso }), exitCode: 0 };
   }
   if (d.deny && event === "UserPromptSubmit") return { stdout: JSON.stringify({ decision: "block", reason: d.deny }), exitCode: 0 };
   if (d.context) hso.additionalContext = d.context;
+  if (out != null && platform === "codex") return { stdout: JSON.stringify({ decision: "block", reason: out, hookSpecificOutput: hso }), exitCode: 0 };
+  if (out != null) hso.updatedToolOutput = out;
   return { stdout: JSON.stringify({ hookSpecificOutput: hso }), exitCode: 0 };
 }
 async function runHook(handler, argv = process.argv.slice(2)) {
@@ -329,10 +341,12 @@ async function runHook(handler, argv = process.argv.slice(2)) {
   if (out.stderr) process.stderr.write(out.stderr);
   process.exitCode = out.exitCode;
 }
-var EVENTS, GEMINI_TOOLS, CURSOR_TOOLS;
+var REWRITE_OUTPUT, canRewriteOutput, EVENTS, GEMINI_TOOLS, CURSOR_TOOLS;
 var init_hooks = __esm({
   "packages/core/src/hooks.mjs"() {
     init_project();
+    REWRITE_OUTPUT = /* @__PURE__ */ new Set(["claude", "cursor", "copilot", "codex"]);
+    canRewriteOutput = (platform) => REWRITE_OUTPUT.has(platform);
     EVENTS = {
       // cursor
       beforeSubmitPrompt: "UserPromptSubmit",
