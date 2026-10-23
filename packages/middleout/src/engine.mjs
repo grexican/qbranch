@@ -7,6 +7,7 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { runtimeProvider, isAuthError, signInMessage, markNoAuth } from './oauth.mjs';
 import { scrub } from './config.mjs';
 import jmespath from 'jmespath';
+import { paginate } from './paginate.mjs';
 
 export const PLAN_DOC = `A plan is a node, or an array of independent nodes (results come back as an array).
 A node is {tool, args?, select?, each?, as?, then?, page?} (or {http: "GET https://...", ...} for a plain JSON API).
@@ -15,10 +16,8 @@ A node is {tool, args?, select?, each?, as?, then?, page?} (or {http: "GET https
 - each: child node(s) run once per element of the selected array, in parallel; each child's result is attached to the element under its "as" key.
   Inside a child, {{field}} is the element's field and {{_parent.field}} the parent element's. Nest as deep as needed.
 - then: JMESPath applied after children are attached: sort, filter, reshape, aggregate (length(), sum(), max_by(), sort_by(), ...).
-- Pagination is automatic: when a result says there is more (next_page, has_more + page, or a cursor field), every page is fetched and the item array merged, in the normal shape. "page": false returns only the first page.`;
+- Pagination is automatic for every common style (cursors and tokens, nested or top-level, next-page URLs, page numbers, offsets, Stripe's starting_after, GraphQL pageInfo): every page is fetched and the item array merged, in the normal shape. "page": false returns only the first page; "pages": N raises the cap (default 50). A capped or incomplete result says so.`;
 
-const CURSOR_KEYS = ['next_cursor', 'nextCursor', 'next_page_token', 'nextPageToken'];
-const PARAM_FOR = { next_cursor: 'cursor', nextCursor: 'cursor', next_page_token: 'page_token', nextPageToken: 'pageToken' };
 
 const hasAuthHeader = (h) => Object.keys(h || {}).some(k => k.toLowerCase() === 'authorization');
 
@@ -51,7 +50,7 @@ async function connectHttp(name, spec) {
 
 /** createEngine({servers, skipped, readonly, allow, concurrency}) -> { tools(), toolsReport(), shape(tool,args), run(plan), close() } */
 export function createEngine({ servers = {}, skipped = {}, readonly = false, allow = null, concurrency = 8 } = {}) {
-  const clients = {}; const readOnly = {};
+  const clients = {}; const readOnly = {}; const toolParams = {};
   // every message that leaves the engine is scrubbed: errors are shown to the model and kept in the stats file
   const secrets = Object.values(servers).flatMap(s => s?.secrets || []);
   const safe = (e) => new Error(scrub(e?.message ?? e, secrets), { cause: e });
@@ -73,14 +72,17 @@ export function createEngine({ servers = {}, skipped = {}, readonly = false, all
         c = new Client({ name: 'middleout', version: '0.3.0' });
         await c.connect(new StdioClientTransport({ ...spec, env: { ...process.env, ...(spec.env || {}) }, stderr: 'ignore' }));
       }
-      for (const t of (await c.listTools()).tools) readOnly[`${name}.${t.name}`] = t.annotations?.readOnlyHint === true;
+      for (const t of (await c.listTools()).tools) {
+        readOnly[`${name}.${t.name}`] = t.annotations?.readOnlyHint === true;
+        toolParams[`${name}.${t.name}`] = t.inputSchema?.properties ? Object.keys(t.inputSchema.properties) : null; // paging uses the tool's own names
+      }
       return c;
     })();
     clients[name].catch(() => { delete clients[name]; }); // a failed connect is retried next time, not cached
     return clients[name];
   }
 
-  function newStats() { return { calls: 0, rawBytes: 0, autoPages: 0, byTool: {} }; }
+  function newStats() { return { calls: 0, rawBytes: 0, autoPages: 0, byTool: {}, incomplete: [] }; }
 
   async function callTool(st, ref, args) {
     const [srv, tool] = ref.includes('.') ? ref.split(/\.(.*)/s) : [Object.keys(servers)[0], ref];
@@ -94,33 +96,36 @@ export function createEngine({ servers = {}, skipped = {}, readonly = false, all
     try { return JSON.parse(text); } catch { return text; }
   }
 
+  const linkNext = new WeakMap(); // result -> its Link: <...>; rel="next" URL (GitHub, Shopify)
   async function callHttp(st, spec) {
     const [method, url] = spec.includes(' ') ? spec.split(/\s+/, 2) : ['GET', spec];
     const r = await fetch(url, { method, headers: { 'User-Agent': 'middleout', Accept: 'application/json' } });
     const text = await r.text(); st.calls++; st.rawBytes += text.length;
     const bt = (st.byTool[`http.${new URL(url).host}`] ??= { calls: 0, rawBytes: 0 }); bt.calls++; bt.rawBytes += text.length;
     if (!r.ok) throw new Error(`${method} ${url} -> ${r.status} ${text.slice(0, 200)}`);
-    return JSON.parse(text);
+    const v = JSON.parse(text);
+    const link = r.headers.get('link')?.match(/<([^>]+)>\s*;\s*rel="?next"?/)?.[1];
+    if (link && v && typeof v === 'object') linkNext.set(v, new URL(link, url).href);
+    return v;
   }
 
-  // Small models forget pagination or start at page 1; doing it here removes the whole failure class.
-  async function callAuto(st, tool, args) {
+  // Every page, in any common style (see paginate.mjs); a capped or incomplete result is recorded, never silent.
+  async function callAuto(st, tool, args, maxPages = 50) {
+    const ref = tool.includes('.') ? tool : `${Object.keys(servers)[0]}.${tool}`;
     const first = await callTool(st, tool, args);
-    if (!first || typeof first !== 'object' || Array.isArray(first)) return first;
-    const arrKeys = Object.keys(first).filter(k => Array.isArray(first[k]));
-    if (arrKeys.length !== 1) return first;
-    const key = arrKeys[0]; const items = [...first[key]]; let r = first;
-    for (let i = 0; i < 50; i++) {
-      const ck = CURSOR_KEYS.find(k => r[k]);
-      let next;
-      if (ck) next = { ...args, [PARAM_FOR[ck]]: r[ck] };
-      else if (r.next_page != null) next = { ...args, page: r.next_page };
-      else if (r.has_more === true && typeof r.page === 'number') next = { ...args, page: r.page + 1 };
-      else break;
-      r = await callTool(st, tool, next); st.autoPages++;
-      items.push(...(r?.[key] || []));
-    }
-    return r === first ? first : { ...first, [key]: items, has_more: false, next_page: null };
+    const p = await paginate(first, { args, params: toolParams[ref] ?? null, maxPages, call: (a) => callTool(st, tool, a) });
+    st.autoPages += p.pages - 1;
+    if (p.truncated) st.incomplete.push(`${ref}: stopped at ${p.pages} pages (more exist; raise "pages")`);
+    if (p.moreAvailable) st.incomplete.push(`${ref}: the result says there is more, but the tool has no parameter to ask for it (${p.style})`);
+    return p.result;
+  }
+
+  async function httpAuto(st, spec, maxPages = 50) {
+    const first = await callHttp(st, spec);
+    const p = await paginate(first, { http: true, maxPages, linkOf: (r) => linkNext.get(r) ?? null, call: ({ url }) => callHttp(st, `GET ${url}`) });
+    st.autoPages += p.pages - 1;
+    if (p.truncated) st.incomplete.push(`${spec}: stopped at ${p.pages} pages (more exist; raise "pages")`);
+    return p.result;
   }
 
   // {{expr}} templates; a whole-string template keeps its type. LLMs often send "" for optional params: drop them.
@@ -143,9 +148,9 @@ export function createEngine({ servers = {}, skipped = {}, readonly = false, all
 
   async function runNode(st, node, scope, at) {
     try {
-      let v = node.http ? await callHttp(st, fill(node.http, scope))
+      let v = node.http ? (node.page === false ? await callHttp(st, fill(node.http, scope)) : await httpAuto(st, fill(node.http, scope), node.pages))
         : node.page === false ? await callTool(st, node.tool, fill(node.args || {}, scope))
-        : await callAuto(st, node.tool, fill(node.args || {}, scope));
+        : await callAuto(st, node.tool, fill(node.args || {}, scope), node.pages);
       if (node.select) v = jmespath.search(v, node.select);
       const kids = node.each ? [].concat(node.each) : [];
       if (kids.length) {

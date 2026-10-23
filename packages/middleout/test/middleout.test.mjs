@@ -201,3 +201,14 @@ test('the sign-in hint names a command that runs: the shim when installed, else 
     process.env.PATH = ''; assert.match(loginCommand('crm'), /^node ".+" login crm$/);
   } finally { process.env.PATH = saved; }
 });
+
+test('pagination end to end: param names come from the tool schema; a capped run is reported, never silent', async () => {
+  // response says response_metadata.next_cursor, the tool calls it since_cursor: the one cursor-like parameter takes it
+  const a = await engine.run({ tool: 'crm.list_notes', select: 'notes[].id' });
+  assert.equal(a.result.length, 12);
+  assert.equal(a.result.at(-1), 'note_11');
+  assert.deepEqual(a.stats.incomplete, []);
+  const b = await engine.run({ tool: 'crm.list_events', pages: 4, select: 'length(events)' });
+  assert.equal(b.result, 4);
+  assert.match(b.stats.incomplete.join(), /stopped at 4 pages/);
+});

@@ -46,7 +46,8 @@ server.registerTool('middleout_run', {
     const { result, stats } = await engine.run(plan);
     recordRun(cfg, stats);
     const ratio = stats.returnedBytes ? (stats.rawBytes / stats.returnedBytes).toFixed(1) : '-';
-    return text(`${JSON.stringify(result)}\n\n(middleout: ${stats.calls} API calls${stats.autoPages ? `, ${stats.autoPages} pages auto-fetched` : ''}, ${stats.rawBytes} raw bytes -> ${stats.returnedBytes} returned, Weissman ${ratio})`);
+    return text(`${JSON.stringify(result)}\n\n(middleout: ${stats.calls} API calls${stats.autoPages ? `, ${stats.autoPages} pages auto-fetched` : ''}, ${stats.rawBytes} raw bytes -> ${stats.returnedBytes} returned, Weissman ${ratio})` +
+      (stats.incomplete?.length ? `\nINCOMPLETE: ${stats.incomplete.join('; ')}` : ''));
   } catch (e) {
     recordRun(cfg, EMPTY, { ok: false, error: e.message, tools: planTools(plan) });
     return text(`middleout error ${e.message}\n\n${PLAN_DOC}`);

@@ -7788,14 +7788,14 @@ var init_schemas = __esm({
       const desc = Object.getOwnPropertyDescriptor(def, "shape");
       const sh = desc?.get ? desc.get.raw : def.shape ?? {};
       if (sh) {
-        const get = () => {
+        const get2 = () => {
           const newSh = { ...sh };
           Object.defineProperty(def, "shape", { value: newSh });
-          get.raw = newSh;
+          get2.raw = newSh;
           return newSh;
         };
-        get.raw = sh;
-        Object.defineProperty(def, "shape", { get });
+        get2.raw = sh;
+        Object.defineProperty(def, "shape", { get: get2 });
       }
       const _normalized = cached(() => normalizeDef(def));
       defineLazyInternal(inst, "propValues", (zod) => {
@@ -41951,6 +41951,232 @@ var require_jmespath = __commonJS({
   }
 });
 
+// packages/middleout/src/paginate.mjs
+function findItems(r) {
+  if (Array.isArray(r)) return [];
+  if (!isObj(r)) return null;
+  const found = [];
+  const walk = (o, at, depth) => {
+    for (const [k, v] of Object.entries(o)) {
+      if (Array.isArray(v)) found.push([...at, k]);
+      else if (isObj(v) && depth < 3 && !META.includes(k)) walk(v, [...at, k], depth + 1);
+    }
+  };
+  walk(r, [], 0);
+  if (found.length === 1) return found[0];
+  const top = found.filter((p) => p.length === 1);
+  if (top.length === 1) return top[0];
+  const named = found.filter((p) => CONTAINERS.includes(p.at(-1)));
+  return named.length === 1 ? named[0] : null;
+}
+function set2(o, p, val) {
+  if (!p.length) return val;
+  const out = Array.isArray(o) ? [...o] : { ...o };
+  out[p[0]] = set2(o[p[0]], p.slice(1), val);
+  return out;
+}
+function signals(r, itemsPath) {
+  const out = [];
+  const add = (o) => {
+    if (isObj(o)) out.push(o);
+  };
+  add(r);
+  if (itemsPath?.length > 1) add(get(r, itemsPath.slice(0, -1)));
+  for (const scope of [...out]) for (const k of META) {
+    add(scope[k]);
+    if (isObj(scope[k])) for (const k2 of ["next", "pageInfo"]) add(scope[k][k2]);
+  }
+  return out;
+}
+function nextRequest(r, args, params, items, { http: http2 = false, linkNext = null } = {}) {
+  const at = findItems(r);
+  const scopes = signals(r, at);
+  for (const [k, v] of NO_MORE) if (pick2(scopes, [k], (x) => x === v)) return { stop: "done" };
+  const more = !!pick2(scopes, MORE, (x) => x === true);
+  const tokOk = (v, k) => k === "LastEvaluatedKey" ? isObj(v) && Object.keys(v).length > 0 : typeof v === "string" && v !== "" && !isUrl(v);
+  let tok = null;
+  for (const s of scopes) {
+    for (const k of Object.keys(TOKENS)) if (k in s && tokOk(s[k], k)) {
+      tok = { key: k, value: s[k] };
+      break;
+    }
+    if (tok) break;
+  }
+  if (tok && (tok.key === "endCursor" || tok.key === "end_cursor") && !pick2(scopes, ["hasNextPage", "has_next_page"], (x) => x === true)) tok = null;
+  if (tok) {
+    const fuzzy = () => {
+      const f = params.filter((p) => /cursor|token|continuation|marker|^after$|_after$/i.test(p));
+      return f.length === 1 ? f[0] : void 0;
+    };
+    const param = params ? [...TOKENS[tok.key], ...TOKEN_PARAMS].find((p) => params.includes(p)) ?? fuzzy() : TOKENS[tok.key][0];
+    if (!param) return { stop: "no-param", style: `token:${tok.key}` };
+    return { args: { ...args, [param]: tok.value }, style: `token:${tok.key}` };
+  }
+  const u = linkNext ? { key: "Link", value: linkNext } : pick2(scopes, URL_KEYS, isUrl) || (() => {
+    const href = pick2(scopes, ["next"], (v) => isObj(v) && isUrl(v.href));
+    return href && { key: "next.href", value: href.value.href };
+  })();
+  if (u) {
+    if (http2) return { url: u.value, style: `url:${u.key}` };
+    const q = new URL(u.value, "http://x").searchParams;
+    const mapped = Object.fromEntries([...q].filter(([k]) => has(params, k)).map(([k, v]) => [k, /^\d+$/.test(v) ? Number(v) : v]));
+    if (!Object.keys(mapped).length) return { stop: "no-param", style: `url:${u.key}` };
+    return { args: { ...args, ...mapped }, style: `url:${u.key}` };
+  }
+  const last = items.at(-1);
+  if (more && params?.includes("starting_after") && last?.id != null) return { args: { ...args, starting_after: last.id }, style: "starting_after" };
+  const pageParam = firstParam(params, PAGE_PARAMS);
+  const nextPage = pick2(scopes, ["next_page", "nextPage"], (v) => typeof v === "number");
+  if (nextPage && pageParam) return { args: { ...args, [pageParam]: nextPage.value }, style: "page:next_page" };
+  const curHit = pick2(scopes, CUR_PAGE, (v) => typeof v === "number");
+  const cur = curHit?.value ?? (pageParam && typeof args[pageParam] === "number" ? args[pageParam] : null);
+  const tp = pick2(scopes, TOTAL_PAGES, (v) => typeof v === "number") || pick2(scopes, ["last_page", "lastPage"], (v) => typeof v === "number");
+  const lastFalse = !!pick2(scopes, ["last_page", "isLastPage", "is_last", "isLast"], (x) => x === false);
+  if (pageParam && (curHit || pageParam in args || lastFalse || more && !pick2(scopes, OFFSET_PARAMS, (v) => typeof v === "number"))) {
+    const c = cur ?? 0;
+    let go = more || lastFalse;
+    if (!go && tp) go = c === 0 ? c + 1 < tp.value : c < tp.value;
+    if (!go && !tp && !curHit && fullPage(args, items, scopes)) go = true;
+    if (go) return { args: { ...args, [pageParam]: c + 1 }, style: "page" };
+    if (curHit || tp) return { stop: "done" };
+  }
+  const offParam = firstParam(params, OFFSET_PARAMS, pick2(scopes, OFFSET_PARAMS, (v) => typeof v === "number")?.key);
+  const offHit = pick2(scopes, OFFSET_PARAMS, (v) => typeof v === "number");
+  if (offParam && (offHit || offParam in args)) {
+    const off = offHit?.value ?? args[offParam] ?? 0;
+    const total = pick2(scopes, TOTALS, (v) => typeof v === "number" && v >= items.length);
+    let go;
+    if (total) go = off + items.length < total.value;
+    else go = more || lastFalse || fullPage(args, items, scopes);
+    if (go && items.length) return { args: { ...args, [offParam]: off + items.length }, style: "offset" };
+    return { stop: "done" };
+  }
+  if (more) return { stop: "no-param", style: "has_more" };
+  return { stop: "done" };
+}
+function fullPage(args, items, scopes) {
+  const size2 = SIZES.map((k) => args[k]).find((v) => typeof v === "number") ?? pick2(scopes, SIZES.filter((k) => k !== "count"), (v) => typeof v === "number")?.value;
+  return !!size2 && items.length >= size2;
+}
+async function paginate(first, { args = {}, params = null, call, maxPages = 50, http: http2 = false, linkOf = () => null }) {
+  const at = findItems(first);
+  if (at === null) return { result: first, pages: 1 };
+  let items = [...get(first, at)];
+  let r = first, pages = 1, style = null, truncated = false, moreAvailable = false;
+  const seenArgs = /* @__PURE__ */ new Set([JSON.stringify(args)]);
+  let lastFp = JSON.stringify(items[0] ?? null), lastLen = items.length, curArgs = args;
+  while (true) {
+    const n = nextRequest(r, curArgs, params, get(r, at) || [], { http: http2, linkNext: linkOf(r) });
+    if (n.stop) {
+      if (n.stop === "no-param") {
+        moreAvailable = true;
+        style ??= n.style;
+      }
+      break;
+    }
+    style ??= n.style;
+    if (pages >= maxPages) {
+      truncated = true;
+      break;
+    }
+    const key = JSON.stringify(n.args ?? n.url);
+    if (seenArgs.has(key)) break;
+    seenArgs.add(key);
+    const nr = await call(n.args ? n.args : { url: n.url });
+    const page = get(nr, at);
+    if (!Array.isArray(page) || !page.length) break;
+    const fp = JSON.stringify(page[0]);
+    if (fp === lastFp && page.length === lastLen) break;
+    lastFp = fp;
+    lastLen = page.length;
+    items.push(...page);
+    pages++;
+    r = nr;
+    if (n.args) curArgs = n.args;
+  }
+  return { result: pages > 1 ? set2(first, at, items) : first, pages, style, truncated, moreAvailable };
+}
+var NO_MORE, MORE, TOKENS, TOKEN_PARAMS, URL_KEYS, PAGE_PARAMS, CUR_PAGE, TOTAL_PAGES, OFFSET_PARAMS, TOTALS, SIZES, META, CONTAINERS, isObj, isUrl, get, pick2, has, firstParam;
+var init_paginate = __esm({
+  "packages/middleout/src/paginate.mjs"() {
+    NO_MORE = [
+      ["has_more", false],
+      ["hasMore", false],
+      ["has_next", false],
+      ["hasNext", false],
+      ["hasNextPage", false],
+      ["more", false],
+      ["isLast", true],
+      ["is_last", true],
+      ["last_page", true],
+      ["isLastPage", true],
+      ["done", true],
+      ["complete", true]
+    ];
+    MORE = ["has_more", "hasMore", "has_next", "hasNext", "hasNextPage", "more", "more_results", "moreResults"];
+    TOKENS = {
+      next_cursor: ["cursor", "next_cursor", "start_cursor", "after"],
+      nextCursor: ["cursor", "nextCursor", "startCursor", "after"],
+      next_page_token: ["page_token", "pageToken"],
+      nextPageToken: ["pageToken", "page_token"],
+      endCursor: ["after", "cursor"],
+      end_cursor: ["after", "cursor"],
+      next_token: ["next_token", "token"],
+      nextToken: ["nextToken", "NextToken", "token"],
+      NextToken: ["NextToken", "nextToken"],
+      continuation: ["continuation", "continuationToken"],
+      continuationToken: ["continuationToken", "continuation"],
+      continuation_token: ["continuation_token", "continuation"],
+      scroll_id: ["scroll_id"],
+      _scroll_id: ["scroll_id"],
+      after: ["after", "cursor"],
+      next_marker: ["marker"],
+      NextMarker: ["Marker", "marker"],
+      LastEvaluatedKey: ["ExclusiveStartKey"],
+      cursor: ["cursor"],
+      next: ["next", "cursor"],
+      offset: ["offset"]
+      // `next`/`offset`: tokens only when they are not URLs / numbers
+    };
+    TOKEN_PARAMS = [
+      "cursor",
+      "page_token",
+      "pageToken",
+      "after",
+      "starting_after",
+      "start_cursor",
+      "startCursor",
+      "next_cursor",
+      "next_token",
+      "nextToken",
+      "continuation",
+      "continuationToken",
+      "scroll_id",
+      "marker",
+      "ExclusiveStartKey",
+      "token"
+    ];
+    URL_KEYS = ["next", "nextLink", "@odata.nextLink", "next_url", "nextUrl", "nextRecordsUrl", "next_page_url", "next_page"];
+    PAGE_PARAMS = ["page", "pageNumber", "page_number", "pageNo", "page_no", "pageIndex", "page_index", "p"];
+    CUR_PAGE = ["page", "current_page", "currentPage", "pageNumber", "page_number", "pageNo", "pageIndex", "page_index"];
+    TOTAL_PAGES = ["total_pages", "totalPages", "pages", "page_count", "pageCount", "num_pages", "numPages"];
+    OFFSET_PARAMS = ["offset", "start", "startAt", "start_at", "skip", "from", "startIndex", "start_index"];
+    TOTALS = ["total", "total_count", "totalCount", "totalResults", "total_results", "totalSize", "total_size", "count", "found"];
+    SIZES = ["limit", "per_page", "perPage", "page_size", "pageSize", "maxResults", "max_results", "size", "count", "top", "$top", "first", "rows"];
+    META = ["meta", "pagination", "paging", "page_info", "pageInfo", "response_metadata", "links", "_links", "metadata", "cursor", "next"];
+    CONTAINERS = ["data", "items", "results", "records", "value", "entries", "list", "objects", "rows", "hits", "edges", "nodes", "elements", "resources"];
+    isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+    isUrl = (v) => typeof v === "string" && /^(https?:\/\/|\/|\?)/.test(v);
+    get = (o, p) => p.reduce((v, k) => v == null ? v : v[k], o);
+    pick2 = (scopes, keys, ok = (v) => v != null && v !== "") => {
+      for (const s of scopes) for (const k of keys) if (k in s && ok(s[k])) return { key: k, value: s[k], scope: s };
+      return null;
+    };
+    has = (params, k) => !params || params.includes(k);
+    firstParam = (params, cands, fallback) => params ? cands.find((c) => params.includes(c)) : fallback ?? cands[0];
+  }
+});
+
 // packages/middleout/src/engine.mjs
 async function connectHttp(name, spec) {
   const requestInit = { headers: spec.headers || {} };
@@ -42000,6 +42226,7 @@ async function connectHttp(name, spec) {
 function createEngine({ servers = {}, skipped = {}, readonly: readonly2 = false, allow = null, concurrency = 8 } = {}) {
   const clients = {};
   const readOnly = {};
+  const toolParams = {};
   const secrets = Object.values(servers).flatMap((s) => s?.secrets || []);
   const safe = (e) => new Error(scrub(e?.message ?? e, secrets), { cause: e });
   const allowRe = allow ? new RegExp(allow) : null;
@@ -42017,7 +42244,10 @@ function createEngine({ servers = {}, skipped = {}, readonly: readonly2 = false,
         c = new Client({ name: "middleout", version: "0.3.0" });
         await c.connect(new StdioClientTransport({ ...spec, env: { ...process.env, ...spec.env || {} }, stderr: "ignore" }));
       }
-      for (const t of (await c.listTools()).tools) readOnly[`${name}.${t.name}`] = t.annotations?.readOnlyHint === true;
+      for (const t of (await c.listTools()).tools) {
+        readOnly[`${name}.${t.name}`] = t.annotations?.readOnlyHint === true;
+        toolParams[`${name}.${t.name}`] = t.inputSchema?.properties ? Object.keys(t.inputSchema.properties) : null;
+      }
       return c;
     })();
     clients[name].catch(() => {
@@ -42026,7 +42256,7 @@ function createEngine({ servers = {}, skipped = {}, readonly: readonly2 = false,
     return clients[name];
   }
   function newStats() {
-    return { calls: 0, rawBytes: 0, autoPages: 0, byTool: {} };
+    return { calls: 0, rawBytes: 0, autoPages: 0, byTool: {}, incomplete: [] };
   }
   async function callTool(st, ref, args) {
     const [srv, tool] = ref.includes(".") ? ref.split(/\.(.*)/s) : [Object.keys(servers)[0], ref];
@@ -42046,6 +42276,7 @@ function createEngine({ servers = {}, skipped = {}, readonly: readonly2 = false,
       return text2;
     }
   }
+  const linkNext = /* @__PURE__ */ new WeakMap();
   async function callHttp(st, spec) {
     const [method, url2] = spec.includes(" ") ? spec.split(/\s+/, 2) : ["GET", spec];
     const r = await fetch(url2, { method, headers: { "User-Agent": "middleout", Accept: "application/json" } });
@@ -42056,28 +42287,26 @@ function createEngine({ servers = {}, skipped = {}, readonly: readonly2 = false,
     bt.calls++;
     bt.rawBytes += text2.length;
     if (!r.ok) throw new Error(`${method} ${url2} -> ${r.status} ${text2.slice(0, 200)}`);
-    return JSON.parse(text2);
+    const v = JSON.parse(text2);
+    const link = r.headers.get("link")?.match(/<([^>]+)>\s*;\s*rel="?next"?/)?.[1];
+    if (link && v && typeof v === "object") linkNext.set(v, new URL(link, url2).href);
+    return v;
   }
-  async function callAuto(st, tool, args) {
+  async function callAuto(st, tool, args, maxPages = 50) {
+    const ref = tool.includes(".") ? tool : `${Object.keys(servers)[0]}.${tool}`;
     const first = await callTool(st, tool, args);
-    if (!first || typeof first !== "object" || Array.isArray(first)) return first;
-    const arrKeys = Object.keys(first).filter((k) => Array.isArray(first[k]));
-    if (arrKeys.length !== 1) return first;
-    const key = arrKeys[0];
-    const items = [...first[key]];
-    let r = first;
-    for (let i = 0; i < 50; i++) {
-      const ck = CURSOR_KEYS.find((k) => r[k]);
-      let next;
-      if (ck) next = { ...args, [PARAM_FOR[ck]]: r[ck] };
-      else if (r.next_page != null) next = { ...args, page: r.next_page };
-      else if (r.has_more === true && typeof r.page === "number") next = { ...args, page: r.page + 1 };
-      else break;
-      r = await callTool(st, tool, next);
-      st.autoPages++;
-      items.push(...r?.[key] || []);
-    }
-    return r === first ? first : { ...first, [key]: items, has_more: false, next_page: null };
+    const p = await paginate(first, { args, params: toolParams[ref] ?? null, maxPages, call: (a) => callTool(st, tool, a) });
+    st.autoPages += p.pages - 1;
+    if (p.truncated) st.incomplete.push(`${ref}: stopped at ${p.pages} pages (more exist; raise "pages")`);
+    if (p.moreAvailable) st.incomplete.push(`${ref}: the result says there is more, but the tool has no parameter to ask for it (${p.style})`);
+    return p.result;
+  }
+  async function httpAuto(st, spec, maxPages = 50) {
+    const first = await callHttp(st, spec);
+    const p = await paginate(first, { http: true, maxPages, linkOf: (r) => linkNext.get(r) ?? null, call: ({ url: url2 }) => callHttp(st, `GET ${url2}`) });
+    st.autoPages += p.pages - 1;
+    if (p.truncated) st.incomplete.push(`${spec}: stopped at ${p.pages} pages (more exist; raise "pages")`);
+    return p.result;
   }
   function fill(v, scope) {
     if (typeof v === "string") {
@@ -42102,7 +42331,7 @@ function createEngine({ servers = {}, skipped = {}, readonly: readonly2 = false,
   }
   async function runNode(st, node2, scope, at) {
     try {
-      let v = node2.http ? await callHttp(st, fill(node2.http, scope)) : node2.page === false ? await callTool(st, node2.tool, fill(node2.args || {}, scope)) : await callAuto(st, node2.tool, fill(node2.args || {}, scope));
+      let v = node2.http ? node2.page === false ? await callHttp(st, fill(node2.http, scope)) : await httpAuto(st, fill(node2.http, scope), node2.pages) : node2.page === false ? await callTool(st, node2.tool, fill(node2.args || {}, scope)) : await callAuto(st, node2.tool, fill(node2.args || {}, scope), node2.pages);
       if (node2.select) v = import_jmespath.default.search(v, node2.select);
       const kids = node2.each ? [].concat(node2.each) : [];
       if (kids.length) {
@@ -42176,7 +42405,7 @@ function createEngine({ servers = {}, skipped = {}, readonly: readonly2 = false,
     }
   };
 }
-var import_jmespath, PLAN_DOC, CURSOR_KEYS, PARAM_FOR, hasAuthHeader;
+var import_jmespath, PLAN_DOC, hasAuthHeader;
 var init_engine = __esm({
   "packages/middleout/src/engine.mjs"() {
     init_client2();
@@ -42186,6 +42415,7 @@ var init_engine = __esm({
     init_oauth();
     init_config();
     import_jmespath = __toESM(require_jmespath(), 1);
+    init_paginate();
     PLAN_DOC = `A plan is a node, or an array of independent nodes (results come back as an array).
 A node is {tool, args?, select?, each?, as?, then?, page?} (or {http: "GET https://...", ...} for a plain JSON API).
 - tool: "server.tool" (or just "tool" when there is one server). args may contain {{jmespath}} templates evaluated against the current item.
@@ -42193,9 +42423,7 @@ A node is {tool, args?, select?, each?, as?, then?, page?} (or {http: "GET https
 - each: child node(s) run once per element of the selected array, in parallel; each child's result is attached to the element under its "as" key.
   Inside a child, {{field}} is the element's field and {{_parent.field}} the parent element's. Nest as deep as needed.
 - then: JMESPath applied after children are attached: sort, filter, reshape, aggregate (length(), sum(), max_by(), sort_by(), ...).
-- Pagination is automatic: when a result says there is more (next_page, has_more + page, or a cursor field), every page is fetched and the item array merged, in the normal shape. "page": false returns only the first page.`;
-    CURSOR_KEYS = ["next_cursor", "nextCursor", "next_page_token", "nextPageToken"];
-    PARAM_FOR = { next_cursor: "cursor", nextCursor: "cursor", next_page_token: "page_token", nextPageToken: "pageToken" };
+- Pagination is automatic for every common style (cursors and tokens, nested or top-level, next-page URLs, page numbers, offsets, Stripe's starting_after, GraphQL pageInfo): every page is fetched and the item array merged, in the normal shape. "page": false returns only the first page; "pages": N raises the cap (default 50). A capped or incomplete result says so.`;
     hasAuthHeader = (h) => Object.keys(h || {}).some((k) => k.toLowerCase() === "authorization");
   }
 });
@@ -44049,7 +44277,8 @@ var init_mcp2 = __esm({
         const ratio = stats.returnedBytes ? (stats.rawBytes / stats.returnedBytes).toFixed(1) : "-";
         return text(`${JSON.stringify(result)}
 
-(middleout: ${stats.calls} API calls${stats.autoPages ? `, ${stats.autoPages} pages auto-fetched` : ""}, ${stats.rawBytes} raw bytes -> ${stats.returnedBytes} returned, Weissman ${ratio})`);
+(middleout: ${stats.calls} API calls${stats.autoPages ? `, ${stats.autoPages} pages auto-fetched` : ""}, ${stats.rawBytes} raw bytes -> ${stats.returnedBytes} returned, Weissman ${ratio})` + (stats.incomplete?.length ? `
+INCOMPLETE: ${stats.incomplete.join("; ")}` : ""));
       } catch (e) {
         recordRun(cfg, EMPTY, { ok: false, error: e.message, tools: planTools(plan) });
         return text(`middleout error ${e.message}

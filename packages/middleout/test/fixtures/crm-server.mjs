@@ -25,4 +25,11 @@ s.registerTool('list_deals', { description: 'List deals (10 per page).', inputSc
 s.registerTool('get_contact', { description: 'Get a contact.', inputSchema: { id: z.string() }, annotations: RO }, async ({ id }) => out(contacts[id]));
 s.registerTool('list_activities', { description: 'Activities on a deal.', inputSchema: { deal_id: z.string() }, annotations: RO }, async ({ deal_id }) => out(activities(deal_id)));
 s.registerTool('delete_deal', { description: 'Delete a deal.', inputSchema: { id: z.string() }, annotations: { destructiveHint: true } }, async () => out({ deleted: true }));
+// a chat-style API: the cursor comes back nested and the request parameter has a different name than the response key
+const notes = Array.from({ length: 12 }, (_, i) => ({ id: `note_${i}`, text: `Note ${i}` }));
+s.registerTool('list_notes', { description: 'List notes (5 per page).', inputSchema: { since_cursor: z.string().optional() }, annotations: RO },
+  async ({ since_cursor }) => { const f = since_cursor ? Number(since_cursor) : 0; return out({ ok: true, notes: notes.slice(f, f + 5), response_metadata: { next_cursor: f + 5 < notes.length ? String(f + 5) : '' } }); });
+// an API that always claims there is more (to test the page cap)
+s.registerTool('list_events', { description: 'Endless events.', inputSchema: { page: z.number().optional() }, annotations: RO },
+  async ({ page = 0 }) => out({ events: [{ id: `ev_${page}` }], page, has_more: true }));
 await s.connect(new StdioServerTransport());
