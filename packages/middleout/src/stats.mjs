@@ -2,7 +2,7 @@
 // Answers "is middleout worth it?": what it kept out of context, how much of the traffic it could handle went through
 // it, whether its nudges work, and what still bypasses it (split so screenshots and writes never count as misses).
 import { createStats } from '@qbranch/core';
-import { maybeNeedsLogin } from './oauth.mjs';
+import { maybeNeedsLogin, loginCommand } from './oauth.mjs';
 import { scrub } from './config.mjs';
 
 export const CLASSES = ['addressable', 'unwrapped', 'binary', 'write'];
@@ -123,7 +123,7 @@ export function summarize(s, cfg = null) {
     const login = [...new Set(by.addressable.map(([k]) => k.split('.')[0]))].map(srv => Object.keys(cfg?.servers || {}).find(n => norm(n) === norm(srv)))
       .filter(n => n && maybeNeedsLogin(n, cfg.servers[n]));
     lines.push(`still raw, could go through middleout (${plural(calls(by.addressable), 'call')}, ${size(addrBytes)}):\n${top(by.addressable)}` +
-      (login.length ? `\n    (not signed in: ${login.join(', ')}; if a server needs auth, run: middleout login <server>)` : ''));
+      (login.length ? `\n    (not signed in: ${login.join(', ')}; if a server needs auth, run: ${loginCommand("<server>")})` : ''));
   }
   if (by.unwrapped.length) lines.push(`not wrapped (middleout cannot reach these servers; add them to .mcp.json or "servers"), ${size(sum(by.unwrapped))}:\n${top(by.unwrapped, 3)}`);
   if (by.unclassified.length) lines.push(`raw calls recorded before v0.3 (not classified; \`middleout stats\` in the project classifies them by server):\n${top(by.unclassified, 5)}`);

@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { upsert, toolStat, isWrite, isWrapped, norm } from './stats.mjs';
 import { planTools } from './plan.mjs';
-import { maybeNeedsLogin } from './oauth.mjs';
+import { maybeNeedsLogin, loginCommand } from './oauth.mjs';
 
 const parse = (name) => { const m = name.match(/^mcp__(.+?)__(.+)$/); return m ? { server: m[1], tool: m[2] } : null; };
 const srvName = (cfg, server) => Object.keys(cfg.servers || {}).find(n => norm(n) === norm(server)) || server;
@@ -66,7 +66,7 @@ export function post(cfg, h) {
   return { context:
     `That raw ${t.server}.${t.tool} result was ${Math.round(bytes / 1024)} KB (~${Math.round(bytes / 3.5 / 1000)}k tokens). ` +
     `For the next fetch from ${t.server}, use middleout_run with a "select" (and "each" for per-item calls): it returns only the fields you need and fetches every page.` +
-    (maybeNeedsLogin(srvName(cfg, t.server), cfg.servers[srvName(cfg, t.server)]) ? ` If middleout says ${t.server} needs sign-in, ask the user to run \`middleout login ${srvName(cfg, t.server)}\` once, and fetch raw until then.` : '') };
+    (maybeNeedsLogin(srvName(cfg, t.server), cfg.servers[srvName(cfg, t.server)]) ? ` If middleout says ${t.server} needs sign-in, ask the user to run \`${loginCommand(srvName(cfg, t.server))}\` once, and fetch raw until then.` : '') };
 }
 
 export function pre(cfg, h) {

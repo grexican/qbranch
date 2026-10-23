@@ -23,6 +23,11 @@ if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
 Expand-Archive $zip -DestinationPath $tmp
 Move-Item (Join-Path $tmp $name) $dest
 Remove-Item -Recurse -Force $tmp
+# one command per gadget (`middleout login x`, `moneyball scan`): .cmd for PowerShell/cmd, a sh script for Git Bash
+foreach ($tool in 'headjack', 'middleout', 'moneyball', 'groundhog') {
+  Set-Content -Encoding ascii -Path (Join-Path $dest "$tool.cmd") -Value "@`"%~dp0qbranch.exe`" $tool %*"
+  [IO.File]::WriteAllText((Join-Path $dest $tool), "#!/bin/sh`nexec `"`$(dirname `"`$0`")/qbranch.exe`" $tool `"`$@`"`n")
+}
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 if (($userPath -split ';') -notcontains $dest) {
   [Environment]::SetEnvironmentVariable('Path', "$userPath;$dest", 'User')

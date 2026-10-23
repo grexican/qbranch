@@ -22,5 +22,9 @@ rm -rf "$DEST"; mkdir -p "$DEST"
 tar -xzf "$tmp/qbranch.tar.gz" -C "$DEST" --strip-components=1
 chmod +x "$DEST/qbranch"
 mkdir -p "$HOME/.local/bin"; ln -sf "$DEST/qbranch" "$HOME/.local/bin/qbranch"
-echo "installed: $DEST/qbranch (linked into ~/.local/bin)"
+# one command per gadget (`middleout login x`, `moneyball scan`)
+for tool in headjack middleout moneyball groundhog; do
+  printf '#!/bin/sh\nexec "%s/qbranch" %s "$@"\n' "$DEST" "$tool" > "$HOME/.local/bin/$tool"; chmod +x "$HOME/.local/bin/$tool"
+done
+echo "installed: $DEST/qbranch (linked into ~/.local/bin, with headjack, middleout, moneyball, groundhog)"
 case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) echo "add ~/.local/bin to your PATH" ;; esac

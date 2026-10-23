@@ -58,7 +58,7 @@ test('a wrong configured header says the credentials were rejected, not "sign in
 
 test('a server that needs sign-in and has no token says how to sign in (and never opens a browser)', async () => {
   const e = createEngine({ servers: { sec: { type: 'http', url: secure.url } } });
-  try { await assert.rejects(e.run({ tool: 'sec.list_items' }), /server "sec" needs sign-in: run `middleout login sec` once/); } finally { await e.close(); }
+  try { await assert.rejects(e.run({ tool: 'sec.list_items' }), /server "sec" needs sign-in: run `[^`]*login sec` once/); } finally { await e.close(); }
 });
 
 test('one failing server does not hide the others in tools listings', async () => {
@@ -94,7 +94,7 @@ test('OAuth: stored tokens are used, and a rejected access token is refreshed th
 
 test('OAuth: no stored token means a sign-in error, and no client is registered at runtime', async () => {
   const e = createEngine({ servers: { fresh: { type: 'http', url: authd.url } } });
-  try { await assert.rejects(e.run({ tool: 'fresh.list_items' }), /needs sign-in: run `middleout login fresh`/); } finally { await e.close(); }
+  try { await assert.rejects(e.run({ tool: 'fresh.list_items' }), /needs sign-in: run `[^`]*login fresh`/); } finally { await e.close(); }
   assert.equal(fs.existsSync(tokenFile('fresh', authd.url)), false);
 });
 

@@ -40200,6 +40200,20 @@ function write(f, v) {
   fs4.writeFileSync(tmp, JSON.stringify(v, null, 2) + "\n", { mode: 384 });
   fs4.renameSync(tmp, f);
 }
+function onPath(cmd2, env = process.env) {
+  pathCache ??= /* @__PURE__ */ new Map();
+  const key = `${cmd2}\0${env.PATH || env.Path || ""}`;
+  if (pathCache.has(key)) return pathCache.get(key);
+  const exts = process.platform === "win32" ? [".cmd", ".exe", ""] : [""];
+  const hit = (env.PATH || env.Path || "").split(path5.delimiter).some((d) => d && exts.some((e) => fs4.existsSync(path5.join(d, cmd2 + e))));
+  pathCache.set(key, hit);
+  return hit;
+}
+function loginCommand(name) {
+  if (onPath("middleout")) return `middleout login ${name}`;
+  if (isSea()) return onPath("qbranch") ? `qbranch middleout login ${name}` : `"${slash(process.execPath)}" middleout login ${name}`;
+  return `node "${slash(process.argv[1] || "middleout.mjs")}" login ${name}`;
+}
 function provider(name, spec, { interactive, redirectUrl, onRedirect } = {}) {
   const f = tokenFile(name, spec.url);
   const load = () => read(f) || { url: spec.url };
@@ -40367,7 +40381,7 @@ async function login(name, spec, { open: open2 = openBrowser, log = console.log,
     srv.close();
   }
 }
-var home, tokenFile, read, SignInNeeded, signInMessage, maybeNeedsLogin, escapeHtml, runtimeProvider, isAuthError;
+var home, tokenFile, read, SignInNeeded, isSea, pathCache, slash, signInMessage, maybeNeedsLogin, escapeHtml, runtimeProvider, isAuthError;
 var init_oauth = __esm({
   "packages/middleout/src/oauth.mjs"() {
     init_client2();
@@ -40384,7 +40398,10 @@ var init_oauth = __esm({
     };
     SignInNeeded = class extends Error {
     };
-    signInMessage = (name) => `server "${name}" needs sign-in: run \`middleout login ${name}\` once (opens a browser)`;
+    isSea = () => /^qbranch(\.exe)?$/i.test(path5.basename(process.execPath));
+    pathCache = null;
+    slash = (p) => p.split(path5.sep).join("/");
+    signInMessage = (name) => `server "${name}" needs sign-in: run \`${loginCommand(name)}\` once (opens a browser)`;
     maybeNeedsLogin = (name, spec) => {
       if (!spec?.url || Object.keys(spec.headers || {}).some((k) => k.toLowerCase() === "authorization")) return false;
       const r = read(tokenFile(name, spec.url));
@@ -42214,7 +42231,7 @@ function summarize(s, cfg3 = null) {
     const login2 = [...new Set(by.addressable.map(([k]) => k.split(".")[0]))].map((srv) => Object.keys(cfg3?.servers || {}).find((n) => norm(n) === norm(srv))).filter((n) => n && maybeNeedsLogin(n, cfg3.servers[n]));
     lines.push(`still raw, could go through middleout (${plural2(calls(by.addressable), "call")}, ${size(addrBytes)}):
 ${top(by.addressable)}` + (login2.length ? `
-    (not signed in: ${login2.join(", ")}; if a server needs auth, run: middleout login <server>)` : ""));
+    (not signed in: ${login2.join(", ")}; if a server needs auth, run: ${loginCommand("<server>")})` : ""));
   }
   if (by.unwrapped.length) lines.push(`not wrapped (middleout cannot reach these servers; add them to .mcp.json or "servers"), ${size(sum(by.unwrapped))}:
 ${top(by.unwrapped, 3)}`);
@@ -44100,7 +44117,7 @@ function post(cfg3, h) {
     if (tracked) s.totals.nudges_tracked++;
   });
   if (!nudge) return null;
-  return { context: `That raw ${t.server}.${t.tool} result was ${Math.round(bytes / 1024)} KB (~${Math.round(bytes / 3.5 / 1e3)}k tokens). For the next fetch from ${t.server}, use middleout_run with a "select" (and "each" for per-item calls): it returns only the fields you need and fetches every page.` + (maybeNeedsLogin(srvName(cfg3, t.server), cfg3.servers[srvName(cfg3, t.server)]) ? ` If middleout says ${t.server} needs sign-in, ask the user to run \`middleout login ${srvName(cfg3, t.server)}\` once, and fetch raw until then.` : "") };
+  return { context: `That raw ${t.server}.${t.tool} result was ${Math.round(bytes / 1024)} KB (~${Math.round(bytes / 3.5 / 1e3)}k tokens). For the next fetch from ${t.server}, use middleout_run with a "select" (and "each" for per-item calls): it returns only the fields you need and fetches every page.` + (maybeNeedsLogin(srvName(cfg3, t.server), cfg3.servers[srvName(cfg3, t.server)]) ? ` If middleout says ${t.server} needs sign-in, ask the user to run \`${loginCommand(srvName(cfg3, t.server))}\` once, and fetch raw until then.` : "") };
 }
 function pre(cfg3, h) {
   const t = parse3(h.tool || "");

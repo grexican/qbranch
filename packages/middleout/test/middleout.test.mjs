@@ -119,7 +119,7 @@ test('hook matches wrapped servers whose names the host normalizes (dots, dashes
 test('a nudge for an HTTP server that was never signed in says how to sign in', () => {
   process.env.MIDDLEOUT_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'middleout-home-'));
   const cfg = { ...tmp(), servers: { web: { type: 'http', url: 'https://example.com/mcp' } } };
-  assert.match(post(cfg, { tool: 'mcp__web__search', response: 'x'.repeat(5000) }).context, /middleout login web/);
+  assert.match(post(cfg, { tool: 'mcp__web__search', response: 'x'.repeat(5000) }).context, /`[^`]*login web`/);
   const keyed = { ...tmp(), servers: { web: { type: 'http', url: 'https://example.com/mcp', headers: { Authorization: 'Bearer k' } } } };
   assert.doesNotMatch(post(keyed, { tool: 'mcp__web__search', response: 'x'.repeat(5000) }).context, /login/);
 });
@@ -187,4 +187,17 @@ test('stats compute a Weissman score and summarize', () => {
   const s = JSON.parse(fs.readFileSync(path.join(cfg.root, cfg.stats), 'utf8'));
   assert.equal(s.weissman, 50);
   assert.match(summarize(s), /Weissman score 50/);
+});
+
+test('the sign-in hint names a command that runs: the shim when installed, else the script that is running', async () => {
+  const { loginCommand, onPath } = await import('../src/oauth.mjs');
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'mo-bin-'));
+  fs.writeFileSync(path.join(bin, process.platform === 'win32' ? 'middleout.cmd' : 'middleout'), '');
+  assert.equal(onPath('middleout', { PATH: bin }), true);
+  assert.equal(onPath('middleout', { PATH: os.tmpdir() + path.delimiter + 'nope' }), false);
+  const saved = process.env.PATH;
+  try {
+    process.env.PATH = bin; assert.equal(loginCommand('crm'), 'middleout login crm');
+    process.env.PATH = ''; assert.match(loginCommand('crm'), /^node ".+" login crm$/);
+  } finally { process.env.PATH = saved; }
 });
