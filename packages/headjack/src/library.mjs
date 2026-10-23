@@ -15,7 +15,9 @@ export function db(cfg) {
     create table if not exists skills (id text primary key, name text, description text, source text, tier text,
       dir text, body text, hash text, embedding blob);
     create virtual table if not exists skills_fts using fts5(id unindexed, name, description, body, tokenize='porter unicode61');
-    create table if not exists recent (id text, ts integer);`);
+    create table if not exists recent (id text, ts integer);
+    create table if not exists session_seen (session text primary key, ts integer);
+    create table if not exists session_suggested (session text, id text, ts integer, primary key (session, id));`);
   dbs.set(cfg.dataDir, d);
   return d;
 }
@@ -154,4 +156,26 @@ export function renderSkill(s) {
 
 // suggestions from the last 30 minutes, so a later load counts as "suggested, then loaded"
 export function noteSuggested(cfg, ids) { const d = db(cfg); const ts = Date.now(); for (const id of ids) d.prepare('insert into recent values (?, ?)').run(id, ts); d.prepare('delete from recent where ts < ?').run(ts - 30 * 60_000); }
+// per-session memory: a skill is named once per session, and distinct sessions are counted (pruned after 7 days)
+const WEEK = 7 * 864e5;
+/** True the first time a session is seen. */
+export function noteSession(cfg, session) {
+  const d = db(cfg); const ts = Date.now();
+  d.prepare('delete from session_seen where ts < ?').run(ts - WEEK);
+  d.prepare('delete from session_suggested where ts < ?').run(ts - WEEK);
+  return Number(d.prepare('insert or ignore into session_seen values (?, ?)').run(session, ts).changes) === 1;
+}
+export const suggestedIn = (cfg, session) => new Set(db(cfg).prepare('select id from session_suggested where session = ?').all(session).map(r => r.id));
+export function noteSuggestedIn(cfg, session, ids) { const d = db(cfg); const ts = Date.now(); for (const id of ids) d.prepare('insert or ignore into session_suggested values (?, ?, ?)').run(session, id, ts); }
+/** Tokens the library keeps out of the always-loaded skills listing, per context (~3.5 chars/token, ~10 chars of list markup per entry). */
+// minus headjack's own root skills (find-skill, load-skill), which stay in the listing; ../skills from src/ and dist/ alike
+export function listingTokens(cfg) {
+  let root = 0;
+  try {
+    const dir = new URL('../skills/', import.meta.url);
+    for (const n of fs.readdirSync(dir)) { const r = parseSkill(fs.readFileSync(new URL(`${n}/SKILL.md`, dir), 'utf8')); if (r) root += r.name.length + r.description.length + 10; }
+  } catch { /* layout without the root skills next to it */ }
+  const lib = db(cfg).prepare('select coalesce(sum(length(name) + length(description) + 10), 0) n from skills').get().n;
+  return Math.max(0, Math.round((lib - root) / 3.5));
+}
 export const wasSuggested = (cfg, id) => !!db(cfg).prepare('select 1 from recent where id = ? and ts > ?').get(id, Date.now() - 30 * 60_000);

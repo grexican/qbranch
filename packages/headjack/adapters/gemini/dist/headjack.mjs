@@ -110,6 +110,10 @@ function createStats({ tool, fresh, dayFresh, derive }) {
       } catch {
         s = { tool, schema: 1, since: (/* @__PURE__ */ new Date()).toISOString(), ...fresh() };
       }
+      for (const [k, v] of Object.entries(fresh())) {
+        if (!(k in s)) s[k] = v;
+        else if (v && typeof v === "object" && !Array.isArray(v) && s[k] && typeof s[k] === "object") s[k] = { ...v, ...s[k] };
+      }
       s.days ??= {};
       s.days[today()] ??= dayFresh();
       mutate(s, s.days[today()]);
@@ -411,7 +415,9 @@ function db(cfg3) {
     create table if not exists skills (id text primary key, name text, description text, source text, tier text,
       dir text, body text, hash text, embedding blob);
     create virtual table if not exists skills_fts using fts5(id unindexed, name, description, body, tokenize='porter unicode61');
-    create table if not exists recent (id text, ts integer);`);
+    create table if not exists recent (id text, ts integer);
+    create table if not exists session_seen (session text primary key, ts integer);
+    create table if not exists session_suggested (session text, id text, ts integer, primary key (session, id));`);
   dbs.set(cfg3.dataDir, d);
   return d;
 }
@@ -542,7 +548,32 @@ function noteSuggested(cfg3, ids) {
   for (const id of ids) d.prepare("insert into recent values (?, ?)").run(id, ts);
   d.prepare("delete from recent where ts < ?").run(ts - 30 * 6e4);
 }
-var dbs, embed2, ftsQuery, keyTerms, STOP, wasSuggested;
+function noteSession(cfg3, session) {
+  const d = db(cfg3);
+  const ts = Date.now();
+  d.prepare("delete from session_seen where ts < ?").run(ts - WEEK);
+  d.prepare("delete from session_suggested where ts < ?").run(ts - WEEK);
+  return Number(d.prepare("insert or ignore into session_seen values (?, ?)").run(session, ts).changes) === 1;
+}
+function noteSuggestedIn(cfg3, session, ids) {
+  const d = db(cfg3);
+  const ts = Date.now();
+  for (const id of ids) d.prepare("insert or ignore into session_suggested values (?, ?, ?)").run(session, id, ts);
+}
+function listingTokens(cfg3) {
+  let root = 0;
+  try {
+    const dir = new URL("../skills/", import.meta.url);
+    for (const n of fs4.readdirSync(dir)) {
+      const r = parseSkill(fs4.readFileSync(new URL(`${n}/SKILL.md`, dir), "utf8"));
+      if (r) root += r.name.length + r.description.length + 10;
+    }
+  } catch {
+  }
+  const lib = db(cfg3).prepare("select coalesce(sum(length(name) + length(description) + 10), 0) n from skills").get().n;
+  return Math.max(0, Math.round((lib - root) / 3.5));
+}
+var dbs, embed2, ftsQuery, keyTerms, STOP, WEEK, suggestedIn, wasSuggested;
 var init_library = __esm({
   "packages/headjack/src/library.mjs"() {
     init_src();
@@ -551,6 +582,8 @@ var init_library = __esm({
     ftsQuery = (q) => (q.toLowerCase().match(/[a-z0-9]{2,}/g) || []).map((t) => `"${t}"`).join(" OR ");
     keyTerms = (q) => [...new Set((q.toLowerCase().match(/[a-z][a-z0-9-]{3,}/g) || []).filter((t) => !STOP.has(t)))];
     STOP = new Set("what is the and for with that this from into your their about make write create build turn file files using need want just able will what which then them they have these those there here when where some each other more most very also only like help please over under can could should would".split(" "));
+    WEEK = 7 * 864e5;
+    suggestedIn = (cfg3, session) => new Set(db(cfg3).prepare("select id from session_suggested where session = ?").all(session).map((r) => r.id));
     wasSuggested = (cfg3, id) => !!db(cfg3).prepare("select 1 from recent where id = ? and ts > ?").get(id, Date.now() - 30 * 6e4);
   }
 });
@@ -630,6 +663,15 @@ async function searchRegistryByGap(cfg3, request, k = 5) {
   for (const t of gapTerms(cfg3, request)) for (const s of await searchRegistry(t, 3)) if (!seen.has(s.id)) seen.set(s.id, s);
   return [...seen.values()].slice(0, k);
 }
+function relevantExternal(request, candidates) {
+  const short = String(request).toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length === 3 && !SHORT_FILLER.has(w));
+  const terms = new Set([...keyTerms(request), ...short].map(stem));
+  return candidates.filter((c) => {
+    const words = [...new Set(String(c.name || c.id.split("/").pop()).toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !GENERIC.has(w)).map(stem))];
+    const shared = words.filter((w) => terms.has(w)).length;
+    return shared >= 2 || shared >= 1 && shared / words.length >= 0.5;
+  });
+}
 async function acquire(cfg3, extId, { dest } = {}) {
   const [owner, repo, ...rest2] = extId.split("/");
   const skillId = rest2.join("/");
@@ -662,31 +704,43 @@ async function acquire(cfg3, extId, { dest } = {}) {
   await reindex(cfg3);
   return load(cfg3, `${space}/${parsed.name}`);
 }
+var GENERIC, stem, SHORT_FILLER;
 var init_registry = __esm({
   "packages/headjack/src/registry.mjs"() {
     init_library();
     init_ledger();
+    GENERIC = /* @__PURE__ */ new Set(["skill", "skills", "tool", "tools", "agent", "agents", "helper", "kit", "pro", "expert", "guide"]);
+    stem = (w) => w.replace(/(ing|ed|es|s)$/, (m) => w.length - m.length >= 4 ? "" : m);
+    SHORT_FILLER = new Set("the and for you all are but not can use get got let its our out own any one two new now how why who way per via yes too did had has was see".split(" "));
   }
 });
 
 // packages/headjack/src/stats.mjs
 function summarize(s) {
-  const t = s.totals;
+  const t = { sessions: 0, startup_tokens_saved: 0, skipped_system: 0, repeat_suppressed: 0, external_suggestions: 0, ...s.totals };
   const pct = (a, b) => b ? `${Math.round(100 * a / b)}%` : "-";
-  const top = Object.entries(s.skills).sort((a, b) => b[1].loaded - a[1].loaded).slice(0, 10);
-  const ignored = Object.entries(s.skills).filter(([, v]) => v.suggested >= 3 && v.loaded === 0).map(([k]) => k);
+  const per = s.startup_tokens_per_context || 0, saved = t.startup_tokens_saved, net = saved - t.est_tokens_injected;
+  const top = Object.entries(s.skills).filter(([, v]) => v.loaded).sort((a, b) => b[1].loaded - a[1].loaded).slice(0, 10);
+  const ignored = Object.entries(s.skills).filter(([, v]) => v.suggested >= 3 && v.loaded === 0).sort((a, b) => b[1].suggested - a[1].suggested);
+  const example = (id) => (s.trail || []).filter((e) => e.ids.includes(id)).at(-1);
+  const verdict = !t.prompts ? "no prompts seen yet" : !t.sessions ? `startup saving not measured yet (stats predate session counting) | ${num(t.est_tokens_injected)} tokens injected | suggestion -> load conversion ${pct(t.suggested_then_loaded, t.suggestions)} (${t.suggested_then_loaded}/${t.suggestions}) | loads ${t.loads}` : `${net >= 0 ? "net +" : "net "}${num(net)} tokens (${num(saved)} kept out of startup, ${num(t.est_tokens_injected)} injected) | suggestion -> load conversion ${pct(t.suggested_then_loaded, t.suggestions)} (${t.suggested_then_loaded}/${t.suggestions}) | loads ${t.loads}`;
   return [
     `headjack stats since ${s.since.slice(0, 10)} (updated ${s.updated.slice(0, 16).replace("T", " ")})`,
-    `prompts seen ${t.prompts} | prompts with suggestions ${t.suggested_prompts} (${pct(t.suggested_prompts, t.prompts)})`,
-    `skill loads ${t.loads} | suggestion -> load conversion ${pct(t.suggested_then_loaded, t.suggestions)} | searches ${t.searches} (weak ${t.weak_searches}, external ${t.external_searches}) | acquires ${t.acquires}`,
-    `~tokens injected by suggestions: ${t.est_tokens_injected}`,
-    top.length ? `most loaded: ${top.map(([k, v]) => `${k} x${v.loaded}`).join(", ")}` : "no skills loaded yet",
-    ignored.length ? `suggested often but never loaded (tune or remove): ${ignored.join(", ")}` : "",
+    `worth it? ${verdict}`,
+    t.sessions && `~${num(saved)} tokens kept out of startup (${t.sessions} sessions, ${num(per)} each today; subagents not counted; assumes these skills would otherwise be installed)`,
+    `prompts ${t.prompts} | with suggestions ${t.suggested_prompts} (${pct(t.suggested_prompts, t.prompts)}) | harness prompts skipped ${t.skipped_system} | repeats suppressed ${t.repeat_suppressed}`,
+    `searches ${t.searches} (weak ${t.weak_searches}, external ${t.external_searches}) | registry suggestions ${t.external_suggestions} | acquires ${t.acquires}`,
+    top.length ? `most loaded (loads/suggested): ${top.map(([k, v]) => `${k} ${v.loaded}/${v.suggested}`).join(", ")}` : "no skills loaded yet",
+    ignored.length ? `suggested often, never loaded (tune its description or remove it):
+  ${ignored.slice(0, 8).map(([k, v]) => {
+      const e = example(k);
+      return `${k} x${v.suggested}${e ? ` -- e.g. "${e.q.replace(/\s+/g, " ").slice(0, 80)}"${e.sim != null ? ` (sim ${e.sim})` : ""}` : ""}`;
+    }).join("\n  ")}` : "",
     s.gaps.length ? `library gaps (no strong match):
   - ${s.gaps.slice(-10).map((g) => g.q).join("\n  - ")}` : ""
   ].filter(Boolean).join("\n");
 }
-var upsertFile, upsert, skillStat;
+var upsertFile, upsert, skillStat, num;
 var init_stats2 = __esm({
   "packages/headjack/src/stats.mjs"() {
     init_src();
@@ -703,20 +757,31 @@ var init_stats2 = __esm({
           external_searches: 0,
           loads: 0,
           acquires: 0,
-          est_tokens_injected: 0
+          est_tokens_injected: 0,
+          sessions: 0,
+          startup_tokens_saved: 0,
+          skipped_system: 0,
+          repeat_suppressed: 0,
+          external_suggestions: 0
         },
+        startup_tokens_per_context: 0,
+        // library skill descriptions kept out of the always-loaded skills listing
         skills: {},
         // id -> { suggested, loaded, last_loaded }
-        gaps: []
+        gaps: [],
         // last 25 requests the library had no strong match for: your harvest list
+        trail: []
+        // last 30 suggestions { at, q, ids, sim }: why each skill was named, for tuning
       }),
       dayFresh: () => ({ prompts: 0, suggested: 0, loaded: 0 }),
       derive: (s) => {
         s.gaps = s.gaps.slice(-25);
+        s.trail = s.trail.slice(-30);
       }
     });
     upsert = (cfg3, mutate) => upsertFile(cfg3.root, cfg3.stats, mutate);
     skillStat = (s, id) => s.skills[id] ??= { suggested: 0, loaded: 0, last_loaded: null };
+    num = (n) => Math.round(n).toLocaleString("en-US");
   }
 });
 
@@ -38590,39 +38655,81 @@ init_registry();
 init_stats2();
 var norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 var SKILLS_LINE = "Use the load-skill skill (`headjack get <id>`) to load one; find-skill (`headjack find <query>`) searches for others.";
-async function suggest(cfg3, prompt) {
-  prompt = (prompt || "").slice(0, 2e3);
+var EXTERNAL = "__registry__";
+var HARNESS = /^\s*<(task-notification|local-command-stdout|local-command-stderr|local-command-caveat|system-reminder|bash-input|bash-stdout|bash-stderr|user-prompt-submit-hook|tool-use-error)\b/;
+function requestText(prompt) {
+  const p = prompt || "";
+  if (HARNESS.test(p)) return null;
+  if (/^\s*<command-(name|message|args)>/.test(p)) {
+    const tag = (t) => p.match(new RegExp(`<${t}>([\\s\\S]*?)</${t}>`))?.[1]?.trim() || "";
+    return `${tag("command-name").replace(/^\//, "").replace(/[:_-]/g, " ")} ${tag("command-args")}`.trim();
+  }
+  return p;
+}
+async function suggest(cfg3, prompt, { sessionId = "", registry: registry2 = searchRegistryByGap } = {}) {
+  const request = requestText(prompt);
+  const firstInSession = sessionId ? noteSession(cfg3, sessionId) : false;
+  if (request === null) {
+    upsert(cfg3, (s, day) => {
+      s.totals.prompts++;
+      day.prompts++;
+      s.totals.skipped_system++;
+      if (firstInSession) {
+        s.totals.sessions++;
+        s.totals.startup_tokens_saved += s.startup_tokens_per_context || 0;
+      }
+    });
+    return "";
+  }
+  prompt = request.slice(0, 2e3);
   await reindex(cfg3);
   const p = ` ${norm(prompt)} `;
   const named = db(cfg3).prepare("select id, name, description from skills").all().filter((s) => norm(s.name).length > 3 && p.includes(` ${norm(s.name)} `));
   const hits = await search(cfg3, prompt, 3);
   const strong = hits.filter((h) => isStrong(cfg3, [h], prompt));
   const seen = /* @__PURE__ */ new Set();
-  const picks = [...named, ...strong].filter((s) => !seen.has(s.id) && seen.add(s.id)).slice(0, cfg3.suggestMax);
+  const matched = [...named, ...strong].filter((s) => !seen.has(s.id) && seen.add(s.id)).slice(0, cfg3.suggestMax);
+  const already = sessionId ? suggestedIn(cfg3, sessionId) : /* @__PURE__ */ new Set();
+  const picks = matched.filter((s) => !already.has(s.id));
+  const suppressed = matched.length - picks.length;
   let text2 = "";
   let external = [];
   if (picks.length) {
     text2 = `Skills in this project's library match this request. They hold this team's conventions and checklists, which override your defaults. Load the best match BEFORE you start, then follow it. Skip only if none of them are about this task. ${SKILLS_LINE}
 ` + picks.map((s) => `- ${s.id}: ${s.description.slice(0, 160)}`).join("\n");
     noteSuggested(cfg3, picks.map((s) => s.id));
-  } else if (cfg3.external) {
+    if (sessionId) noteSuggestedIn(cfg3, sessionId, picks.map((s) => s.id));
+  } else if (!matched.length && cfg3.external && !already.has(EXTERNAL)) {
     try {
-      external = await searchRegistryByGap(cfg3, prompt);
+      external = relevantExternal(prompt, await registry2(cfg3, prompt));
     } catch {
     }
-    if (external.length) text2 = "No skill in the library covers this request. Public registry candidates (best match first; unvetted): if one is clearly about this task and comes from a reputable source, `headjack get --acquire <id>` fetches it into the library.\n" + external.map((s) => `- ${s.id} (${s.installs} installs)`).join("\n");
+    if (external.length) {
+      text2 = "No skill in the library covers this request. Public registry candidates (best match first; unvetted): if one is clearly about this task and comes from a reputable source, `headjack get --acquire <id>` fetches it into the library.\n" + external.map((s) => `- ${s.id} (${s.installs} installs)`).join("\n");
+      if (sessionId) noteSuggestedIn(cfg3, sessionId, [EXTERNAL]);
+    }
   }
+  const perContext = listingTokens(cfg3);
   upsert(cfg3, (s, day) => {
     s.totals.prompts++;
     day.prompts++;
+    if (firstInSession) {
+      s.totals.sessions++;
+      s.totals.startup_tokens_saved += perContext;
+    }
+    s.startup_tokens_per_context = perContext;
+    s.totals.repeat_suppressed += suppressed;
     if (picks.length) {
       s.totals.suggested_prompts++;
       s.totals.suggestions += picks.length;
       day.suggested++;
       for (const k of picks) skillStat(s, k.id).suggested++;
-    } else if (prompt.trim().split(/\s+/).length >= 6) {
+      const sims = picks.map((k) => hits.find((h) => h.id === k.id)?.similarity).filter((x) => x != null);
+      s.trail.push({ at: (/* @__PURE__ */ new Date()).toISOString(), q: prompt.slice(0, 100), ids: picks.map((k) => k.id), sim: sims.length ? Math.max(...sims) : null });
+    } else if (!matched.length && prompt.trim().split(/\s+/).length >= 6) {
       s.gaps.push({ at: (/* @__PURE__ */ new Date()).toISOString(), q: prompt.slice(0, 140), registry: external.map((e) => e.id).slice(0, 3) });
     }
+    if (external.length) s.totals.external_suggestions++;
     s.totals.est_tokens_injected += Math.round(text2.length / 3.5);
   });
   return text2;
@@ -38941,7 +39048,7 @@ ${cur}`);
       return console.log(flag("--json") ? JSON.stringify(s, null, 2) : summarize(s));
     }
     case "hook":
-      return runHook(async (h) => ({ context: await suggest(cfg2, h.prompt) }), rest);
+      return runHook(async (h) => ({ context: await suggest(cfg2, h.prompt, { sessionId: h.sessionId }) }), rest);
     case "mcp":
       return init_mcp2().then(() => mcp_exports);
     default:

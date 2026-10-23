@@ -142,3 +142,47 @@ test('stats summary reports conversion and gaps', () => {
   assert.match(out, /conversion/);
   assert.match(out, /library gaps/);
 });
+
+// ---------- prompt gating, per-session dedupe, registry relevance, value accounting ----------
+const hookS = (prompt, session_id) => execFileSync('node', [BIN, 'hook'], { cwd: proj, env, input: JSON.stringify({ prompt, session_id }), encoding: 'utf8' });
+
+test('harness-generated prompts (subagent notifications, command output) get no suggestions and no gap', () => {
+  const before = stats();
+  const note = '<task-notification>\n<task-id>a1</task-id>\n<result>Ran a decision council on the backend rewrite; see the PR diff.</result>\n</task-notification>';
+  assert.equal(hookS(note, 's-gate'), '');
+  assert.equal(hookS('<local-command-stdout>decision council done</local-command-stdout>', 's-gate'), '');
+  const after = stats();
+  assert.equal(after.totals.skipped_system, (before.totals.skipped_system || 0) + 2);
+  assert.equal(after.gaps.length, before.gaps.length);
+  assert.equal(after.totals.prompts, before.totals.prompts + 2);
+});
+
+test('a slash command is matched on its name and arguments, not its tags', () => {
+  const p = '<command-message>council</command-message>\n<command-name>/council</command-name>\n<command-args>run a decision council on the pricing change</command-args>';
+  assert.match(JSON.parse(hookS(p, 's-cmd')).hookSpecificOutput.additionalContext, /decision-council/);
+});
+
+test('a skill is named once per session; a new session sees it again', () => {
+  const before = stats().totals.repeat_suppressed || 0;
+  assert.match(hookS('Run a decision council on the hiring plan.', 's-dedupe'), /decision-council/);
+  assert.equal(hookS('Run a decision council on the office move too.', 's-dedupe'), '');
+  assert.equal(stats().totals.repeat_suppressed, before + 1);
+  assert.match(hookS('Run a decision council on the hiring plan.', 's-other'), /decision-council/);
+});
+
+test('distinct sessions are counted and the startup saving is recorded', () => {
+  const s = stats();
+  assert.ok(s.totals.sessions >= 3);
+  assert.ok(s.startup_tokens_per_context > 0);
+  // accumulated per session at the size the listing had then (library growth does not inflate past sessions)
+  assert.ok(s.totals.startup_tokens_saved > 0 && s.totals.startup_tokens_saved <= s.totals.sessions * s.startup_tokens_per_context);
+  assert.ok(s.trail.length > 0 && s.trail.at(-1).q && Array.isArray(s.trail.at(-1).ids));
+});
+
+test('stats headline answers "is it worth it?" and explains noisy skills', () => {
+  for (let i = 0; i < 3; i++) hookS('Please do an ads audit on account ' + 'abc'[i], 's-noise-' + i);
+  const out = hj('stats');
+  assert.match(out, /worth it\?/);
+  assert.match(out, /kept out of startup/);
+  assert.match(out, /suggested often, never loaded[\s\S]*ads-audit x3 -- e\.g\. "Please do an ads audit/);
+});

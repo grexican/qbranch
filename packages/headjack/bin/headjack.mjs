@@ -254,7 +254,7 @@ async function main() {
       return console.log(flag('--json') ? JSON.stringify(s, null, 2) : summarize(s));
     }
 
-    case 'hook': return runHook(async (h) => ({ context: await suggest(cfg, h.prompt) }), rest);
+    case 'hook': return runHook(async (h) => ({ context: await suggest(cfg, h.prompt, { sessionId: h.sessionId }) }), rest);
 
     case 'mcp': return import('../src/mcp.mjs');
     default: console.log(HELP);

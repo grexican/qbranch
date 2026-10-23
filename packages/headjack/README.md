@@ -115,18 +115,22 @@ The ledger survives a release, so the full history of what came and went stays w
 
 ```
 headjack stats since 2026-10-14 (updated 2026-10-14 07:46)
-prompts seen 1 | prompts with suggestions 1 (100%)
-skill loads 1 | suggestion -> load conversion 100% | searches 0 (weak 0, external 0) | acquires 0
-~tokens injected by suggestions: 153
-most loaded: shared/json-canvas x1
+worth it? net +3,412 tokens (3,960 kept out of startup, 548 injected) | suggestion -> load conversion 50% (2/4) | loads 2
+~3,960 tokens kept out of startup (12 sessions, 330 each today; subagents not counted; assumes these skills would otherwise be installed)
+prompts 40 | with suggestions 3 (8%) | harness prompts skipped 22 | repeats suppressed 1
+searches 0 (weak 0, external 0) | registry suggestions 0 | acquires 0
+most loaded (loads/suggested): shared/json-canvas 2/2
 ```
 
 | Signal | What it tells you |
 |---|---|
+| **worth it?** | Net tokens: the skill descriptions kept out of every session's startup listing, minus what suggestions injected. Plus whether agents act on suggestions |
 | **suggestion → load conversion** | Do agents act on what the hook finds? |
-| **most loaded / suggested often but never loaded** | Which skills earn their place, and which ones to rewrite or delete |
+| **harness prompts skipped / repeats suppressed** | Noise the hook refused to add: subagent notifications and command output are not requests, and a skill is named once per session |
+| **suggested often, never loaded** | Which skills to rewrite or delete, each with an example prompt that triggered it (the last 30 suggestions are kept in `trail`) |
 | **library gaps** | The last requests nothing in the library could serve: your harvest list, with registry candidates |
-| **tokens injected** | What the hook costs |
+
+Registry candidates are offered at most once per session, and only when the request names what the skill is about (an idiom like "crush it" does not pull in `objection-crusher`).
 
 The file is plain JSON at the repo root. Commit it to track a team, or add it to `.gitignore` to keep it local. Set `"stats": false` in `headjack.config.json` (or `HEADJACK_STATS=0`) to turn it off.
 

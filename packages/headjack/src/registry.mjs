@@ -1,7 +1,7 @@
 // The public registry tier: skills.sh search, and fetching a skill from GitHub into the project library.
 import fs from 'node:fs';
 import path from 'node:path';
-import { gapTerms, parseSkill, reindex, load } from './library.mjs';
+import { gapTerms, keyTerms, parseSkill, reindex, load } from './library.mjs';
 import { record, skillHash } from './ledger.mjs';
 
 export async function searchRegistry(query, k = 5) {
@@ -15,6 +15,23 @@ export async function searchRegistryByGap(cfg, request, k = 5) {
   const seen = new Map();
   for (const t of gapTerms(cfg, request)) for (const s of await searchRegistry(t, 3)) if (!seen.has(s.id)) seen.set(s.id, s);
   return [...seen.values()].slice(0, k);
+}
+
+// skills.sh matches substrings, so an idiom ("crush it", "dive in") returns objection-crusher and user-deep-dive.
+// A candidate is relevant only when the request names what the skill is about: its name shares two meaningful words
+// with the request, or at least half of its name's words. Light stemming only (-s/-es/-ing/-ed): "crusher" is not "crush".
+const GENERIC = new Set(['skill', 'skills', 'tool', 'tools', 'agent', 'agents', 'helper', 'kit', 'pro', 'expert', 'guide']);
+const stem = (w) => w.replace(/(ing|ed|es|s)$/, (m) => (w.length - m.length >= 4 ? '' : m));
+// keyTerms keeps 4+ letter words; tool names are often 3 (sql, pdf, api, css, seo): take those too, minus filler
+const SHORT_FILLER = new Set('the and for you all are but not can use get got let its our out own any one two new now how why who way per via yes too did had has was see'.split(' '));
+export function relevantExternal(request, candidates) {
+  const short = String(request).toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length === 3 && !SHORT_FILLER.has(w));
+  const terms = new Set([...keyTerms(request), ...short].map(stem));
+  return candidates.filter((c) => {
+    const words = [...new Set(String(c.name || c.id.split('/').pop()).toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !GENERIC.has(w)).map(stem))];
+    const shared = words.filter(w => terms.has(w)).length;
+    return shared >= 2 || (shared >= 1 && shared / words.length >= 0.5);
+  });
 }
 
 /** Fetch owner/repo/skill from GitHub into .headjack/library/<skill> (or a given dir), index it, return it loaded. */
