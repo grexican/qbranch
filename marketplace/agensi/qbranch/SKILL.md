@@ -44,9 +44,12 @@ exactly what it added. No Node on the machine? Install the native binary instead
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/grexican/qbranch/main/scripts/install.sh | sh   # macOS, Linux
-irm https://raw.githubusercontent.com/grexican/qbranch/main/scripts/install.ps1 | iex        # Windows
+irm https://raw.githubusercontent.com/grexican/qbranch/main/scripts/install.ps1 | iex        # Windows PowerShell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/grexican/qbranch/main/scripts/install.ps1 | iex"   # Windows Command Prompt
 qbranch install all --platform claude
 ```
+
+Later, `qbranch update` refreshes the binary (plugin updates do not); the plugins say when it has fallen behind.
 
 After installing, restart the agent session so the hooks load.
 

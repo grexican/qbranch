@@ -10,6 +10,17 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${extensionPath}/dist/headjack.mjs\" hook session --platform gemini",
+            "timeout": 10000
+          }
+        ]
+      }
     ]
   }
 }

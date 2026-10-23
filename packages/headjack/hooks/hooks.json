@@ -10,6 +10,17 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/headjack.mjs\" hook session",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

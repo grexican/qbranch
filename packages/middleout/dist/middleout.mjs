@@ -340,6 +340,75 @@ var init_hooks = __esm({
   }
 });
 
+// packages/core/src/binary.mjs
+import fs3 from "node:fs";
+import os2 from "node:os";
+import path4 from "node:path";
+function installCommand(platform = process.platform, env = process.env) {
+  const base = `https://raw.githubusercontent.com/${repoOf(env)}/main/scripts`;
+  return platform === "win32" ? `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm ${base}/install.ps1 | iex"` : `curl -fsSL ${base}/install.sh | sh`;
+}
+function cmpVersion(a, b) {
+  const p = (v) => String(v).trim().replace(/^v/, "").split("-")[0].split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const x = p(a), y = p(b);
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0) ? -1 : 1;
+  return 0;
+}
+function withBinaryNote(h, d = null, opts = {}) {
+  const n = binaryNote({ sessionId: h?.sessionId || "", ...opts });
+  if (!n) return d;
+  return d ? { ...d, context: d.context ? `${d.context}
+
+${n}` : n } : { context: n };
+}
+function binaryNote({ sessionId = "", version: version2 = VERSION, env = process.env, platform = process.platform, markDir = markDirDefault() } = {}) {
+  try {
+    if (!version2 || version2 === "dev") return null;
+    const home2 = qbranchHome(env);
+    const exe = path4.join(home2, platform === "win32" ? "qbranch.exe" : "qbranch");
+    let bin = null;
+    try {
+      bin = fs3.readFileSync(path4.join(home2, "VERSION"), "utf8").trim();
+    } catch {
+    }
+    if (bin === "dev") return null;
+    const hasExe = fs3.existsSync(exe);
+    if (!bin && !hasExe) return null;
+    if (bin && cmpVersion(bin, version2) >= 0) return null;
+    const key = (sessionId || `ppid-${process.ppid}`).replace(/[^A-Za-z0-9_.-]/g, "_");
+    const mark2 = path4.join(markDir, `binary-${key}`);
+    if (fs3.existsSync(mark2)) return null;
+    fs3.mkdirSync(markDir, { recursive: true, mode: 448 });
+    fs3.writeFileSync(mark2, version2, { mode: 384 });
+    const dirs = (env.PATH || env.Path || "").split(path4.delimiter).filter(Boolean).map((d) => path4.resolve(d).toLowerCase());
+    const homeBin = dirs.indexOf(path4.resolve(home2, "bin").toLowerCase());
+    const pluginBin = dirs.findIndex((d) => /[\\/]plugins[\\/]/.test(d) && /[\\/]bin$/.test(d) && SHIMS.some((s) => fs3.existsSync(path4.join(d, s))));
+    const shadow = homeBin >= 0 && pluginBin >= 0 && homeBin < pluginBin ? ` Until then its commands (${path4.join(home2, "bin")}) come first on PATH and shadow the plugins' newer ones.` : "";
+    const what = bin ? `qbranch binary v${bin.replace(/^v/, "")} is older than the plugins (v${version2})` : `qbranch binary is older than the plugins (v${version2}; it was installed before versions were tracked)`;
+    const alt = platform === "win32" ? `Command Prompt: ${installCommand(platform, env)}` : installCommand(platform, env);
+    return `${what}: run \`qbranch update\` (or ${alt}).${shadow}`;
+  } catch {
+    return null;
+  }
+}
+var VERSION, qbranchHome, repoOf, user, markDirDefault, SHIMS;
+var init_binary = __esm({
+  "packages/core/src/binary.mjs"() {
+    VERSION = true ? "0.5.0" : null;
+    qbranchHome = (env = process.env) => env.QBRANCH_HOME || path4.join(os2.homedir(), ".qbranch");
+    repoOf = (env) => env.QBRANCH_REPO || "grexican/qbranch";
+    user = () => {
+      try {
+        return os2.userInfo().username.replace(/[^A-Za-z0-9_.-]/g, "_");
+      } catch {
+        return String(process.getuid?.() ?? "user");
+      }
+    };
+    markDirDefault = () => path4.join(os2.tmpdir(), `qbranch-${user()}`, "notes");
+    SHIMS = ["headjack", "middleout", "moneyball", "groundhog"];
+  }
+});
+
 // packages/core/src/index.mjs
 var init_src = __esm({
   "packages/core/src/index.mjs"() {
@@ -349,23 +418,24 @@ var init_src = __esm({
     init_embed();
     init_transcripts();
     init_hooks();
+    init_binary();
   }
 });
 
 // packages/middleout/src/config.mjs
-import fs3 from "node:fs";
-import path4 from "node:path";
+import fs4 from "node:fs";
+import path5 from "node:path";
 function loadConfig(root = projectRoot2()) {
-  let user = {};
-  const f = path4.join(root, "middleout.config.json");
-  if (fs3.existsSync(f)) user = JSON.parse(fs3.readFileSync(f, "utf8"));
-  const cfg3 = { ...DEFAULTS, ...user, root };
+  let user2 = {};
+  const f = path5.join(root, "middleout.config.json");
+  if (fs4.existsSync(f)) user2 = JSON.parse(fs4.readFileSync(f, "utf8"));
+  const cfg3 = { ...DEFAULTS, ...user2, root };
   cfg3.skipped = {};
   if (!cfg3.servers) {
     cfg3.servers = {};
     let m = {};
     try {
-      m = JSON.parse(fs3.readFileSync(path4.join(root, ".mcp.json"), "utf8")).mcpServers || {};
+      m = JSON.parse(fs4.readFileSync(path5.join(root, ".mcp.json"), "utf8")).mcpServers || {};
     } catch {
     }
     for (const [name, s] of Object.entries(m)) {
@@ -859,8 +929,8 @@ var init_parseUtil = __esm({
     init_errors();
     init_en();
     makeIssue = (params) => {
-      const { data, path: path9, errorMaps, issueData } = params;
-      const fullPath = [...path9, ...issueData.path || []];
+      const { data, path: path10, errorMaps, issueData } = params;
+      const fullPath = [...path10, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -1144,11 +1214,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util();
     ParseInputLazyPath = class {
-      constructor(parent, value, path9, key) {
+      constructor(parent, value, path10, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path9;
+        this._path = path10;
         this._key = key;
       }
       get path() {
@@ -4622,10 +4692,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path9) {
-  if (!path9)
+function getElementAtPath(obj, path10) {
+  if (!path10)
     return obj;
-  return path9.reduce((acc, key) => acc?.[key], obj);
+  return path10.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -4884,11 +4954,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path9, issues) {
+function prefixIssues(path10, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path9);
+    iss.path.unshift(path10);
     return iss;
   });
 }
@@ -5421,16 +5491,16 @@ function flattenError(error62, mapper = (issue2) => issue2.message) {
 }
 function formatError(error62, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error63, path9 = []) => {
+  const processError = (error63, path10 = []) => {
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path9, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -5469,17 +5539,17 @@ function formatError(error62, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error62, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error63, path9 = []) => {
+  const processError = (error63, path10 = []) => {
     var _a3;
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path9, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -5518,8 +5588,8 @@ function treeifyError(error62, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs2 = [];
-  const path9 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path9) {
+  const path10 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path10) {
     if (typeof seg === "number")
       segs2.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -22057,11 +22127,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path9) {
-  if (path9.length === 0) {
+function getDotPath(path10) {
+  if (path10.length === 0) {
     return "object root";
   }
-  return path9.reduce((acc, seg, index) => {
+  return path10.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -23999,13 +24069,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path9 = ref.slice(1).split("/").filter(Boolean);
-  if (path9.length === 0) {
+  const path10 = ref.slice(1).split("/").filter(Boolean);
+  if (path10.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path9[0] === defsKey) {
-    const key = path9[1] === void 0 ? void 0 : decodeJSONPointerSegment(path9[1]);
+  if (path10[0] === defsKey) {
+    const key = path10[1] === void 0 ? void 0 : decodeJSONPointerSegment(path10[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -32483,8 +32553,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path9) {
-      let input2 = path9;
+    function removeDotSegments(path10) {
+      let input2 = path10;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -32893,8 +32963,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path9 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
+        const path10 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -36407,12 +36477,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs8, exportName) {
+    function addFormats(ajv, list, fs9, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs8[f]);
+        ajv.addFormat(f, fs9[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -37219,8 +37289,8 @@ var require_windows = __commonJS({
   "node_modules/isexe/windows.js"(exports, module) {
     module.exports = isexe;
     isexe.sync = sync;
-    var fs8 = __require("fs");
-    function checkPathExt(path9, options) {
+    var fs9 = __require("fs");
+    function checkPathExt(path10, options) {
       var pathext = options.pathExt !== void 0 ? options.pathExt : process.env.PATHEXT;
       if (!pathext) {
         return true;
@@ -37231,25 +37301,25 @@ var require_windows = __commonJS({
       }
       for (var i = 0; i < pathext.length; i++) {
         var p = pathext[i].toLowerCase();
-        if (p && path9.substr(-p.length).toLowerCase() === p) {
+        if (p && path10.substr(-p.length).toLowerCase() === p) {
           return true;
         }
       }
       return false;
     }
-    function checkStat(stat, path9, options) {
+    function checkStat(stat, path10, options) {
       if (!stat.isSymbolicLink() && !stat.isFile()) {
         return false;
       }
-      return checkPathExt(path9, options);
+      return checkPathExt(path10, options);
     }
-    function isexe(path9, options, cb) {
-      fs8.stat(path9, function(er, stat) {
-        cb(er, er ? false : checkStat(stat, path9, options));
+    function isexe(path10, options, cb) {
+      fs9.stat(path10, function(er, stat) {
+        cb(er, er ? false : checkStat(stat, path10, options));
       });
     }
-    function sync(path9, options) {
-      return checkStat(fs8.statSync(path9), path9, options);
+    function sync(path10, options) {
+      return checkStat(fs9.statSync(path10), path10, options);
     }
   }
 });
@@ -37259,14 +37329,14 @@ var require_mode = __commonJS({
   "node_modules/isexe/mode.js"(exports, module) {
     module.exports = isexe;
     isexe.sync = sync;
-    var fs8 = __require("fs");
-    function isexe(path9, options, cb) {
-      fs8.stat(path9, function(er, stat) {
+    var fs9 = __require("fs");
+    function isexe(path10, options, cb) {
+      fs9.stat(path10, function(er, stat) {
         cb(er, er ? false : checkStat(stat, options));
       });
     }
-    function sync(path9, options) {
-      return checkStat(fs8.statSync(path9), options);
+    function sync(path10, options) {
+      return checkStat(fs9.statSync(path10), options);
     }
     function checkStat(stat, options) {
       return stat.isFile() && checkMode(stat, options);
@@ -37290,7 +37360,7 @@ var require_mode = __commonJS({
 // node_modules/isexe/index.js
 var require_isexe = __commonJS({
   "node_modules/isexe/index.js"(exports, module) {
-    var fs8 = __require("fs");
+    var fs9 = __require("fs");
     var core;
     if (process.platform === "win32" || global.TESTING_WINDOWS) {
       core = require_windows();
@@ -37299,7 +37369,7 @@ var require_isexe = __commonJS({
     }
     module.exports = isexe;
     isexe.sync = sync;
-    function isexe(path9, options, cb) {
+    function isexe(path10, options, cb) {
       if (typeof options === "function") {
         cb = options;
         options = {};
@@ -37309,7 +37379,7 @@ var require_isexe = __commonJS({
           throw new TypeError("callback not provided");
         }
         return new Promise(function(resolve, reject) {
-          isexe(path9, options || {}, function(er, is) {
+          isexe(path10, options || {}, function(er, is) {
             if (er) {
               reject(er);
             } else {
@@ -37318,7 +37388,7 @@ var require_isexe = __commonJS({
           });
         });
       }
-      core(path9, options || {}, function(er, is) {
+      core(path10, options || {}, function(er, is) {
         if (er) {
           if (er.code === "EACCES" || options && options.ignoreErrors) {
             er = null;
@@ -37328,9 +37398,9 @@ var require_isexe = __commonJS({
         cb(er, is);
       });
     }
-    function sync(path9, options) {
+    function sync(path10, options) {
       try {
-        return core.sync(path9, options || {});
+        return core.sync(path10, options || {});
       } catch (er) {
         if (options && options.ignoreErrors || er.code === "EACCES") {
           return false;
@@ -37346,7 +37416,7 @@ var require_isexe = __commonJS({
 var require_which = __commonJS({
   "node_modules/which/which.js"(exports, module) {
     var isWindows = process.platform === "win32" || process.env.OSTYPE === "cygwin" || process.env.OSTYPE === "msys";
-    var path9 = __require("path");
+    var path10 = __require("path");
     var COLON = isWindows ? ";" : ":";
     var isexe = require_isexe();
     var getNotFoundError = (cmd2) => Object.assign(new Error(`not found: ${cmd2}`), { code: "ENOENT" });
@@ -37384,7 +37454,7 @@ var require_which = __commonJS({
           return opt.all && found.length ? resolve(found) : reject(getNotFoundError(cmd2));
         const ppRaw = pathEnv[i];
         const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
-        const pCmd = path9.join(pathPart, cmd2);
+        const pCmd = path10.join(pathPart, cmd2);
         const p = !pathPart && /^\.[\\\/]/.test(cmd2) ? cmd2.slice(0, 2) + pCmd : pCmd;
         resolve(subStep(p, i, 0));
       });
@@ -37411,7 +37481,7 @@ var require_which = __commonJS({
       for (let i = 0; i < pathEnv.length; i++) {
         const ppRaw = pathEnv[i];
         const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
-        const pCmd = path9.join(pathPart, cmd2);
+        const pCmd = path10.join(pathPart, cmd2);
         const p = !pathPart && /^\.[\\\/]/.test(cmd2) ? cmd2.slice(0, 2) + pCmd : pCmd;
         for (let j = 0; j < pathExt.length; j++) {
           const cur = p + pathExt[j];
@@ -37459,7 +37529,7 @@ var require_path_key = __commonJS({
 var require_resolveCommand = __commonJS({
   "node_modules/cross-spawn/lib/util/resolveCommand.js"(exports, module) {
     "use strict";
-    var path9 = __require("path");
+    var path10 = __require("path");
     var which = require_which();
     var getPathKey = require_path_key();
     function resolveCommandAttempt(parsed, withoutPathExt) {
@@ -37477,7 +37547,7 @@ var require_resolveCommand = __commonJS({
       try {
         resolved = which.sync(parsed.command, {
           path: env[getPathKey({ env })],
-          pathExt: withoutPathExt ? path9.delimiter : void 0
+          pathExt: withoutPathExt ? path10.delimiter : void 0
         });
       } catch (e) {
       } finally {
@@ -37486,7 +37556,7 @@ var require_resolveCommand = __commonJS({
         }
       }
       if (resolved) {
-        resolved = path9.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
+        resolved = path10.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
       }
       return resolved;
     }
@@ -37540,8 +37610,8 @@ var require_shebang_command = __commonJS({
       if (!match) {
         return null;
       }
-      const [path9, argument] = match[0].replace(/#! ?/, "").split(" ");
-      const binary = path9.split("/").pop();
+      const [path10, argument] = match[0].replace(/#! ?/, "").split(" ");
+      const binary = path10.split("/").pop();
       if (binary === "env") {
         return argument;
       }
@@ -37554,16 +37624,16 @@ var require_shebang_command = __commonJS({
 var require_readShebang = __commonJS({
   "node_modules/cross-spawn/lib/util/readShebang.js"(exports, module) {
     "use strict";
-    var fs8 = __require("fs");
+    var fs9 = __require("fs");
     var shebangCommand = require_shebang_command();
     function readShebang(command) {
       const size2 = 150;
       const buffer = Buffer.alloc(size2);
       let fd;
       try {
-        fd = fs8.openSync(command, "r");
-        fs8.readSync(fd, buffer, 0, size2, 0);
-        fs8.closeSync(fd);
+        fd = fs9.openSync(command, "r");
+        fs9.readSync(fd, buffer, 0, size2, 0);
+        fs9.closeSync(fd);
       } catch (e) {
       }
       return shebangCommand(buffer.toString());
@@ -37576,7 +37646,7 @@ var require_readShebang = __commonJS({
 var require_parse = __commonJS({
   "node_modules/cross-spawn/lib/parse.js"(exports, module) {
     "use strict";
-    var path9 = __require("path");
+    var path10 = __require("path");
     var resolveCommand = require_resolveCommand();
     var escape2 = require_escape();
     var readShebang = require_readShebang();
@@ -37601,7 +37671,7 @@ var require_parse = __commonJS({
       const needsShell = !isExecutableRegExp.test(commandFile);
       if (parsed.options.forceShell || needsShell) {
         const needsDoubleEscapeMetaChars = isCmdShimRegExp.test(commandFile);
-        parsed.command = path9.normalize(parsed.command);
+        parsed.command = path10.normalize(parsed.command);
         parsed.command = escape2.command(parsed.command);
         parsed.args = parsed.args.map((arg) => escape2.argument(arg, needsDoubleEscapeMetaChars));
         const shellCommand = [parsed.command].concat(parsed.args).join(" ");
@@ -40215,22 +40285,22 @@ var init_sse = __esm({
 
 // packages/middleout/src/oauth.mjs
 import crypto2 from "node:crypto";
-import fs4 from "node:fs";
+import fs5 from "node:fs";
 import http from "node:http";
-import os2 from "node:os";
-import path5 from "node:path";
+import os3 from "node:os";
+import path6 from "node:path";
 import { spawn as spawn2 } from "node:child_process";
 function locked(f, fn) {
   const l = `${f}.lock`;
-  fs4.mkdirSync(path5.dirname(f), { recursive: true });
+  fs5.mkdirSync(path6.dirname(f), { recursive: true });
   let got = false;
   for (let i = 0; i < 200 && !got; i++) {
     try {
-      fs4.writeFileSync(l, String(process.pid), { flag: "wx" });
+      fs5.writeFileSync(l, String(process.pid), { flag: "wx" });
       got = true;
     } catch {
       try {
-        if (Date.now() - fs4.statSync(l).mtimeMs > 5e3) fs4.rmSync(l, { force: true });
+        if (Date.now() - fs5.statSync(l).mtimeMs > 5e3) fs5.rmSync(l, { force: true });
       } catch {
       }
       const until = Date.now() + 25;
@@ -40241,21 +40311,21 @@ function locked(f, fn) {
   try {
     return fn();
   } finally {
-    if (got) fs4.rmSync(l, { force: true });
+    if (got) fs5.rmSync(l, { force: true });
   }
 }
 function write(f, v) {
-  fs4.mkdirSync(path5.dirname(f), { recursive: true });
+  fs5.mkdirSync(path6.dirname(f), { recursive: true });
   const tmp = `${f}.${process.pid}.tmp`;
-  fs4.writeFileSync(tmp, JSON.stringify(v, null, 2) + "\n", { mode: 384 });
-  fs4.renameSync(tmp, f);
+  fs5.writeFileSync(tmp, JSON.stringify(v, null, 2) + "\n", { mode: 384 });
+  fs5.renameSync(tmp, f);
 }
 function onPath(cmd2, env = process.env) {
   pathCache ??= /* @__PURE__ */ new Map();
   const key = `${cmd2}\0${env.PATH || env.Path || ""}`;
   if (pathCache.has(key)) return pathCache.get(key);
   const exts = process.platform === "win32" ? [".cmd", ".exe", ""] : [""];
-  const hit = (env.PATH || env.Path || "").split(path5.delimiter).some((d) => d && exts.some((e) => fs4.existsSync(path5.join(d, cmd2 + e))));
+  const hit = (env.PATH || env.Path || "").split(path6.delimiter).some((d) => d && exts.some((e) => fs5.existsSync(path6.join(d, cmd2 + e))));
   pathCache.set(key, hit);
   return hit;
 }
@@ -40437,20 +40507,20 @@ var init_oauth = __esm({
     init_client2();
     init_streamableHttp();
     init_auth2();
-    home = () => process.env.MIDDLEOUT_HOME || path5.join(os2.homedir(), ".qbranch", "middleout");
-    tokenFile = (name, url2) => path5.join(home(), "oauth", `${name.replace(/[^\w.-]/g, "_")}-${crypto2.createHash("sha256").update(url2).digest("hex").slice(0, 8)}.json`);
+    home = () => process.env.MIDDLEOUT_HOME || path6.join(os3.homedir(), ".qbranch", "middleout");
+    tokenFile = (name, url2) => path6.join(home(), "oauth", `${name.replace(/[^\w.-]/g, "_")}-${crypto2.createHash("sha256").update(url2).digest("hex").slice(0, 8)}.json`);
     read = (f) => {
       try {
-        return JSON.parse(fs4.readFileSync(f, "utf8"));
+        return JSON.parse(fs5.readFileSync(f, "utf8"));
       } catch {
         return null;
       }
     };
     SignInNeeded = class extends Error {
     };
-    isSea = () => /^qbranch(\.exe)?$/i.test(path5.basename(process.execPath));
+    isSea = () => /^qbranch(\.exe)?$/i.test(path6.basename(process.execPath));
     pathCache = null;
-    slash = (p) => p.split(path5.sep).join("/");
+    slash = (p) => p.split(path6.sep).join("/");
     signInMessage = (name) => `server "${name}" needs sign-in: run \`${loginCommand(name)}\` once (opens a browser)`;
     maybeNeedsLogin = (name, spec) => {
       if (!spec?.url || Object.keys(spec.headers || {}).some((k) => k.toLowerCase() === "authorization")) return false;
@@ -44328,25 +44398,25 @@ init_config();
 init_engine();
 init_stats2();
 init_oauth();
-import fs7 from "node:fs";
-import path8 from "node:path";
+import fs8 from "node:fs";
+import path9 from "node:path";
 
 // packages/middleout/src/hook.mjs
 init_stats2();
 init_plan();
 init_oauth();
-import fs6 from "node:fs";
-import os4 from "node:os";
-import path7 from "node:path";
+import fs7 from "node:fs";
+import os5 from "node:os";
+import path8 from "node:path";
 
 // packages/middleout/src/lens.mjs
 var import_jmespath2 = __toESM(require_jmespath(), 1);
 init_hooks();
 init_paginate();
 import crypto3 from "node:crypto";
-import fs5 from "node:fs";
-import os3 from "node:os";
-import path6 from "node:path";
+import fs6 from "node:fs";
+import os4 from "node:os";
+import path7 from "node:path";
 var SIDE = "_middleout";
 var MAX_FANOUT = 50;
 var SIDE_TTL_MS = 6e4;
@@ -44365,7 +44435,7 @@ var me = () => {
   } catch {
   }
   try {
-    return os3.userInfo().username.replace(/[^\w-]/g, "_") || "user";
+    return os4.userInfo().username.replace(/[^\w-]/g, "_") || "user";
   } catch {
     return "user";
   }
@@ -44373,12 +44443,12 @@ var me = () => {
 var ownedByMe = (st) => typeof process.getuid !== "function" || st.uid === process.getuid();
 var DIR = { recursive: true, mode: 448 };
 function baseDir(cfg3) {
-  const base = path6.join(cfg3.lensDir || os3.tmpdir(), `middleout-lens-${me()}`);
-  if (!fs5.existsSync(base)) fs5.mkdirSync(base, DIR);
-  const st = fs5.statSync(base);
+  const base = path7.join(cfg3.lensDir || os4.tmpdir(), `middleout-lens-${me()}`);
+  if (!fs6.existsSync(base)) fs6.mkdirSync(base, DIR);
+  const st = fs6.statSync(base);
   if (!st.isDirectory() || !ownedByMe(st)) throw new Error("lens folder is not ours");
   try {
-    if (process.platform !== "win32" && st.mode & 63) fs5.chmodSync(base, 448);
+    if (process.platform !== "win32" && st.mode & 63) fs6.chmodSync(base, 448);
   } catch {
   }
   return base;
@@ -44387,14 +44457,14 @@ var SESSION_RE = /^[\w-]{1,80}$/;
 function sessionDir(cfg3, h) {
   const base = baseDir(cfg3);
   const name = String(h.sessionId || "nosession").replace(/[^\w-]/g, "_").slice(0, 80);
-  const d = path6.join(base, name);
-  if (!fs5.existsSync(d)) {
-    fs5.mkdirSync(d, DIR);
+  const d = path7.join(base, name);
+  if (!fs6.existsSync(d)) {
+    fs6.mkdirSync(d, DIR);
     try {
-      for (const e of fs5.readdirSync(base, { withFileTypes: true })) {
+      for (const e of fs6.readdirSync(base, { withFileTypes: true })) {
         if (!e.isDirectory() || !SESSION_RE.test(e.name) || e.name === name) continue;
-        const p = path6.join(base, e.name);
-        if (Date.now() - fs5.statSync(p).mtimeMs > STATE_TTL_MS) fs5.rmSync(p, { recursive: true, force: true });
+        const p = path7.join(base, e.name);
+        if (Date.now() - fs6.statSync(p).mtimeMs > STATE_TTL_MS) fs6.rmSync(p, { recursive: true, force: true });
       }
     } catch {
     }
@@ -44405,15 +44475,15 @@ var OWN_FILE = /^(side-(tu|ak)-[\w-]+|state-[\w-]+|fan-[\w-]+|slot-[\w.-]+|raw-\
 function tidy(d) {
   try {
     const raws = [];
-    for (const f of fs5.readdirSync(d)) {
+    for (const f of fs6.readdirSync(d)) {
       if (!OWN_FILE.test(f)) continue;
-      const p = path6.join(d, f);
-      const m = fs5.statSync(p).mtimeMs;
+      const p = path7.join(d, f);
+      const m = fs6.statSync(p).mtimeMs;
       if (f.startsWith("raw-")) raws.push([p, m]);
-      else if (Date.now() - m > STATE_TTL_MS) fs5.rmSync(p, { force: true });
+      else if (Date.now() - m > STATE_TTL_MS) fs6.rmSync(p, { force: true });
     }
     raws.sort((a, b) => b[1] - a[1]);
-    for (const [p] of raws.slice(MAX_RAW)) fs5.rmSync(p, { force: true });
+    for (const [p] of raws.slice(MAX_RAW)) fs6.rmSync(p, { force: true });
   } catch {
   }
 }
@@ -44423,15 +44493,15 @@ var argsKey = (tool, args) => crypto3.createHash("sha1").update(`${bareTool(tool
 ${stable(args || {})}`).digest("hex").slice(0, 16);
 var readJson2 = (f) => {
   try {
-    return JSON.parse(fs5.readFileSync(f, "utf8"));
+    return JSON.parse(fs6.readFileSync(f, "utf8"));
   } catch {
     return null;
   }
 };
 var writeJson = (f, v) => {
   const tmp = `${f}.${process.pid}.tmp`;
-  fs5.writeFileSync(tmp, JSON.stringify(v), { mode: 384 });
-  fs5.renameSync(tmp, f);
+  fs6.writeFileSync(tmp, JSON.stringify(v), { mode: 384 });
+  fs6.renameSync(tmp, f);
 };
 var toolUseId = (h) => h.raw?.tool_use_id || h.raw?.toolUseId || h.raw?.tool_call_id || null;
 var safeId = (s) => String(s).replace(/[^\w-]/g, "_");
@@ -44528,15 +44598,15 @@ function lensPre(cfg3, h) {
   const d = sessionDir(cfg3, h);
   const rec = { side, tool: h.tool, at: Date.now() };
   const id = toolUseId(h);
-  writeJson(path6.join(d, id ? `side-tu-${safeId(id)}.json` : `side-ak-${argsKey(h.tool, rest2)}.json`), rec);
+  writeJson(path7.join(d, id ? `side-tu-${safeId(id)}.json` : `side-ak-${argsKey(h.tool, rest2)}.json`), rec);
   return { updatedInput: rest2, keepPermission: true };
 }
 function takeSide(cfg3, h) {
   const d = sessionDir(cfg3, h);
   const id = toolUseId(h);
-  const f = path6.join(d, id ? `side-tu-${safeId(id)}.json` : `side-ak-${argsKey(h.tool, h.input)}.json`);
+  const f = path7.join(d, id ? `side-tu-${safeId(id)}.json` : `side-ak-${argsKey(h.tool, h.input)}.json`);
   const rec = readJson2(f);
-  if (rec) fs5.rmSync(f, { force: true });
+  if (rec) fs6.rmSync(f, { force: true });
   if (!rec || Date.now() - (rec.at || 0) > SIDE_TTL_MS) return null;
   return { side: rec.side, tool: rec.tool };
 }
@@ -44605,7 +44675,7 @@ INCOMPLETE: ${gaps.join("; ")}` : ""}`, stat: { rawBytes, returnedBytes: body.le
 }
 function continuation(h, d, state, n) {
   const id = state.id;
-  writeJson(path6.join(d, `state-${id}.json`), state);
+  writeJson(path7.join(d, `state-${id}.json`), state);
   const add = Object.fromEntries(Object.entries(n.args).filter(([k, v]) => stable(h.input?.[k]) !== stable(v)));
   return {
     updatedOutput: `middleout: page ${state.pages} of ${shortName(h.tool)} stored (${state.items.length} items so far). Call ${shortName(h.tool)} again now with the same arguments plus ${JSON.stringify({ ...add, [SIDE]: { continue: id } })}. Do not answer yet: the merged result comes back with the last page.`,
@@ -44641,7 +44711,7 @@ function firstCall(cfg3, h, d, side, v, rawBytes, big) {
   return withEach(cfg3, h, d, side, v, { rawBytes, notes, parentArgs: h.input || {} });
 }
 function nextPage(cfg3, h, d, side, v, rawBytes, err, big) {
-  const f = path6.join(d, `state-${safeId(side.continue)}.json`);
+  const f = path7.join(d, `state-${safeId(side.continue)}.json`);
   const state = readJson2(f);
   if (!state) {
     if (err) return null;
@@ -44670,7 +44740,7 @@ ${JSON.stringify(v)}`, stat: { rawBytes, returnedBytes: rawBytes, pages: 1 } };
     }
   }
   if (more) return continuation(h, d, state, more);
-  fs5.rmSync(f, { force: true });
+  fs6.rmSync(f, { force: true });
   return withEach(
     cfg3,
     h,
@@ -44703,7 +44773,7 @@ function withEach(cfg3, h, d, side, value, meta3) {
     const args = fill(k.args || {}, scope);
     calls.push({ tool: sameServerTool(h, k.tool), slot: `${i}.${j}`, args: { ...args, [SIDE]: { continue: id, slot: `${i}.${j}`, ...k.select ? { select: k.select } : {} } } });
   }));
-  writeJson(path6.join(d, `fan-${id}.json`), {
+  writeJson(path7.join(d, `fan-${id}.json`), {
     id,
     parent: arr,
     kids: kids.map((k) => ({ as: k.as || "children" })),
@@ -44722,7 +44792,7 @@ ${calls.map((c) => `- ${c.tool} ${JSON.stringify(c.args)}`).join("\n")}`,
 }
 function child(cfg3, h, d, side, v, rawBytes, err, big) {
   const id = safeId(side.continue);
-  const fan = readJson2(path6.join(d, `fan-${id}.json`));
+  const fan = readJson2(path7.join(d, `fan-${id}.json`));
   if (!fan) return null;
   const slot = String(side.slot);
   const slots = fan.slots || [];
@@ -44740,12 +44810,12 @@ ${JSON.stringify(v)}`, stat: { rawBytes, returnedBytes: rawBytes, pages: 1 } };
     const more = at !== null && nextRequest(v, h.input || {}, null, get(v, at) || []).args ? 1 : 0;
     rec = { val, rawBytes, more, big: big || 0 };
   }
-  writeJson(path6.join(d, `slot-${id}-${slot.replace(/[^\w.-]/g, "_")}.json`), rec);
-  const have = new Set(fs5.readdirSync(d).filter((f) => f.startsWith(`slot-${id}-`) && f.endsWith(".json")).map((f) => f.slice(`slot-${id}-`.length, -5)));
+  writeJson(path7.join(d, `slot-${id}-${slot.replace(/[^\w.-]/g, "_")}.json`), rec);
+  const have = new Set(fs6.readdirSync(d).filter((f) => f.startsWith(`slot-${id}-`) && f.endsWith(".json")).map((f) => f.slice(`slot-${id}-`.length, -5)));
   const done = slots.filter((s) => have.has(s.replace(/[^\w.-]/g, "_"))).length;
   if (done < fan.expected) return { updatedOutput: `middleout: ${done}/${fan.expected} stored. Issue any remaining calls; the assembled result comes back with the last one.`, stat: { rawBytes, returnedBytes: 0, pages: 0, pending: true } };
   try {
-    fs5.writeFileSync(path6.join(d, `fan-${id}.done`), "1", { flag: "wx", mode: 384 });
+    fs6.writeFileSync(path7.join(d, `fan-${id}.done`), "1", { flag: "wx", mode: 384 });
   } catch {
     return { updatedOutput: `middleout: ${fan.expected}/${fan.expected} stored; another call returned the assembled result.`, stat: { rawBytes, returnedBytes: 0, pages: 0, pending: true } };
   }
@@ -44753,7 +44823,7 @@ ${JSON.stringify(v)}`, stat: { rawBytes, returnedBytes: rawBytes, pages: 1 } };
   const assembled = fan.parent.map((el, i) => {
     const o = el && typeof el === "object" ? { ...el } : { value: el };
     fan.kids.forEach((k, j) => {
-      const s = readJson2(path6.join(d, `slot-${id}-${i}.${j}.json`));
+      const s = readJson2(path7.join(d, `slot-${id}-${i}.${j}.json`));
       if (!s) missing++;
       if (s?.failed) {
         failed++;
@@ -44770,7 +44840,7 @@ ${JSON.stringify(v)}`, stat: { rawBytes, returnedBytes: rawBytes, pages: 1 } };
   if (failed) notes.push(`${failed} of ${fan.expected} per-item calls failed (their entries hold {"error": ...}; first: ${firstErr.slice(0, 160)})`);
   if (missing) notes.push(`${missing} of ${fan.expected} per-item results are missing (null)`);
   if (moreN) notes.push(`${moreN} per-item result${moreN === 1 ? "" : "s"} had more pages that were not fetched`);
-  for (const f of fs5.readdirSync(d)) if (f.startsWith(`slot-${id}-`) || f.startsWith(`fan-${id}.`)) fs5.rmSync(path6.join(d, f), { force: true });
+  for (const f of fs6.readdirSync(d)) if (f.startsWith(`slot-${id}-`) || f.startsWith(`fan-${id}.`)) fs6.rmSync(path7.join(d, f), { force: true });
   const out = finish(h, { then: fan.then }, assembled, { rawBytes: raw, notes });
   out.stat.fanout = fan.expected;
   return out;
@@ -44826,13 +44896,13 @@ function compactResult(cfg3, h, text2) {
   const body = JSON.stringify(compact(v, st));
   if (body.length > text2.length * 0.8) return null;
   const d = sessionDir(cfg3, h);
-  const file2 = path6.join(d, `raw-${Date.now()}-${crypto3.randomBytes(3).toString("hex")}.json`);
-  fs5.writeFileSync(file2, text2, { mode: 384 });
+  const file2 = path7.join(d, `raw-${Date.now()}-${crypto3.randomBytes(3).toString("hex")}.json`);
+  fs6.writeFileSync(file2, text2, { mode: 384 });
   tidy(d);
   const how = ["empty fields dropped", st.trimmed && "long strings trimmed", st.packed && "record arrays packed as _cols/_rows (_same: values every record shares)", ...bigNote(big)].filter(Boolean).join(", ");
   return {
     updatedOutput: `${body}
-(middleout: compacted ${kb(text2.length)} -> ${kb(body.length)}: ${how}. Full result: ${file2.split(path6.sep).join("/")} (read it if you need more), or call again with "${SIDE}": {"select": "<JMESPath>"} for exactly the fields you need.)`,
+(middleout: compacted ${kb(text2.length)} -> ${kb(body.length)}: ${how}. Full result: ${file2.split(path7.sep).join("/")} (read it if you need more), or call again with "${SIDE}": {"select": "<JMESPath>"} for exactly the fields you need.)`,
     stat: { rawBytes: text2.length, returnedBytes: body.length, pages: 1, compacted: true }
   };
 }
@@ -44845,7 +44915,7 @@ var parse3 = (name) => {
 };
 var srvName = (cfg3, server2) => Object.keys(cfg3.servers || {}).find((n) => norm(n) === norm(server2)) || server2;
 var isOurs = (server2) => server2 === "middleout" || /middleout/.test(server2);
-var mark = (kind, session, server2) => path7.join(os4.tmpdir(), `middleout-${kind}-${String(session || "x").replace(/[^\w-]/g, "_")}-${norm(server2)}`);
+var mark = (kind, session, server2) => path8.join(os5.tmpdir(), `middleout-${kind}-${String(session || "x").replace(/[^\w-]/g, "_")}-${norm(server2)}`);
 function hasBinary(v, depth = 0) {
   if (!v || typeof v !== "object" || depth > 4) return false;
   if (Array.isArray(v)) return v.some((x) => hasBinary(x, depth + 1));
@@ -44866,8 +44936,8 @@ function converted(cfg3, h) {
   let n = 0;
   for (const srv of servers) {
     const f = mark("nudge", h.sessionId, srv);
-    if (fs6.existsSync(f)) {
-      fs6.rmSync(f, { force: true });
+    if (fs7.existsSync(f)) {
+      fs7.rmSync(f, { force: true });
       n++;
     }
   }
@@ -44915,7 +44985,7 @@ function post(cfg3, h) {
   let tracked = false;
   if (nudge) {
     try {
-      fs6.writeFileSync(mark("nudge", h.sessionId, t.server), String(Date.now()), { flag: "wx" });
+      fs7.writeFileSync(mark("nudge", h.sessionId, t.server), String(Date.now()), { flag: "wx" });
       tracked = true;
     } catch {
     }
@@ -44947,8 +45017,8 @@ function pre(cfg3, h) {
   if (cfg3.lens && canRewriteOutput(h.platform)) return null;
   if (cfg3.mode !== "gate" || !t || !isWrapped(cfg3, t.server) || isWrite(t.tool)) return null;
   const f = mark("gate", h.sessionId, t.server);
-  if (fs6.existsSync(f)) return null;
-  fs6.writeFileSync(f, "1");
+  if (fs7.existsSync(f)) return null;
+  fs7.writeFileSync(f, "1");
   upsert(cfg3, (s) => {
     s.totals.gated++;
   });
@@ -44957,6 +45027,7 @@ function pre(cfg3, h) {
 
 // packages/middleout/bin/middleout.mjs
 init_hooks();
+init_binary();
 var [cmd, ...rest] = process.argv.slice(2);
 var cfg2 = loadConfig();
 var HELP = `middleout: API calls, compressed. Only the fields you asked for reach the model.
@@ -44972,9 +45043,9 @@ async function main() {
   if (!["hook", "mcp"].includes(cmd) && (rest.includes("--help") || rest.includes("-h"))) return console.log(HELP);
   switch (cmd) {
     case "init": {
-      const f = path8.join(cfg2.root, "middleout.config.json");
-      if (fs7.existsSync(f)) return console.log(`${f} already exists`);
-      fs7.writeFileSync(f, JSON.stringify({ readonly: true, mode: "nudge", nudgeBytes: 8e3 }, null, 2) + "\n");
+      const f = path9.join(cfg2.root, "middleout.config.json");
+      if (fs8.existsSync(f)) return console.log(`${f} already exists`);
+      fs8.writeFileSync(f, JSON.stringify({ readonly: true, mode: "nudge", nudgeBytes: 8e3 }, null, 2) + "\n");
       return console.log(`wrote ${f}
 wrapping (from .mcp.json): ${Object.keys(cfg2.servers).join(", ") || 'none yet: add "servers" or a .mcp.json'}`);
     }
@@ -45014,14 +45085,14 @@ wrapping (from .mcp.json): ${Object.keys(cfg2.servers).join(", ") || 'none yet: 
     case "stats": {
       let s;
       try {
-        s = JSON.parse(fs7.readFileSync(path8.join(cfg2.root, cfg2.stats || ".middleout-stats.json"), "utf8"));
+        s = JSON.parse(fs8.readFileSync(path9.join(cfg2.root, cfg2.stats || ".middleout-stats.json"), "utf8"));
       } catch {
         return console.log("no stats yet");
       }
       return console.log(rest.includes("--json") ? JSON.stringify(s, null, 2) : summarize(s, cfg2));
     }
     case "hook":
-      return runHook((h) => rest[0] === "pre" ? pre(cfg2, h) : post(cfg2, h), rest.slice(1));
+      return runHook((h) => rest[0] === "session" ? withBinaryNote(h) : rest[0] === "pre" ? pre(cfg2, h) : post(cfg2, h), rest.slice(1));
     case "mcp":
       return init_mcp2().then(() => mcp_exports);
     default:

@@ -22,11 +22,22 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
 Expand-Archive $zip -DestinationPath $tmp
 # replace only what the release ships: tool data lives next to it (middleout sign-ins, cached models) and must survive upgrades
 New-Item -ItemType Directory -Force $dest | Out-Null
+# a running exe cannot be deleted or overwritten on Windows, but it can be renamed: `qbranch update` runs this script
+# from the very qbranch.exe it replaces. Leftovers from an earlier update are removed once nothing runs them.
+Get-ChildItem $dest -Filter 'qbranch.old*.exe' -ErrorAction SilentlyContinue | ForEach-Object { try { Remove-Item -Force $_.FullName -ErrorAction Stop } catch {} }
 foreach ($item in Get-ChildItem (Join-Path $tmp $name)) {
   $target = Join-Path $dest $item.Name
-  if (Test-Path $target) { Remove-Item -Recurse -Force $target }
+  if (Test-Path $target) {
+    if ($item.Extension -eq '.exe') { Move-Item $target (Join-Path $dest ("qbranch.old-" + [guid]::NewGuid().ToString('N').Substring(0, 8) + ".exe")) }
+    else { Remove-Item -Recurse -Force $target }
+  }
   Move-Item $item.FullName $target
 }
+# the renamed exe can go right away unless it is the one running this update
+Get-ChildItem $dest -Filter 'qbranch.old*.exe' -ErrorAction SilentlyContinue | ForEach-Object { try { Remove-Item -Force $_.FullName -ErrorAction Stop } catch {} }
+# the version the plugins compare against at session start (they never spawn the binary to ask)
+$version = (& (Join-Path $dest 'qbranch.exe') version) | Select-Object -First 1
+Set-Content -Encoding ascii -Path (Join-Path $dest 'VERSION') -Value "$version".Trim()
 Remove-Item -Recurse -Force $tmp
 # one command per gadget (`middleout login x`, `moneyball scan`) in bin\, apart from the tools' data folders:
 # .cmd for PowerShell/cmd, a sh script for Git Bash
@@ -46,4 +57,4 @@ foreach ($dir in $dest, $bin) {
     Write-Host "added $dir to your user PATH (open a new terminal)"
   }
 }
-Write-Host "installed: $dest\qbranch.exe"
+Write-Host "installed: $dest\qbranch.exe ($version)"

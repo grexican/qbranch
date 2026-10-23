@@ -58,9 +58,12 @@ The installer copies the skills, merges hooks and MCP config into that platform'
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/grexican/qbranch/main/scripts/install.sh | sh    # macOS, Linux
-irm https://raw.githubusercontent.com/grexican/qbranch/main/scripts/install.ps1 | iex         # Windows
+irm https://raw.githubusercontent.com/grexican/qbranch/main/scripts/install.ps1 | iex         # Windows PowerShell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/grexican/qbranch/main/scripts/install.ps1 | iex"   # Windows Command Prompt
 qbranch install all --platform claude
 ```
+
+The binary is installed apart from the plugins, so `claude plugin update` does not refresh it. Run `qbranch update` (it re-runs the installer; on Windows it can replace the running exe). When the binary falls behind, each plugin says so once per session at startup; plugin-only installs are never told anything. Reinstalling keeps your middleout sign-ins and cached models.
 
 `qbranch` is a single executable that runs any gadget (`qbranch moneyball report`, `qbranch groundhog scan`). It is built per OS in CI. It has no local embeddings (those need native modules), so headjack uses keyword search in the binary.
 

@@ -26,10 +26,12 @@ for item in "$tmp/x"/* "$tmp/x"/.[!.]*; do
   rm -rf "$DEST/$(basename "$item")"; mv "$item" "$DEST/"
 done
 chmod +x "$DEST/qbranch"
+# the version the plugins compare against at session start (they never spawn the binary to ask)
+"$DEST/qbranch" version > "$DEST/VERSION" 2>/dev/null || true
 mkdir -p "$HOME/.local/bin"; ln -sf "$DEST/qbranch" "$HOME/.local/bin/qbranch"
 # one command per gadget (`middleout login x`, `moneyball scan`)
 for tool in headjack middleout moneyball groundhog; do
   printf '#!/bin/sh\nexec "%s/qbranch" %s "$@"\n' "$DEST" "$tool" > "$HOME/.local/bin/$tool"; chmod +x "$HOME/.local/bin/$tool"
 done
-echo "installed: $DEST/qbranch (linked into ~/.local/bin, with headjack, middleout, moneyball, groundhog)"
+echo "installed: $DEST/qbranch $(cat "$DEST/VERSION" 2>/dev/null) (linked into ~/.local/bin, with headjack, middleout, moneyball, groundhog)"
 case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) echo "add ~/.local/bin to your PATH" ;; esac

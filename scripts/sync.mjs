@@ -103,6 +103,7 @@ for (const tool of TOOLS) {
   const out = await esbuild.build({
     entryPoints: [path.join(pkg, 'bin', `${tool}.mjs`)], bundle: true, platform: 'node', format: 'esm', target: 'node22',
     write: false, legalComments: 'none', external: ['@huggingface/transformers'], logLevel: 'error',
+    define: { __QBRANCH_VERSION__: JSON.stringify(rootPkg.version) }, // the plugin's own version, for the binary-skew note
     banner: { js: `// ${GENERATED}\nimport { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);` },
   });
   const bundle = out.outputFiles[0].text;

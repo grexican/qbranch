@@ -23,6 +23,17 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/dist/middleout.mjs\" hook session --platform codex",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

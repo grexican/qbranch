@@ -100,7 +100,7 @@ Native packages are in [`adapters/`](adapters/): a Cursor plugin, a Codex plugin
 | Cursor | everything |
 | OpenAI Codex | everything |
 | Gemini CLI | everything |
-| Windsurf / Devin | no post-call measurement and nudges; MCP server goes in your user-level mcp_config.json |
+| Windsurf / Devin | no post-call measurement and nudges, no session-start context; MCP server goes in your user-level mcp_config.json |
 <!-- /generated:install -->
 
 ## Configure

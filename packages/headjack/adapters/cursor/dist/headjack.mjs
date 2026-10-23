@@ -379,6 +379,75 @@ var init_hooks = __esm({
   }
 });
 
+// packages/core/src/binary.mjs
+import fs3 from "node:fs";
+import os3 from "node:os";
+import path4 from "node:path";
+function installCommand(platform = process.platform, env = process.env) {
+  const base = `https://raw.githubusercontent.com/${repoOf(env)}/main/scripts`;
+  return platform === "win32" ? `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm ${base}/install.ps1 | iex"` : `curl -fsSL ${base}/install.sh | sh`;
+}
+function cmpVersion(a, b) {
+  const p = (v) => String(v).trim().replace(/^v/, "").split("-")[0].split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const x = p(a), y = p(b);
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0) ? -1 : 1;
+  return 0;
+}
+function withBinaryNote(h, d = null, opts = {}) {
+  const n = binaryNote({ sessionId: h?.sessionId || "", ...opts });
+  if (!n) return d;
+  return d ? { ...d, context: d.context ? `${d.context}
+
+${n}` : n } : { context: n };
+}
+function binaryNote({ sessionId = "", version: version2 = VERSION, env = process.env, platform = process.platform, markDir = markDirDefault() } = {}) {
+  try {
+    if (!version2 || version2 === "dev") return null;
+    const home = qbranchHome(env);
+    const exe = path4.join(home, platform === "win32" ? "qbranch.exe" : "qbranch");
+    let bin = null;
+    try {
+      bin = fs3.readFileSync(path4.join(home, "VERSION"), "utf8").trim();
+    } catch {
+    }
+    if (bin === "dev") return null;
+    const hasExe = fs3.existsSync(exe);
+    if (!bin && !hasExe) return null;
+    if (bin && cmpVersion(bin, version2) >= 0) return null;
+    const key = (sessionId || `ppid-${process.ppid}`).replace(/[^A-Za-z0-9_.-]/g, "_");
+    const mark = path4.join(markDir, `binary-${key}`);
+    if (fs3.existsSync(mark)) return null;
+    fs3.mkdirSync(markDir, { recursive: true, mode: 448 });
+    fs3.writeFileSync(mark, version2, { mode: 384 });
+    const dirs = (env.PATH || env.Path || "").split(path4.delimiter).filter(Boolean).map((d) => path4.resolve(d).toLowerCase());
+    const homeBin = dirs.indexOf(path4.resolve(home, "bin").toLowerCase());
+    const pluginBin = dirs.findIndex((d) => /[\\/]plugins[\\/]/.test(d) && /[\\/]bin$/.test(d) && SHIMS.some((s) => fs3.existsSync(path4.join(d, s))));
+    const shadow = homeBin >= 0 && pluginBin >= 0 && homeBin < pluginBin ? ` Until then its commands (${path4.join(home, "bin")}) come first on PATH and shadow the plugins' newer ones.` : "";
+    const what = bin ? `qbranch binary v${bin.replace(/^v/, "")} is older than the plugins (v${version2})` : `qbranch binary is older than the plugins (v${version2}; it was installed before versions were tracked)`;
+    const alt = platform === "win32" ? `Command Prompt: ${installCommand(platform, env)}` : installCommand(platform, env);
+    return `${what}: run \`qbranch update\` (or ${alt}).${shadow}`;
+  } catch {
+    return null;
+  }
+}
+var VERSION, qbranchHome, repoOf, user, markDirDefault, SHIMS;
+var init_binary = __esm({
+  "packages/core/src/binary.mjs"() {
+    VERSION = true ? "0.5.0" : null;
+    qbranchHome = (env = process.env) => env.QBRANCH_HOME || path4.join(os3.homedir(), ".qbranch");
+    repoOf = (env) => env.QBRANCH_REPO || "grexican/qbranch";
+    user = () => {
+      try {
+        return os3.userInfo().username.replace(/[^A-Za-z0-9_.-]/g, "_");
+      } catch {
+        return String(process.getuid?.() ?? "user");
+      }
+    };
+    markDirDefault = () => path4.join(os3.tmpdir(), `qbranch-${user()}`, "notes");
+    SHIMS = ["headjack", "middleout", "moneyball", "groundhog"];
+  }
+});
+
 // packages/core/src/index.mjs
 var init_src = __esm({
   "packages/core/src/index.mjs"() {
@@ -388,26 +457,27 @@ var init_src = __esm({
     init_embed();
     init_transcripts();
     init_hooks();
+    init_binary();
   }
 });
 
 // packages/headjack/src/config.mjs
-import fs3 from "node:fs";
-import os3 from "node:os";
-import path4 from "node:path";
+import fs4 from "node:fs";
+import os4 from "node:os";
+import path5 from "node:path";
 function loadConfig(root = projectRoot2()) {
   const personal = readJson(configFile("personal", root));
   const shared = readJson(configFile("shared", root));
   const cfg3 = { ...DEFAULTS, ...personal, ...shared, root };
-  cfg3.dataDir = path4.join(root, ".headjack");
-  cfg3.sharedDir = path4.join(root, ".headjack", "library");
-  cfg3.personalDir = path4.join(homeDir(), "library");
+  cfg3.dataDir = path5.join(root, ".headjack");
+  cfg3.sharedDir = path5.join(root, ".headjack", "library");
+  cfg3.personalDir = path5.join(homeDir(), "library");
   cfg3.libraryDir = cfg3.sharedDir;
   cfg3.sourceDirs = [
     { dir: cfg3.sharedDir, label: "shared", scope: "shared" },
     { dir: cfg3.personalDir, label: "personal", scope: "personal" },
-    ...(shared.sources || []).map((s) => ({ dir: expandPath(s, root), label: path4.basename(s), scope: "shared" })),
-    ...(personal.sources || []).map((s) => ({ dir: expandPath(s, homeDir()), label: path4.basename(s), scope: "personal" }))
+    ...(shared.sources || []).map((s) => ({ dir: expandPath(s, root), label: path5.basename(s), scope: "shared" })),
+    ...(personal.sources || []).map((s) => ({ dir: expandPath(s, homeDir()), label: path5.basename(s), scope: "personal" }))
   ];
   if (process.env.HEADJACK_STATS === "0") cfg3.stats = false;
   return cfg3;
@@ -415,12 +485,12 @@ function loadConfig(root = projectRoot2()) {
 function editSources(cfg3, scope, dir, remove = false) {
   const f = configFile(scope, cfg3.root);
   const j = readJson(f);
-  const abs = path4.resolve(dir);
-  const val = scope === "shared" && abs.startsWith(cfg3.root) ? path4.relative(cfg3.root, abs).replace(/\\/g, "/") : abs;
+  const abs = path5.resolve(dir);
+  const val = scope === "shared" && abs.startsWith(cfg3.root) ? path5.relative(cfg3.root, abs).replace(/\\/g, "/") : abs;
   j.sources = (j.sources || []).filter((s) => expandPath(s, scope === "personal" ? homeDir() : cfg3.root) !== abs);
   if (!remove) j.sources.push(val);
-  fs3.mkdirSync(path4.dirname(f), { recursive: true });
-  fs3.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
+  fs4.mkdirSync(path5.dirname(f), { recursive: true });
+  fs4.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
   return { file: f, sources: j.sources };
 }
 var projectRoot2, homeDir, DEFAULTS, configFile;
@@ -428,7 +498,7 @@ var init_config = __esm({
   "packages/headjack/src/config.mjs"() {
     init_src();
     projectRoot2 = (start) => projectRoot(["headjack.config.json"], start);
-    homeDir = () => process.env.HEADJACK_HOME || path4.join(os3.homedir(), ".headjack");
+    homeDir = () => process.env.HEADJACK_HOME || path5.join(os4.homedir(), ".headjack");
     DEFAULTS = {
       sources: [],
       // extra directories indexed in place (scanned recursively for SKILL.md)
@@ -441,19 +511,19 @@ var init_config = __esm({
       stats: ".headjack-stats.json"
       // usage stats file at the project root; false disables
     };
-    configFile = (scope, root) => scope === "personal" ? path4.join(homeDir(), "config.json") : path4.join(root, "headjack.config.json");
+    configFile = (scope, root) => scope === "personal" ? path5.join(homeDir(), "config.json") : path5.join(root, "headjack.config.json");
   }
 });
 
 // packages/headjack/src/library.mjs
 import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
-import fs4 from "node:fs";
-import path5 from "node:path";
+import fs5 from "node:fs";
+import path6 from "node:path";
 function db(cfg3) {
   if (dbs.has(cfg3.dataDir)) return dbs.get(cfg3.dataDir);
-  fs4.mkdirSync(cfg3.dataDir, { recursive: true });
-  const d = new DatabaseSync(path5.join(cfg3.dataDir, "index.db"));
+  fs5.mkdirSync(cfg3.dataDir, { recursive: true });
+  const d = new DatabaseSync(path6.join(cfg3.dataDir, "index.db"));
   d.exec(`
     create table if not exists skills (id text primary key, name text, description text, source text, tier text,
       dir text, body text, hash text, embedding blob);
@@ -469,10 +539,10 @@ function parseSkill(text2) {
   return meta3.name && meta3.description ? { name: meta3.name, description: meta3.description, body } : null;
 }
 function findSkillFiles(dir, out = []) {
-  if (!fs4.existsSync(dir)) return out;
-  for (const e of fs4.readdirSync(dir, { withFileTypes: true })) {
+  if (!fs5.existsSync(dir)) return out;
+  for (const e of fs5.readdirSync(dir, { withFileTypes: true })) {
     if (e.name === "node_modules" || e.name.startsWith(".")) continue;
-    const p = path5.join(dir, e.name);
+    const p = path6.join(dir, e.name);
     if (e.isDirectory()) findSkillFiles(p, out);
     else if (e.name === "SKILL.md") out.push(p);
   }
@@ -482,9 +552,9 @@ async function reindex(cfg3) {
   const d = db(cfg3);
   const items = [];
   for (const src of cfg3.sourceDirs) for (const f of findSkillFiles(src.dir)) {
-    const s = parseSkill(fs4.readFileSync(f, "utf8"));
-    const dir = path5.dirname(f);
-    if (s) items.push({ ...s, source: src.label, tier: fs4.existsSync(path5.join(dir, ".headjack-source")) ? "external" : "library", dir, id: `${src.label}/${s.name}` });
+    const s = parseSkill(fs5.readFileSync(f, "utf8"));
+    const dir = path6.dirname(f);
+    if (s) items.push({ ...s, source: src.label, tier: fs5.existsSync(path6.join(dir, ".headjack-source")) ? "external" : "library", dir, id: `${src.label}/${s.name}` });
   }
   const seen = new Set(items.map((s) => s.id));
   for (const { id } of d.prepare("select id from skills").all())
@@ -549,15 +619,15 @@ function load(cfg3, ref, depth = 0) {
   const s = rows[0];
   const files = [];
   (function walk(dir, depth2) {
-    if (depth2 > 3 || !fs4.existsSync(dir)) return;
-    for (const e of fs4.readdirSync(dir, { withFileTypes: true })) {
+    if (depth2 > 3 || !fs5.existsSync(dir)) return;
+    for (const e of fs5.readdirSync(dir, { withFileTypes: true })) {
       if (e.name.startsWith(".") || e.name === "node_modules") continue;
-      const p = path5.join(dir, e.name);
+      const p = path6.join(dir, e.name);
       e.isDirectory() ? walk(p, depth2 + 1) : e.name !== "SKILL.md" && files.push(p);
     }
   })(s.dir, 0);
   const out = { ...s, files: files.slice(0, 60) };
-  const { meta: meta3 } = parseFrontmatter(fs4.readFileSync(path5.join(s.dir, "SKILL.md"), "utf8"));
+  const { meta: meta3 } = parseFrontmatter(fs5.readFileSync(path6.join(s.dir, "SKILL.md"), "utf8"));
   if (meta3.bundle && depth < 1) {
     out.members = String(meta3.bundle).split(",").map((x) => x.trim()).filter(Boolean).map((m) => load(cfg3, m, depth + 1));
   }
@@ -607,8 +677,8 @@ function listingTokens(cfg3) {
   let root = 0;
   try {
     const dir = new URL("../skills/", import.meta.url);
-    for (const n of fs4.readdirSync(dir)) {
-      const r = parseSkill(fs4.readFileSync(new URL(`${n}/SKILL.md`, dir), "utf8"));
+    for (const n of fs5.readdirSync(dir)) {
+      const r = parseSkill(fs5.readFileSync(new URL(`${n}/SKILL.md`, dir), "utf8"));
       if (r) root += r.name.length + r.description.length + 10;
     }
   } catch {
@@ -632,22 +702,22 @@ var init_library = __esm({
 });
 
 // packages/headjack/src/ledger.mjs
-import fs5 from "node:fs";
-import os4 from "node:os";
-import path6 from "node:path";
+import fs6 from "node:fs";
+import os5 from "node:os";
+import path7 from "node:path";
 import { createHash as createHash2 } from "node:crypto";
 function record(cfg3, space, entry) {
   const f = file(cfg3, space);
-  fs5.mkdirSync(path6.dirname(f), { recursive: true });
+  fs6.mkdirSync(path7.dirname(f), { recursive: true });
   const e = { at: (/* @__PURE__ */ new Date()).toISOString(), space, ...entry, from: portable(cfg3, entry.from), to: portable(cfg3, entry.to) };
   if (e.source?.startsWith("path:")) e.source = `path:${portable(cfg3, e.source.slice(5))}`;
-  fs5.appendFileSync(f, JSON.stringify(e) + "\n");
+  fs6.appendFileSync(f, JSON.stringify(e) + "\n");
 }
 function history(cfg3, { space, name } = {}) {
   const out = [];
   for (const sp of space ? [space] : ["shared", "personal"]) {
     try {
-      for (const line of fs5.readFileSync(file(cfg3, sp), "utf8").split("\n")) if (line.trim()) out.push(JSON.parse(line));
+      for (const line of fs6.readFileSync(file(cfg3, sp), "utf8").split("\n")) if (line.trim()) out.push(JSON.parse(line));
     } catch {
     }
   }
@@ -660,7 +730,7 @@ function origin(cfg3, space, name) {
 }
 function sourceOf(dir, fallback) {
   try {
-    return `registry:${fs5.readFileSync(path6.join(dir, ".headjack-source"), "utf8").trim()}`;
+    return `registry:${fs6.readFileSync(path7.join(dir, ".headjack-source"), "utf8").trim()}`;
   } catch {
     return fallback;
   }
@@ -668,34 +738,34 @@ function sourceOf(dir, fallback) {
 var file, skillHash, portable, resolvePath;
 var init_ledger = __esm({
   "packages/headjack/src/ledger.mjs"() {
-    file = (cfg3, space) => path6.join(path6.dirname(space === "personal" ? cfg3.personalDir : cfg3.sharedDir), "ledger.jsonl");
+    file = (cfg3, space) => path7.join(path7.dirname(space === "personal" ? cfg3.personalDir : cfg3.sharedDir), "ledger.jsonl");
     skillHash = (dir) => {
       try {
-        return createHash2("sha1").update(fs5.readFileSync(path6.join(dir, "SKILL.md"))).digest("hex").slice(0, 12);
+        return createHash2("sha1").update(fs6.readFileSync(path7.join(dir, "SKILL.md"))).digest("hex").slice(0, 12);
       } catch {
         return null;
       }
     };
     portable = (cfg3, p) => {
-      if (typeof p !== "string" || !path6.isAbsolute(p)) return p;
-      const slash = (s) => s.split(path6.sep).join("/");
+      if (typeof p !== "string" || !path7.isAbsolute(p)) return p;
+      const slash = (s) => s.split(path7.sep).join("/");
       const inside = (base) => {
-        const r2 = path6.relative(base, p);
-        return r2 && !r2.startsWith("..") && !path6.isAbsolute(r2) ? r2 : null;
+        const r2 = path7.relative(base, p);
+        return r2 && !r2.startsWith("..") && !path7.isAbsolute(r2) ? r2 : null;
       };
       const r = inside(cfg3.root);
       if (r) return slash(r);
-      const h = inside(os4.homedir());
+      const h = inside(os5.homedir());
       if (h) return `~/${slash(h)}`;
       return slash(p);
     };
-    resolvePath = (cfg3, p) => p.startsWith("~/") ? path6.join(os4.homedir(), p.slice(2)) : path6.resolve(cfg3.root, p);
+    resolvePath = (cfg3, p) => p.startsWith("~/") ? path7.join(os5.homedir(), p.slice(2)) : path7.resolve(cfg3.root, p);
   }
 });
 
 // packages/headjack/src/registry.mjs
-import fs6 from "node:fs";
-import path7 from "node:path";
+import fs7 from "node:fs";
+import path8 from "node:path";
 async function searchRegistry(query, k = 5) {
   const r = await fetch(`https://skills.sh/api/search?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(8e3) });
   if (!r.ok) throw new Error(`skills.sh ${r.status}`);
@@ -726,21 +796,21 @@ async function acquire(cfg3, extId, { dest } = {}) {
   if (!tr.ok) throw new Error(`GitHub tree ${tr.status}`);
   const tree = (await tr.json()).tree;
   const mds = tree.filter((t) => t.type === "blob" && t.path.endsWith("SKILL.md"));
-  const hit = mds.find((t) => path7.posix.basename(path7.posix.dirname(t.path)) === skillId) || mds.find((t) => t.path.includes(skillId));
+  const hit = mds.find((t) => path8.posix.basename(path8.posix.dirname(t.path)) === skillId) || mds.find((t) => t.path.includes(skillId));
   if (!hit) throw new Error(`no SKILL.md for "${skillId}" in ${owner}/${repo}`);
-  const base = path7.posix.dirname(hit.path);
-  const out = path7.join(dest || cfg3.sharedDir, skillId.replace(/[\\/]/g, "_"));
+  const base = path8.posix.dirname(hit.path);
+  const out = path8.join(dest || cfg3.sharedDir, skillId.replace(/[\\/]/g, "_"));
   for (const f of tree.filter((t) => t.type === "blob" && t.path.startsWith(base + "/") && t.size < 2e5).slice(0, 40)) {
     const raw = await gh(`https://raw.githubusercontent.com/${owner}/${repo}/${sha}/${f.path}`);
     if (!raw.ok) continue;
-    const p = path7.join(out, f.path.slice(base.length + 1));
-    fs6.mkdirSync(path7.dirname(p), { recursive: true });
-    fs6.writeFileSync(p, Buffer.from(await raw.arrayBuffer()));
+    const p = path8.join(out, f.path.slice(base.length + 1));
+    fs7.mkdirSync(path8.dirname(p), { recursive: true });
+    fs7.writeFileSync(p, Buffer.from(await raw.arrayBuffer()));
   }
-  const parsed = parseSkill(fs6.readFileSync(path7.join(out, "SKILL.md"), "utf8"));
+  const parsed = parseSkill(fs7.readFileSync(path8.join(out, "SKILL.md"), "utf8"));
   if (!parsed) throw new Error("fetched SKILL.md has no name/description frontmatter");
   const url2 = `https://github.com/${owner}/${repo}/tree/${sha}/${base}`;
-  fs6.writeFileSync(path7.join(out, ".headjack-source"), `${url2}
+  fs7.writeFileSync(path8.join(out, ".headjack-source"), `${url2}
 `);
   const space = dest === cfg3.personalDir ? "personal" : "shared";
   record(cfg3, space, { action: "acquire", name: parsed.name, from: extId, to: out, source: `registry:${url2}`, hash: skillHash(out) });
@@ -1248,8 +1318,8 @@ var init_parseUtil = __esm({
     init_errors();
     init_en();
     makeIssue = (params) => {
-      const { data, path: path9, errorMaps, issueData } = params;
-      const fullPath = [...path9, ...issueData.path || []];
+      const { data, path: path10, errorMaps, issueData } = params;
+      const fullPath = [...path10, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -1533,11 +1603,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util();
     ParseInputLazyPath = class {
-      constructor(parent, value, path9, key) {
+      constructor(parent, value, path10, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path9;
+        this._path = path10;
         this._key = key;
       }
       get path() {
@@ -5011,10 +5081,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path9) {
-  if (!path9)
+function getElementAtPath(obj, path10) {
+  if (!path10)
     return obj;
-  return path9.reduce((acc, key) => acc?.[key], obj);
+  return path10.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -5273,11 +5343,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path9, issues) {
+function prefixIssues(path10, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path9);
+    iss.path.unshift(path10);
     return iss;
   });
 }
@@ -5810,16 +5880,16 @@ function flattenError(error62, mapper = (issue2) => issue2.message) {
 }
 function formatError(error62, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error63, path9 = []) => {
+  const processError = (error63, path10 = []) => {
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path9, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -5858,17 +5928,17 @@ function formatError(error62, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error62, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error63, path9 = []) => {
+  const processError = (error63, path10 = []) => {
     var _a3;
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path9, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -5907,8 +5977,8 @@ function treeifyError(error62, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path9 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path9) {
+  const path10 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path10) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -22446,11 +22516,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path9) {
-  if (path9.length === 0) {
+function getDotPath(path10) {
+  if (path10.length === 0) {
     return "object root";
   }
-  return path9.reduce((acc, seg, index) => {
+  return path10.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -24388,13 +24458,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path9 = ref.slice(1).split("/").filter(Boolean);
-  if (path9.length === 0) {
+  const path10 = ref.slice(1).split("/").filter(Boolean);
+  if (path10.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path9[0] === defsKey) {
-    const key = path9[1] === void 0 ? void 0 : decodeJSONPointerSegment(path9[1]);
+  if (path10[0] === defsKey) {
+    const key = path10[1] === void 0 ? void 0 : decodeJSONPointerSegment(path10[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -32871,8 +32941,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path9) {
-      let input2 = path9;
+    function removeDotSegments(path10) {
+      let input2 = path10;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -33281,8 +33351,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path9 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
+        const path10 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -36795,12 +36865,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs8, exportName) {
+    function addFormats(ajv, list, fs9, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs8[f]);
+        ajv.addFormat(f, fs9[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -38688,9 +38758,9 @@ init_config();
 init_library();
 init_registry();
 init_stats2();
-import fs7 from "node:fs";
-import os5 from "node:os";
-import path8 from "node:path";
+import fs8 from "node:fs";
+import os6 from "node:os";
+import path9 from "node:path";
 
 // packages/headjack/src/suggest.mjs
 init_library();
@@ -38781,6 +38851,7 @@ async function suggest(cfg3, prompt, { sessionId = "", registry: registry2 = sea
 // packages/headjack/bin/headjack.mjs
 init_ledger();
 init_hooks();
+init_binary();
 var [cmd, ...rest] = process.argv.slice(2);
 var flag = (f) => {
   const i = rest.indexOf(f);
@@ -38797,7 +38868,7 @@ var opt = (f, d) => {
 };
 var cfg2 = loadConfig();
 var ROOT_SKILLS = /* @__PURE__ */ new Set(["find-skill", "load-skill"]);
-var rel = (p) => p.startsWith(cfg2.root) ? path8.relative(cfg2.root, p) : p.replace(os5.homedir(), "~");
+var rel = (p) => p.startsWith(cfg2.root) ? path9.relative(cfg2.root, p) : p.replace(os6.homedir(), "~");
 var spaceDir = (space) => space === "personal" ? cfg2.personalDir : cfg2.sharedDir;
 var HELP = `headjack: skills, loaded the moment you need them ("I know kung fu.")
 
@@ -38835,25 +38906,25 @@ Plumbing
   headjack hook                          UserPromptSubmit hook (hook JSON on stdin; --platform to force a shape)
   headjack mcp                           MCP server (headjack_find / headjack_get / headjack_acquire)`;
 function moveDir(from, to) {
-  fs7.mkdirSync(path8.dirname(to), { recursive: true });
-  if (fs7.existsSync(to)) throw new Error(`${rel(to)} already exists`);
+  fs8.mkdirSync(path9.dirname(to), { recursive: true });
+  if (fs8.existsSync(to)) throw new Error(`${rel(to)} already exists`);
   try {
-    fs7.renameSync(from, to);
+    fs8.renameSync(from, to);
   } catch {
-    fs7.cpSync(from, to, { recursive: true });
-    fs7.rmSync(from, { recursive: true, force: true });
+    fs8.cpSync(from, to, { recursive: true });
+    fs8.rmSync(from, { recursive: true, force: true });
   }
 }
 async function main() {
   if (cmd !== "hook" && (rest.includes("--help") || rest.includes("-h"))) return console.log(HELP);
   switch (cmd) {
     case "init": {
-      fs7.mkdirSync(cfg2.sharedDir, { recursive: true });
-      fs7.mkdirSync(cfg2.personalDir, { recursive: true });
-      const gi = path8.join(cfg2.dataDir, ".gitignore");
-      if (!fs7.existsSync(gi)) fs7.writeFileSync(gi, "index.db*\n");
+      fs8.mkdirSync(cfg2.sharedDir, { recursive: true });
+      fs8.mkdirSync(cfg2.personalDir, { recursive: true });
+      const gi = path9.join(cfg2.dataDir, ".gitignore");
+      if (!fs8.existsSync(gi)) fs8.writeFileSync(gi, "index.db*\n");
       const r = await reindex(cfg2);
-      const preloaded = fs7.existsSync(path8.join(cfg2.root, ".claude/skills")) ? fs7.readdirSync(path8.join(cfg2.root, ".claude/skills")).filter((n) => !ROOT_SKILLS.has(n)).length : 0;
+      const preloaded = fs8.existsSync(path9.join(cfg2.root, ".claude/skills")) ? fs8.readdirSync(path9.join(cfg2.root, ".claude/skills")).filter((n) => !ROOT_SKILLS.has(n)).length : 0;
       return console.log(`headjack ready in ${cfg2.root}
   shared library:   ${rel(cfg2.sharedDir)}
   personal library: ${rel(cfg2.personalDir)}
@@ -38865,15 +38936,15 @@ ${preloaded} skills are still preloaded from .claude/skills. Move them in with: 
     case "adopt": {
       const dry = flag("--dry-run");
       const fromArg = opt("--from", "project");
-      const from = fromArg === "project" ? path8.join(cfg2.root, ".claude", "skills") : fromArg === "user" ? path8.join(os5.homedir(), ".claude", "skills") : path8.resolve(fromArg);
+      const from = fromArg === "project" ? path9.join(cfg2.root, ".claude", "skills") : fromArg === "user" ? path9.join(os6.homedir(), ".claude", "skills") : path9.resolve(fromArg);
       const to = opt("--to", fromArg === "user" ? "personal" : "shared");
-      if (!fs7.existsSync(from)) return console.log(`nothing to adopt: ${rel(from)} does not exist`);
+      if (!fs8.existsSync(from)) return console.log(`nothing to adopt: ${rel(from)} does not exist`);
       const moved = [];
-      for (const e of fs7.readdirSync(from, { withFileTypes: true })) {
-        if (!e.isDirectory() || ROOT_SKILLS.has(e.name) || !fs7.existsSync(path8.join(from, e.name, "SKILL.md"))) continue;
+      for (const e of fs8.readdirSync(from, { withFileTypes: true })) {
+        if (!e.isDirectory() || ROOT_SKILLS.has(e.name) || !fs8.existsSync(path9.join(from, e.name, "SKILL.md"))) continue;
         moved.push(e.name);
         if (dry) continue;
-        const src = path8.join(from, e.name), dest = path8.join(spaceDir(to), e.name);
+        const src = path9.join(from, e.name), dest = path9.join(spaceDir(to), e.name);
         const hash2 = skillHash(src), source = sourceOf(src, `path:${src}`);
         moveDir(src, dest);
         record(cfg2, to, { action: "adopt", name: e.name, from: src, to: dest, source, hash: hash2 });
@@ -38885,13 +38956,13 @@ ${preloaded} skills are still preloaded from .claude/skills. Move them in with: 
       const personal = flag("--personal");
       const src = rest[0];
       if (!src) return console.log("usage: headjack add <dir | owner/repo/skill> [--personal]");
-      if (fs7.existsSync(src)) {
-        const parsed = parseSkill(fs7.readFileSync(path8.join(src, "SKILL.md"), "utf8"));
+      if (fs8.existsSync(src)) {
+        const parsed = parseSkill(fs8.readFileSync(path9.join(src, "SKILL.md"), "utf8"));
         if (!parsed) throw new Error(`${src}/SKILL.md has no name/description frontmatter`);
-        const dest = path8.join(spaceDir(personal ? "personal" : "shared"), parsed.name);
-        if (fs7.existsSync(dest)) throw new Error(`${rel(dest)} already exists`);
-        fs7.cpSync(src, dest, { recursive: true });
-        record(cfg2, personal ? "personal" : "shared", { action: "add", name: parsed.name, from: path8.resolve(src), to: dest, source: sourceOf(src, `path:${path8.resolve(src)}`), hash: skillHash(dest) });
+        const dest = path9.join(spaceDir(personal ? "personal" : "shared"), parsed.name);
+        if (fs8.existsSync(dest)) throw new Error(`${rel(dest)} already exists`);
+        fs8.cpSync(src, dest, { recursive: true });
+        record(cfg2, personal ? "personal" : "shared", { action: "add", name: parsed.name, from: path9.resolve(src), to: dest, source: sourceOf(src, `path:${path9.resolve(src)}`), hash: skillHash(dest) });
         await reindex(cfg2);
         return console.log(`added ${personal ? "personal" : "shared"}/${parsed.name} -> ${rel(dest)}`);
       }
@@ -38903,10 +38974,10 @@ It came from a public registry: read it (and any scripts) before relying on it.`
       const personal = flag("--personal");
       const name = rest[0];
       if (!name || !/^[a-z0-9][a-z0-9-]*$/.test(name)) return console.log("usage: headjack new <kebab-case-name> [--personal]");
-      const dir = path8.join(spaceDir(personal ? "personal" : "shared"), name);
-      if (fs7.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
-      fs7.mkdirSync(dir, { recursive: true });
-      fs7.writeFileSync(path8.join(dir, "SKILL.md"), `---
+      const dir = path9.join(spaceDir(personal ? "personal" : "shared"), name);
+      if (fs8.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
+      fs8.mkdirSync(dir, { recursive: true });
+      fs8.writeFileSync(path9.join(dir, "SKILL.md"), `---
 name: ${name}
 description: <What this skill does, then "Use when ..." with the words a request would contain. This line is what search matches on.>
 ---
@@ -38916,7 +38987,7 @@ description: <What this skill does, then "Use when ..." with the words a request
 <Instructions the agent follows when this skill is loaded.>
 `);
       record(cfg2, personal ? "personal" : "shared", { action: "new", name, to: dir, source: "scaffold", hash: skillHash(dir) });
-      return console.log(`created ${rel(path8.join(dir, "SKILL.md"))}: fill in the description (it drives search) and the instructions`);
+      return console.log(`created ${rel(path9.join(dir, "SKILL.md"))}: fill in the description (it drives search) and the instructions`);
     }
     case "bundle": {
       const personal = flag("--personal");
@@ -38927,10 +38998,10 @@ description: <What this skill does, then "Use when ..." with the words a request
       await reindex(cfg2);
       const missing = members2.filter((m) => load(cfg2, m).error);
       if (missing.length) throw new Error(`not in the library: ${missing.join(", ")} (headjack list)`);
-      const dir = path8.join(spaceDir(personal ? "personal" : "shared"), name);
-      if (fs7.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
-      fs7.mkdirSync(dir, { recursive: true });
-      fs7.writeFileSync(path8.join(dir, "SKILL.md"), `---
+      const dir = path9.join(spaceDir(personal ? "personal" : "shared"), name);
+      if (fs8.existsSync(dir)) throw new Error(`${rel(dir)} already exists`);
+      fs8.mkdirSync(dir, { recursive: true });
+      fs8.writeFileSync(path9.join(dir, "SKILL.md"), `---
 name: ${name}
 description: ${desc || `<What this bundle does, then "Use when ..." with the words a request would contain.>`}
 bundle: ${members2.join(", ")}
@@ -38941,7 +39012,7 @@ bundle: ${members2.join(", ")}
 Loads ${members2.length} skills in order: ${members2.join(" \u2192 ")}. <How they fit together: when to move from one to the next.>
 `);
       record(cfg2, personal ? "personal" : "shared", { action: "bundle", name, to: dir, source: `bundle:${members2.join(",")}`, hash: skillHash(dir) });
-      return console.log(`created ${rel(path8.join(dir, "SKILL.md"))}: ${members2.join(" \u2192 ")}${desc ? "" : ". Fill in the description (it drives search)."}`);
+      return console.log(`created ${rel(path9.join(dir, "SKILL.md"))}: ${members2.join(" \u2192 ")}${desc ? "" : ". Fill in the description (it drives search)."}`);
     }
     case "move": {
       const to = opt("--to");
@@ -38950,7 +39021,7 @@ Loads ${members2.length} skills in order: ${members2.join(" \u2192 ")}. <How the
       await reindex(cfg2);
       const s = load(cfg2, id);
       if (s.error) throw new Error(s.error);
-      const dest = path8.join(spaceDir(to), path8.basename(s.dir));
+      const dest = path9.join(spaceDir(to), path9.basename(s.dir));
       const fromSpace = s.source;
       moveDir(s.dir, dest);
       record(cfg2, fromSpace, { action: "move-out", name: s.name, from: s.dir, to: dest, hash: skillHash(dest) });
@@ -38977,9 +39048,9 @@ Loads ${members2.length} skills in order: ${members2.join(" \u2192 ")}. <How the
           continue;
         }
         const o = origin(cfg2, s.source, s.name);
-        const base = toArg === "origin" ? o ? path8.dirname(o.dir) : path8.join(s.source === "personal" ? os5.homedir() : cfg2.root, ".claude", "skills") : toArg === "project" ? path8.join(cfg2.root, ".claude", "skills") : toArg === "user" ? path8.join(os5.homedir(), ".claude", "skills") : path8.resolve(toArg);
-        const dest = path8.join(base, path8.basename(s.dir));
-        if (fs7.existsSync(dest)) {
+        const base = toArg === "origin" ? o ? path9.dirname(o.dir) : path9.join(s.source === "personal" ? os6.homedir() : cfg2.root, ".claude", "skills") : toArg === "project" ? path9.join(cfg2.root, ".claude", "skills") : toArg === "user" ? path9.join(os6.homedir(), ".claude", "skills") : path9.resolve(toArg);
+        const dest = path9.join(base, path9.basename(s.dir));
+        if (fs8.existsSync(dest)) {
           out.push(`skip ${s.id}: ${rel(dest)} already exists`);
           continue;
         }
@@ -39003,9 +39074,9 @@ Loads ${members2.length} skills in order: ${members2.join(" \u2192 ")}. <How the
     case "source": {
       const personal = flag("--personal");
       const [sub, dir] = rest;
-      if (sub === "list" || !sub) return console.log(cfg2.sourceDirs.map((s) => `${s.scope.padEnd(8)} ${s.label.padEnd(14)} ${rel(s.dir)}${fs7.existsSync(s.dir) ? "" : "  (missing)"}`).join("\n"));
+      if (sub === "list" || !sub) return console.log(cfg2.sourceDirs.map((s) => `${s.scope.padEnd(8)} ${s.label.padEnd(14)} ${rel(s.dir)}${fs8.existsSync(s.dir) ? "" : "  (missing)"}`).join("\n"));
       if (!["add", "remove"].includes(sub) || !dir) return console.log("usage: headjack source add|remove <dir> [--personal] | headjack source list");
-      if (sub === "add" && !fs7.existsSync(dir)) throw new Error(`${dir} does not exist`);
+      if (sub === "add" && !fs8.existsSync(dir)) throw new Error(`${dir} does not exist`);
       const r = editSources(cfg2, personal ? "personal" : "shared", dir, sub === "remove");
       await reindex(loadConfig(cfg2.root));
       return console.log(`${sub === "add" ? "indexing" : "stopped indexing"} ${dir} (${personal ? "personal" : "shared"} source, saved in ${rel(r.file)})`);
@@ -39085,13 +39156,14 @@ ${cur}`);
     case "stats": {
       let s;
       try {
-        s = JSON.parse(fs7.readFileSync(path8.join(cfg2.root, cfg2.stats || ".headjack-stats.json"), "utf8"));
+        s = JSON.parse(fs8.readFileSync(path9.join(cfg2.root, cfg2.stats || ".headjack-stats.json"), "utf8"));
       } catch {
         return console.log("no stats yet");
       }
       return console.log(flag("--json") ? JSON.stringify(s, null, 2) : summarize(s));
     }
     case "hook":
+      if (rest[0] === "session") return runHook((h) => withBinaryNote(h), rest.slice(1));
       return runHook(async (h) => ({ context: await suggest(cfg2, h.prompt, { sessionId: h.sessionId }) }), rest);
     case "mcp":
       return init_mcp2().then(() => mcp_exports);

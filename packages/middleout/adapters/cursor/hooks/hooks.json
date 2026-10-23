@@ -12,6 +12,12 @@
         "command": "node \"${CURSOR_PLUGIN_ROOT}/dist/middleout.mjs\" hook pre --platform cursor",
         "timeout": 10
       }
+    ],
+    "sessionStart": [
+      {
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/dist/middleout.mjs\" hook session --platform cursor",
+        "timeout": 10
+      }
     ]
   }
 }

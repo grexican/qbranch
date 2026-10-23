@@ -5,3 +5,4 @@ export { parseFrontmatter, renderFrontmatter } from './frontmatter.mjs';
 export { embed, cosine, toBlob, fromBlob } from './embed.mjs';
 export { sessions, registerReader, costOf, tierOf, modelId, PRICES } from './transcripts.mjs';
 export { runHook, normalize, render, detectPlatform } from './hooks.mjs';
+export { binaryNote, cmpVersion, installCommand, qbranchHome, VERSION } from './binary.mjs';

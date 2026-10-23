@@ -50,11 +50,11 @@ Native packages are in [`adapters/`](adapters/): a Cursor plugin, a Codex plugin
 | Platform | What works |
 |---|---|
 | Claude Code | everything |
-| GitHub Copilot (CLI, VS Code) | no per-prompt context (the platform cannot inject at prompt time) |
-| Cursor | no per-prompt context (the platform cannot inject at prompt time) |
+| GitHub Copilot (CLI, VS Code) | everything |
+| Cursor | everything |
 | OpenAI Codex | everything |
 | Gemini CLI | everything |
-| Windsurf / Devin | no per-prompt context (the platform cannot inject at prompt time) |
+| Windsurf / Devin | no per-prompt context (the platform cannot inject at prompt time), no session-start context |
 <!-- /generated:install -->
 
 ## Build your library

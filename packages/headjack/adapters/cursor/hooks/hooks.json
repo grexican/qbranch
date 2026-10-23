@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node \"${CURSOR_PLUGIN_ROOT}/dist/headjack.mjs\" hook session --platform cursor",
+        "timeout": 10
+      }
+    ]
+  }
+}

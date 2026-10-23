@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { runHook } from '@qbranch/core/hooks';
+import { withBinaryNote } from '@qbranch/core/binary';
 import { loadConfig } from '../src/config.mjs';
 import { scan } from '../src/scan.mjs';
 import { plan, routes, overview, signal } from '../src/recommend.mjs';
@@ -218,7 +219,7 @@ async function main() {
       return;
     }
     case 'hook':
-      return runHook((h) => (rest[0] === 'session' ? sessionStart(cfg, SELF) : preToolUse(cfg, h)), rest.slice(1));
+      return runHook(async (h) => (rest[0] === 'session' ? withBinaryNote(h, await sessionStart(cfg, SELF)) : preToolUse(cfg, h)), rest.slice(1));
     default: console.log(HELP);
   }
 }

@@ -10,6 +10,7 @@ import { upsert, skillStat, summarize } from '../src/stats.mjs';
 import { suggest } from '../src/suggest.mjs';
 import { record, history, origin, sourceOf, skillHash } from '../src/ledger.mjs';
 import { runHook } from '@qbranch/core/hooks';
+import { withBinaryNote } from '@qbranch/core/binary';
 
 const [cmd, ...rest] = process.argv.slice(2);
 const flag = (f) => { const i = rest.indexOf(f); if (i < 0) return false; rest.splice(i, 1); return true; };
@@ -255,7 +256,9 @@ async function main() {
       return console.log(flag('--json') ? JSON.stringify(s, null, 2) : summarize(s));
     }
 
-    case 'hook': return runHook(async (h) => ({ context: await suggest(cfg, h.prompt, { sessionId: h.sessionId }) }), rest);
+    case 'hook':
+      if (rest[0] === 'session') return runHook((h) => withBinaryNote(h), rest.slice(1));
+      return runHook(async (h) => ({ context: await suggest(cfg, h.prompt, { sessionId: h.sessionId }) }), rest);
 
     case 'mcp': return import('../src/mcp.mjs');
     default: console.log(HELP);

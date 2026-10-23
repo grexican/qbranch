@@ -21,6 +21,17 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${extensionPath}/dist/middleout.mjs\" hook session --platform gemini",
+            "timeout": 10000
+          }
+        ]
+      }
     ]
   }
 }
