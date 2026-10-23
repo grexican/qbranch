@@ -9,6 +9,8 @@ import path from 'node:path';
 import { upsert, toolStat, isWrite, isWrapped, norm } from './stats.mjs';
 import { planTools } from './plan.mjs';
 import { maybeNeedsLogin, loginCommand } from './oauth.mjs';
+import { lensPre, lensPost, responseOf } from './lens.mjs';
+import { canRewriteOutput } from '@qbranch/core/hooks';
 
 const parse = (name) => { const m = name.match(/^mcp__(.+?)__(.+)$/); return m ? { server: m[1], tool: m[2] } : null; };
 const srvName = (cfg, server) => Object.keys(cfg.servers || {}).find(n => norm(n) === norm(server)) || server;
@@ -49,6 +51,20 @@ export function post(cfg, h) {
   const t = parse(h.tool || '');
   if (!t) return null;
   if (isOurs(t.server)) { try { return converted(cfg, h); } catch { return null; } }
+  // the lens first: where the platform can rewrite the result, shape it here (sidecar, pagination, fan-out, compaction)
+  let lp = null; try { lp = lensPost(cfg, h); } catch { lp = null; }
+  if (lp?.updatedOutput != null) {
+    const raw = responseOf(h.response).text.length, returned = lp.updatedOutput.length;
+    upsert(cfg, (s, day) => {
+      s.totals.lens_calls++; s.totals.lens_raw_bytes += raw; s.totals.lens_returned_bytes += returned;
+      day.lens_calls = (day.lens_calls || 0) + 1;
+      if (lp.stat?.pending && !lp.stat?.fanout) s.totals.lens_pages++;
+      if (lp.stat?.fanout && lp.stat?.pending) s.totals.lens_fanouts++;
+      if (lp.stat?.compacted) s.totals.lens_compactions++;
+      const k = toolStat(s, `${t.server}.${t.tool}`); k.lens_calls++; k.lens_raw += raw; k.lens_returned += returned;
+    });
+    return { updatedOutput: lp.updatedOutput };
+  }
   const bytes = JSON.stringify(h.response ?? '').length;
   const cls = classify(cfg, t, h.response);
   const nudge = cfg.mode !== 'off' && cls === 'addressable' && bytes > cfg.nudgeBytes;
@@ -63,6 +79,9 @@ export function post(cfg, h) {
     if (tracked) s.totals.nudges_tracked++;
   });
   if (!nudge) return null;
+  if (cfg.lens && canRewriteOutput(h.platform)) return { context:
+    `That raw ${t.server}.${t.tool} result was ${Math.round(bytes / 1024)} KB (~${Math.round(bytes / 3.5 / 1000)}k tokens). ` +
+    'On the next call, add an argument "_middleout": {"select": "<JMESPath>"} to get only the fields you need (middleout strips it before the server sees it, and fetches every page).' };
   return { context:
     `That raw ${t.server}.${t.tool} result was ${Math.round(bytes / 1024)} KB (~${Math.round(bytes / 3.5 / 1000)}k tokens). ` +
     `For the next fetch from ${t.server}, use middleout_run with a "select" (and "each" for per-item calls): it returns only the fields you need and fetches every page.` +
@@ -71,6 +90,9 @@ export function post(cfg, h) {
 
 export function pre(cfg, h) {
   const t = parse(h.tool || '');
+  if (t && !isOurs(t.server)) { try { const lp = lensPre(cfg, h); if (lp) return lp; } catch { /* leave the call as it is */ } }
+  // where the lens can shape results, raw calls are fine: gate only where middleout_run is the only route
+  if (cfg.lens && canRewriteOutput(h.platform)) return null;
   if (cfg.mode !== 'gate' || !t || !isWrapped(cfg, t.server) || isWrite(t.tool)) return null;
   const f = mark('gate', h.sessionId, t.server);
   if (fs.existsSync(f)) return null; // deny once per server per session, then allow (never deadlock)

@@ -70,6 +70,7 @@ function set(o, p, val) {
   out[p[0]] = set(o[p[0]], p.slice(1), val);
   return out;
 }
+export { get as getAt, set as setAt };
 
 /** The fields that may carry paging signals: the top level, the item array's parent (GraphQL pageInfo), and META objects. */
 function signals(r, itemsPath) {

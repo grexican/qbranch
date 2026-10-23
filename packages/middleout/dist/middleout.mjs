@@ -207,9 +207,9 @@ function normalize(raw, platform = detectPlatform(raw), eventHint) {
       input2 = { value: input2 };
     }
   }
-  if (platform === "gemini") tool = GEMINI_TOOLS[tool] || tool;
+  if (platform === "gemini") tool = raw.mcp_context?.server_name ? `mcp__${raw.mcp_context.server_name}__${raw.mcp_context.tool_name || tool}` : GEMINI_TOOLS[tool] || tool;
   if (platform === "cursor") {
-    if (tool.startsWith("MCP:")) tool = `mcp__${raw.server || raw.mcp_server || "mcp"}__${tool.slice(4)}`;
+    if (tool.startsWith("MCP:")) tool = `mcp__${raw.server || raw.mcp_server || raw.server_name || raw.mcp_server_name || "mcp"}__${tool.slice(4)}`;
     tool = CURSOR_TOOLS[tool] || tool;
   }
   if (platform === "windsurf" && raw.tool_info?.mcp_server_name) tool = `mcp__${raw.tool_info.mcp_server_name}__${tool}`;
@@ -230,42 +230,54 @@ function normalize(raw, platform = detectPlatform(raw), eventHint) {
   };
 }
 function render(h, d) {
-  if (!d || !d.context && !d.deny && !d.updatedInput) return { stdout: "", exitCode: 0 };
+  if (!d || !d.context && !d.deny && !d.updatedInput && d.updatedOutput == null) return { stdout: "", exitCode: 0 };
   const { platform, event } = h;
+  const out = event === "PostToolUse" && d.updatedOutput != null && canRewriteOutput(platform) ? String(d.updatedOutput) : null;
   if (platform === "windsurf") return d.deny ? { stdout: "", stderr: d.deny, exitCode: 2 } : { stdout: "", exitCode: 0 };
   if (platform === "cursor") {
     if (event === "PreToolUse") {
-      const o = d.deny ? { permission: "deny", agent_message: d.deny, user_message: d.deny } : { permission: "allow" };
-      if (d.updatedInput && !d.deny) o.updated_input = d.updatedInput;
-      return { stdout: JSON.stringify(o), exitCode: 0 };
+      const o2 = d.deny ? { permission: "deny", agent_message: d.deny, user_message: d.deny } : { permission: "allow" };
+      if (d.updatedInput && !d.deny) o2.updated_input = d.updatedInput;
+      return { stdout: JSON.stringify(o2), exitCode: 0 };
     }
     if (event === "UserPromptSubmit") return { stdout: JSON.stringify(d.deny ? { continue: false, user_message: d.deny } : { continue: true }), exitCode: 0 };
-    return { stdout: d.context ? JSON.stringify({ additional_context: d.context }) : "", exitCode: 0 };
+    const o = {};
+    if (out != null) o.updated_mcp_tool_output = { content: [{ type: "text", text: out }] };
+    if (d.context) o.additional_context = d.context;
+    return { stdout: Object.keys(o).length ? JSON.stringify(o) : "", exitCode: 0 };
   }
   if (platform === "copilot") {
     if (event === "PreToolUse") {
-      const o = d.deny ? { permissionDecision: "deny", permissionDecisionReason: d.deny } : { permissionDecision: "allow" };
-      if (d.updatedInput && !d.deny) o.modifiedArgs = d.updatedInput;
-      return { stdout: JSON.stringify(o), exitCode: 0 };
+      const o2 = d.deny ? { permissionDecision: "deny", permissionDecisionReason: d.deny } : { permissionDecision: "allow" };
+      if (d.updatedInput && !d.deny) o2.modifiedArgs = d.updatedInput;
+      return { stdout: JSON.stringify(o2), exitCode: 0 };
     }
-    return { stdout: d.context ? JSON.stringify({ additionalContext: d.context }) : "", exitCode: 0 };
+    const o = {};
+    if (out != null) o.modifiedResult = { resultType: "success", textResultForLlm: out };
+    if (d.context) o.additionalContext = d.context;
+    return { stdout: Object.keys(o).length ? JSON.stringify(o) : "", exitCode: 0 };
   }
   if (platform === "gemini") {
     if (d.deny) return { stdout: JSON.stringify({ decision: "deny", reason: d.deny }), exitCode: 0 };
     const hso2 = {};
     if (d.context) hso2.additionalContext = d.context;
     if (d.updatedInput) hso2.tool_input = d.updatedInput;
-    return { stdout: JSON.stringify({ hookSpecificOutput: hso2 }), exitCode: 0 };
+    return { stdout: Object.keys(hso2).length ? JSON.stringify({ hookSpecificOutput: hso2 }) : "", exitCode: 0 };
   }
   const hso = { hookEventName: event };
   if (event === "PreToolUse") {
     if (d.deny) Object.assign(hso, { permissionDecision: "deny", permissionDecisionReason: d.deny });
-    else if (d.updatedInput) Object.assign(hso, { permissionDecision: "allow", updatedInput: d.updatedInput });
+    else if (d.updatedInput) {
+      if (!(d.keepPermission && platform === "claude")) hso.permissionDecision = "allow";
+      hso.updatedInput = d.updatedInput;
+    }
     if (d.context) hso.additionalContext = d.context;
     return { stdout: JSON.stringify({ hookSpecificOutput: hso }), exitCode: 0 };
   }
   if (d.deny && event === "UserPromptSubmit") return { stdout: JSON.stringify({ decision: "block", reason: d.deny }), exitCode: 0 };
   if (d.context) hso.additionalContext = d.context;
+  if (out != null && platform === "codex") return { stdout: JSON.stringify({ decision: "block", reason: out, hookSpecificOutput: hso }), exitCode: 0 };
+  if (out != null) hso.updatedToolOutput = out;
   return { stdout: JSON.stringify({ hookSpecificOutput: hso }), exitCode: 0 };
 }
 async function runHook(handler, argv = process.argv.slice(2)) {
@@ -288,10 +300,14 @@ async function runHook(handler, argv = process.argv.slice(2)) {
   if (out.stderr) process.stderr.write(out.stderr);
   process.exitCode = out.exitCode;
 }
-var EVENTS, GEMINI_TOOLS, CURSOR_TOOLS;
+var REWRITE_OUTPUT, canRewriteOutput, canStripInput, inputRewriteApproves, EVENTS, GEMINI_TOOLS, CURSOR_TOOLS;
 var init_hooks = __esm({
   "packages/core/src/hooks.mjs"() {
     init_project();
+    REWRITE_OUTPUT = /* @__PURE__ */ new Set(["claude", "cursor", "copilot", "codex"]);
+    canRewriteOutput = (platform) => REWRITE_OUTPUT.has(platform);
+    canStripInput = (platform) => ["claude", "cursor", "copilot", "codex"].includes(platform);
+    inputRewriteApproves = (platform) => platform !== "claude";
     EVENTS = {
       // cursor
       beforeSubmitPrompt: "UserPromptSubmit",
@@ -372,6 +388,7 @@ function loadConfig(root = projectRoot2()) {
     }
   }
   if (process.env.MIDDLEOUT_STATS === "0") cfg3.stats = false;
+  if (process.env.MIDDLEOUT_LENS === "0") cfg3.lens = false;
   return cfg3;
 }
 function toServer(s) {
@@ -410,7 +427,11 @@ var init_config = __esm({
       mode: "nudge",
       // hook behavior on raw MCP calls to wrapped servers: off | nudge | gate
       nudgeBytes: 8e3,
-      // nudge when a raw result is bigger than this
+      // nudge when a raw result is bigger than this (and the lens compacts results bigger than this)
+      lens: true,
+      // shrink native MCP results in the hooks, where the platform can rewrite a result (see lens.mjs)
+      lensDir: null,
+      // where the owner-only middleout-lens-<user> folder (per-session state, saved raw results) goes; null = os tmpdir
       stats: ".middleout-stats.json"
     };
     expandEnv = (v) => typeof v === "string" ? v.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g, (_, k, d) => process.env[k] ?? d ?? "") : v;
@@ -838,8 +859,8 @@ var init_parseUtil = __esm({
     init_errors();
     init_en();
     makeIssue = (params) => {
-      const { data, path: path8, errorMaps, issueData } = params;
-      const fullPath = [...path8, ...issueData.path || []];
+      const { data, path: path9, errorMaps, issueData } = params;
+      const fullPath = [...path9, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -1123,11 +1144,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util();
     ParseInputLazyPath = class {
-      constructor(parent, value, path8, key) {
+      constructor(parent, value, path9, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path8;
+        this._path = path9;
         this._key = key;
       }
       get path() {
@@ -3676,29 +3697,29 @@ var init_types = __esm({
         const params = { errorMap: ctx.common.contextualErrorMap };
         const fn = ctx.data;
         if (this._def.returns instanceof ZodPromise) {
-          const me = this;
+          const me2 = this;
           return OK(async function(...args) {
             const error62 = new ZodError([]);
-            const parsedArgs = await me._def.args.parseAsync(args, params).catch((e) => {
+            const parsedArgs = await me2._def.args.parseAsync(args, params).catch((e) => {
               error62.addIssue(makeArgsIssue(args, e));
               throw error62;
             });
             const result = await Reflect.apply(fn, this, parsedArgs);
-            const parsedReturns = await me._def.returns._def.type.parseAsync(result, params).catch((e) => {
+            const parsedReturns = await me2._def.returns._def.type.parseAsync(result, params).catch((e) => {
               error62.addIssue(makeReturnsIssue(result, e));
               throw error62;
             });
             return parsedReturns;
           });
         } else {
-          const me = this;
+          const me2 = this;
           return OK(function(...args) {
-            const parsedArgs = me._def.args.safeParse(args, params);
+            const parsedArgs = me2._def.args.safeParse(args, params);
             if (!parsedArgs.success) {
               throw new ZodError([makeArgsIssue(args, parsedArgs.error)]);
             }
             const result = Reflect.apply(fn, this, parsedArgs.data);
-            const parsedReturns = me._def.returns.safeParse(result, params);
+            const parsedReturns = me2._def.returns.safeParse(result, params);
             if (!parsedReturns.success) {
               throw new ZodError([makeReturnsIssue(result, parsedReturns.error)]);
             }
@@ -4601,10 +4622,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path8) {
-  if (!path8)
+function getElementAtPath(obj, path9) {
+  if (!path9)
     return obj;
-  return path8.reduce((acc, key) => acc?.[key], obj);
+  return path9.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -4863,11 +4884,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path8, issues) {
+function prefixIssues(path9, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path8);
+    iss.path.unshift(path9);
     return iss;
   });
 }
@@ -5400,16 +5421,16 @@ function flattenError(error62, mapper = (issue2) => issue2.message) {
 }
 function formatError(error62, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error63, path8 = []) => {
+  const processError = (error63, path9 = []) => {
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else {
-        const fullpath = [...path8, ...issue2.path];
+        const fullpath = [...path9, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -5448,17 +5469,17 @@ function formatError(error62, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error62, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error63, path8 = []) => {
+  const processError = (error63, path9 = []) => {
     var _a3;
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else {
-        const fullpath = [...path8, ...issue2.path];
+        const fullpath = [...path9, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -5496,22 +5517,22 @@ function treeifyError(error62, mapper = (issue2) => issue2.message) {
   return result;
 }
 function toDotPath(_path) {
-  const segs = [];
-  const path8 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path8) {
+  const segs2 = [];
+  const path9 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path9) {
     if (typeof seg === "number")
-      segs.push(`[${seg}]`);
+      segs2.push(`[${seg}]`);
     else if (typeof seg === "symbol")
-      segs.push(`[${JSON.stringify(String(seg))}]`);
+      segs2.push(`[${JSON.stringify(String(seg))}]`);
     else if (/[^\w$]/.test(seg))
-      segs.push(`[${JSON.stringify(seg)}]`);
+      segs2.push(`[${JSON.stringify(seg)}]`);
     else {
-      if (segs.length)
-        segs.push(".");
-      segs.push(seg);
+      if (segs2.length)
+        segs2.push(".");
+      segs2.push(seg);
     }
   }
-  return segs.join("");
+  return segs2.join("");
 }
 function prettifyError(error62) {
   const lines = [];
@@ -8924,9 +8945,9 @@ function isRecursive(inst, stack, resolve) {
     return PROVEN;
   stack.add(inst);
   let result = NONE;
-  const check2 = (child) => {
-    if (result !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve);
+  const check2 = (child2) => {
+    if (result !== PROVEN && child2?._zod) {
+      const answer = isRecursive(child2, stack, resolve);
       if (answer > result)
         result = answer;
     }
@@ -8937,9 +8958,9 @@ function isRecursive(inst, stack, resolve) {
       const desc = Object.getOwnPropertyDescriptor(sh, key);
       if (spread && !desc.enumerable)
         continue;
-      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve) : NONE;
-      if (child > answer)
-        answer = child;
+      const child2 = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve) : NONE;
+      if (child2 > answer)
+        answer = child2;
     }
     return answer;
   };
@@ -9089,15 +9110,15 @@ var init_memoizer = __esm({
     PROVEN = 2;
     open = [];
     memo = {
-      alloc(_inst, payload, empty) {
+      alloc(_inst, payload, empty2) {
         const bucket = handoff;
         if (!bucket)
-          return empty;
+          return empty2;
         handoff = void 0;
-        const entry = { value: empty, issues: null };
+        const entry = { value: empty2, issues: null };
         bucket.set(payload.value, entry);
         open.push(entry);
-        return empty;
+        return empty2;
       },
       guard(inst) {
         var _a3;
@@ -14001,11 +14022,11 @@ var init_nl = __esm({
           case "too_small": {
             const adj = issue2.inclusive ? ">=" : ">";
             const sizing = getSizing(issue2.origin);
-            const shortName = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
+            const shortName2 = issue2.origin === "date" ? "vroeg" : issue2.origin === "string" ? "kort" : "klein";
             if (sizing) {
-              return `Te ${shortName}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+              return `Te ${shortName2}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
             }
-            return `Te ${shortName}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
+            return `Te ${shortName2}: verwacht dat ${issue2.origin} ${adj}${issue2.minimum.toString()} is`;
           }
           case "invalid_format": {
             const _issue = issue2;
@@ -22036,11 +22057,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path8) {
-  if (path8.length === 0) {
+function getDotPath(path9) {
+  if (path9.length === 0) {
     return "object root";
   }
-  return path8.reduce((acc, seg, index) => {
+  return path9.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -23978,13 +23999,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path8 = ref.slice(1).split("/").filter(Boolean);
-  if (path8.length === 0) {
+  const path9 = ref.slice(1).split("/").filter(Boolean);
+  if (path9.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path8[0] === defsKey) {
-    const key = path8[1] === void 0 ? void 0 : decodeJSONPointerSegment(path8[1]);
+  if (path9[0] === defsKey) {
+    const key = path9[1] === void 0 ? void 0 : decodeJSONPointerSegment(path9[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -32462,8 +32483,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path8) {
-      let input2 = path8;
+    function removeDotSegments(path9) {
+      let input2 = path9;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -32872,8 +32893,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path8 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path8 && path8 !== "/" ? path8 : void 0;
+        const path9 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -36386,12 +36407,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs7, exportName) {
+    function addFormats(ajv, list, fs8, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs7[f]);
+        ajv.addFormat(f, fs8[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -37198,8 +37219,8 @@ var require_windows = __commonJS({
   "node_modules/isexe/windows.js"(exports, module) {
     module.exports = isexe;
     isexe.sync = sync;
-    var fs7 = __require("fs");
-    function checkPathExt(path8, options) {
+    var fs8 = __require("fs");
+    function checkPathExt(path9, options) {
       var pathext = options.pathExt !== void 0 ? options.pathExt : process.env.PATHEXT;
       if (!pathext) {
         return true;
@@ -37210,25 +37231,25 @@ var require_windows = __commonJS({
       }
       for (var i = 0; i < pathext.length; i++) {
         var p = pathext[i].toLowerCase();
-        if (p && path8.substr(-p.length).toLowerCase() === p) {
+        if (p && path9.substr(-p.length).toLowerCase() === p) {
           return true;
         }
       }
       return false;
     }
-    function checkStat(stat, path8, options) {
+    function checkStat(stat, path9, options) {
       if (!stat.isSymbolicLink() && !stat.isFile()) {
         return false;
       }
-      return checkPathExt(path8, options);
+      return checkPathExt(path9, options);
     }
-    function isexe(path8, options, cb) {
-      fs7.stat(path8, function(er, stat) {
-        cb(er, er ? false : checkStat(stat, path8, options));
+    function isexe(path9, options, cb) {
+      fs8.stat(path9, function(er, stat) {
+        cb(er, er ? false : checkStat(stat, path9, options));
       });
     }
-    function sync(path8, options) {
-      return checkStat(fs7.statSync(path8), path8, options);
+    function sync(path9, options) {
+      return checkStat(fs8.statSync(path9), path9, options);
     }
   }
 });
@@ -37238,14 +37259,14 @@ var require_mode = __commonJS({
   "node_modules/isexe/mode.js"(exports, module) {
     module.exports = isexe;
     isexe.sync = sync;
-    var fs7 = __require("fs");
-    function isexe(path8, options, cb) {
-      fs7.stat(path8, function(er, stat) {
+    var fs8 = __require("fs");
+    function isexe(path9, options, cb) {
+      fs8.stat(path9, function(er, stat) {
         cb(er, er ? false : checkStat(stat, options));
       });
     }
-    function sync(path8, options) {
-      return checkStat(fs7.statSync(path8), options);
+    function sync(path9, options) {
+      return checkStat(fs8.statSync(path9), options);
     }
     function checkStat(stat, options) {
       return stat.isFile() && checkMode(stat, options);
@@ -37269,7 +37290,7 @@ var require_mode = __commonJS({
 // node_modules/isexe/index.js
 var require_isexe = __commonJS({
   "node_modules/isexe/index.js"(exports, module) {
-    var fs7 = __require("fs");
+    var fs8 = __require("fs");
     var core;
     if (process.platform === "win32" || global.TESTING_WINDOWS) {
       core = require_windows();
@@ -37278,7 +37299,7 @@ var require_isexe = __commonJS({
     }
     module.exports = isexe;
     isexe.sync = sync;
-    function isexe(path8, options, cb) {
+    function isexe(path9, options, cb) {
       if (typeof options === "function") {
         cb = options;
         options = {};
@@ -37288,7 +37309,7 @@ var require_isexe = __commonJS({
           throw new TypeError("callback not provided");
         }
         return new Promise(function(resolve, reject) {
-          isexe(path8, options || {}, function(er, is) {
+          isexe(path9, options || {}, function(er, is) {
             if (er) {
               reject(er);
             } else {
@@ -37297,7 +37318,7 @@ var require_isexe = __commonJS({
           });
         });
       }
-      core(path8, options || {}, function(er, is) {
+      core(path9, options || {}, function(er, is) {
         if (er) {
           if (er.code === "EACCES" || options && options.ignoreErrors) {
             er = null;
@@ -37307,9 +37328,9 @@ var require_isexe = __commonJS({
         cb(er, is);
       });
     }
-    function sync(path8, options) {
+    function sync(path9, options) {
       try {
-        return core.sync(path8, options || {});
+        return core.sync(path9, options || {});
       } catch (er) {
         if (options && options.ignoreErrors || er.code === "EACCES") {
           return false;
@@ -37325,7 +37346,7 @@ var require_isexe = __commonJS({
 var require_which = __commonJS({
   "node_modules/which/which.js"(exports, module) {
     var isWindows = process.platform === "win32" || process.env.OSTYPE === "cygwin" || process.env.OSTYPE === "msys";
-    var path8 = __require("path");
+    var path9 = __require("path");
     var COLON = isWindows ? ";" : ":";
     var isexe = require_isexe();
     var getNotFoundError = (cmd2) => Object.assign(new Error(`not found: ${cmd2}`), { code: "ENOENT" });
@@ -37363,7 +37384,7 @@ var require_which = __commonJS({
           return opt.all && found.length ? resolve(found) : reject(getNotFoundError(cmd2));
         const ppRaw = pathEnv[i];
         const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
-        const pCmd = path8.join(pathPart, cmd2);
+        const pCmd = path9.join(pathPart, cmd2);
         const p = !pathPart && /^\.[\\\/]/.test(cmd2) ? cmd2.slice(0, 2) + pCmd : pCmd;
         resolve(subStep(p, i, 0));
       });
@@ -37390,7 +37411,7 @@ var require_which = __commonJS({
       for (let i = 0; i < pathEnv.length; i++) {
         const ppRaw = pathEnv[i];
         const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
-        const pCmd = path8.join(pathPart, cmd2);
+        const pCmd = path9.join(pathPart, cmd2);
         const p = !pathPart && /^\.[\\\/]/.test(cmd2) ? cmd2.slice(0, 2) + pCmd : pCmd;
         for (let j = 0; j < pathExt.length; j++) {
           const cur = p + pathExt[j];
@@ -37438,7 +37459,7 @@ var require_path_key = __commonJS({
 var require_resolveCommand = __commonJS({
   "node_modules/cross-spawn/lib/util/resolveCommand.js"(exports, module) {
     "use strict";
-    var path8 = __require("path");
+    var path9 = __require("path");
     var which = require_which();
     var getPathKey = require_path_key();
     function resolveCommandAttempt(parsed, withoutPathExt) {
@@ -37456,7 +37477,7 @@ var require_resolveCommand = __commonJS({
       try {
         resolved = which.sync(parsed.command, {
           path: env[getPathKey({ env })],
-          pathExt: withoutPathExt ? path8.delimiter : void 0
+          pathExt: withoutPathExt ? path9.delimiter : void 0
         });
       } catch (e) {
       } finally {
@@ -37465,7 +37486,7 @@ var require_resolveCommand = __commonJS({
         }
       }
       if (resolved) {
-        resolved = path8.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
+        resolved = path9.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
       }
       return resolved;
     }
@@ -37519,8 +37540,8 @@ var require_shebang_command = __commonJS({
       if (!match) {
         return null;
       }
-      const [path8, argument] = match[0].replace(/#! ?/, "").split(" ");
-      const binary = path8.split("/").pop();
+      const [path9, argument] = match[0].replace(/#! ?/, "").split(" ");
+      const binary = path9.split("/").pop();
       if (binary === "env") {
         return argument;
       }
@@ -37533,16 +37554,16 @@ var require_shebang_command = __commonJS({
 var require_readShebang = __commonJS({
   "node_modules/cross-spawn/lib/util/readShebang.js"(exports, module) {
     "use strict";
-    var fs7 = __require("fs");
+    var fs8 = __require("fs");
     var shebangCommand = require_shebang_command();
     function readShebang(command) {
       const size2 = 150;
       const buffer = Buffer.alloc(size2);
       let fd;
       try {
-        fd = fs7.openSync(command, "r");
-        fs7.readSync(fd, buffer, 0, size2, 0);
-        fs7.closeSync(fd);
+        fd = fs8.openSync(command, "r");
+        fs8.readSync(fd, buffer, 0, size2, 0);
+        fs8.closeSync(fd);
       } catch (e) {
       }
       return shebangCommand(buffer.toString());
@@ -37555,7 +37576,7 @@ var require_readShebang = __commonJS({
 var require_parse = __commonJS({
   "node_modules/cross-spawn/lib/parse.js"(exports, module) {
     "use strict";
-    var path8 = __require("path");
+    var path9 = __require("path");
     var resolveCommand = require_resolveCommand();
     var escape2 = require_escape();
     var readShebang = require_readShebang();
@@ -37580,7 +37601,7 @@ var require_parse = __commonJS({
       const needsShell = !isExecutableRegExp.test(commandFile);
       if (parsed.options.forceShell || needsShell) {
         const needsDoubleEscapeMetaChars = isCmdShimRegExp.test(commandFile);
-        parsed.command = path8.normalize(parsed.command);
+        parsed.command = path9.normalize(parsed.command);
         parsed.command = escape2.command(parsed.command);
         parsed.args = parsed.args.map((arg) => escape2.argument(arg, needsDoubleEscapeMetaChars));
         const shellCommand = [parsed.command].concat(parsed.args).join(" ");
@@ -41382,10 +41403,10 @@ var require_jmespath = __commonJS({
                 return null;
               }
               collected = {};
-              var child;
+              var child2;
               for (i = 0; i < node2.children.length; i++) {
-                child = node2.children[i];
-                collected[child.name] = this.visit(child.value, value);
+                child2 = node2.children[i];
+                collected[child2.name] = this.visit(child2.value, value);
               }
               return collected;
             case "OrExpression":
@@ -42026,8 +42047,8 @@ function nextRequest(r, args, params, items, { http: http2 = false, linkNext = n
   const last = items.at(-1);
   if (more && params?.includes("starting_after") && last?.id != null) return { args: { ...args, starting_after: last.id }, style: "starting_after" };
   const pageParam = firstParam(params, PAGE_PARAMS);
-  const nextPage = pick2(scopes, ["next_page", "nextPage"], (v) => typeof v === "number");
-  if (nextPage && pageParam) return { args: { ...args, [pageParam]: nextPage.value }, style: "page:next_page" };
+  const nextPage2 = pick2(scopes, ["next_page", "nextPage"], (v) => typeof v === "number");
+  if (nextPage2 && pageParam) return { args: { ...args, [pageParam]: nextPage2.value }, style: "page:next_page" };
   const curHit = pick2(scopes, CUR_PAGE, (v) => typeof v === "number");
   const cur = curHit?.value ?? (pageParam && typeof args[pageParam] === "number" ? args[pageParam] : null);
   const tp = pick2(scopes, TOTAL_PAGES, (v) => typeof v === "number") || pick2(scopes, ["last_page", "lastPage"], (v) => typeof v === "number");
@@ -42308,14 +42329,14 @@ function createEngine({ servers = {}, skipped = {}, readonly: readonly2 = false,
     if (p.truncated) st.incomplete.push(`${spec}: stopped at ${p.pages} pages (more exist; raise "pages")`);
     return p.result;
   }
-  function fill(v, scope) {
+  function fill2(v, scope) {
     if (typeof v === "string") {
       const whole = v.match(/^\{\{\s*(.+?)\s*\}\}$/);
       if (whole) return import_jmespath.default.search(scope, whole[1]);
       return v.replace(/\{\{\s*(.+?)\s*\}\}/g, (_, e) => String(import_jmespath.default.search(scope, e) ?? ""));
     }
-    if (Array.isArray(v)) return v.map((x) => fill(x, scope));
-    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fill(x, scope)]).filter(([, x]) => x !== ""));
+    if (Array.isArray(v)) return v.map((x) => fill2(x, scope));
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fill2(x, scope)]).filter(([, x]) => x !== ""));
     return v;
   }
   async function pool(items, fn) {
@@ -42331,7 +42352,7 @@ function createEngine({ servers = {}, skipped = {}, readonly: readonly2 = false,
   }
   async function runNode(st, node2, scope, at) {
     try {
-      let v = node2.http ? node2.page === false ? await callHttp(st, fill(node2.http, scope)) : await httpAuto(st, fill(node2.http, scope), node2.pages) : node2.page === false ? await callTool(st, node2.tool, fill(node2.args || {}, scope)) : await callAuto(st, node2.tool, fill(node2.args || {}, scope), node2.pages);
+      let v = node2.http ? node2.page === false ? await callHttp(st, fill2(node2.http, scope)) : await httpAuto(st, fill2(node2.http, scope), node2.pages) : node2.page === false ? await callTool(st, node2.tool, fill2(node2.args || {}, scope)) : await callAuto(st, node2.tool, fill2(node2.args || {}, scope), node2.pages);
       if (node2.select) v = import_jmespath.default.search(v, node2.select);
       const kids = node2.each ? [].concat(node2.each) : [];
       if (kids.length) {
@@ -42472,12 +42493,14 @@ function summarize(s, cfg3 = null) {
   const addrBytes = sum(by.addressable);
   const day = (iso) => iso.slice(5, 16).replace("T", " ");
   const lines = [];
-  lines.push(t.runs ? `middleout since ${s.since.slice(0, 10)}: ~${thou(s.est_tokens_saved ?? 0)} tokens kept out of context (an upper bound vs. the raw results: ${size(t.raw_bytes)} raw -> ${size(t.returned_bytes)} returned, Weissman score ${s.weissman ?? "-"})` : `middleout since ${s.since.slice(0, 10)}: not used yet (0 runs)${addrBytes ? `; ${size(addrBytes)} of raw traffic it could have handled went around it` : ""}`);
-  const cov = [by.unclassified.length ? "coverage: not measured yet (raw calls recorded before v0.3 are not classified)" : `coverage: ${pct(t.raw_bytes, t.raw_bytes + addrBytes)} of the traffic middleout can handle went through it`];
+  const lensRaw = t.lens_raw_bytes || 0, lensRet = t.lens_returned_bytes || 0;
+  lines.push(t.runs || t.lens_calls ? `middleout since ${s.since.slice(0, 10)}: ~${thou(s.est_tokens_saved ?? 0)} tokens kept out of context (an upper bound vs. the raw results: ${size(t.raw_bytes + lensRaw)} raw -> ${size(t.returned_bytes + lensRet)} returned, Weissman score ${s.weissman ?? "-"})` : `middleout since ${s.since.slice(0, 10)}: not used yet (0 runs)${addrBytes ? `; ${size(addrBytes)} of raw traffic it could have handled went around it` : ""}`);
+  const cov = [by.unclassified.length ? "coverage: not measured yet (raw calls recorded before v0.3 are not classified)" : `coverage: ${pct(t.raw_bytes + lensRaw, t.raw_bytes + lensRaw + addrBytes)} of the traffic middleout can handle went through it`];
   if (t.nudges_tracked) cov.push(`${t.nudges_converted || 0}/${t.nudges_tracked} nudges converted (${pct(t.nudges_converted || 0, t.nudges_tracked)})`);
   else if (t.nudges) cov.push(`${t.nudges} nudges (conversion not tracked before v0.3)`);
   if (t.gated) cov.push(`gated ${t.gated}`);
   lines.push(cov.join(" | "));
+  if (t.lens_calls) lines.push(`lens (native calls shaped in the hooks): ${plural2(t.lens_calls, "call")}, ${size(lensRaw)} -> ${size(lensRet)}${t.lens_pages ? ` | ${t.lens_pages} pages ping-ponged` : ""}${t.lens_fanouts ? ` | ${t.lens_fanouts} fan-outs` : ""}${t.lens_compactions ? ` | ${t.lens_compactions} auto-compacted` : ""}`);
   lines.push(`through middleout: ${plural2(t.runs, "run")}, ${t.api_calls} API calls${t.auto_pages ? `, ${t.auto_pages} pages auto-fetched` : ""} | errors ${t.errors}`);
   const via = tools.filter(([, v]) => v.via_middleout).sort((a, b) => (b[1].raw_bytes || 0) - (a[1].raw_bytes || 0));
   if (via.length) {
@@ -42502,7 +42525,7 @@ ${top(by.unclassified, 5)}`);
   if (errs.length) lines.push("recent errors:\n" + errs.map((e) => `    ${day(e.at)}  ${e.message.slice(0, 160)}`).join("\n"));
   return lines.join("\n");
 }
-var upsertFile, upsert, TOOL_FRESH, toolStat, WRITE, isWrite, BINARY_NAME, norm, isWrapped, size, thou, pct, plural2;
+var upsertFile, upsert, TOOL_FRESH, toolStat, WRITE, VERB, isWrite, BINARY_NAME, norm, isWrapped, size, thou, pct, plural2;
 var init_stats2 = __esm({
   "packages/middleout/src/stats.mjs"() {
     init_src();
@@ -42523,7 +42546,14 @@ var init_stats2 = __esm({
           nudges: 0,
           nudges_tracked: 0,
           nudges_converted: 0,
-          gated: 0
+          gated: 0,
+          // the lens: native calls whose result the hooks shaped (lens_pages / lens_fanouts count the continuation steps)
+          lens_calls: 0,
+          lens_raw_bytes: 0,
+          lens_returned_bytes: 0,
+          lens_pages: 0,
+          lens_fanouts: 0,
+          lens_compactions: 0
         },
         // nudges_tracked: nudges since conversion tracking began (v0.3); older nudges cannot be matched to a conversion
         // "server.tool" -> through middleout: via_middleout (API calls), runs, raw_bytes, returned_bytes;
@@ -42537,8 +42567,9 @@ var init_stats2 = __esm({
       dayFresh: () => ({ runs: 0, raw_bytes: 0, returned_bytes: 0, raw_calls_seen: 0 }),
       derive: (s) => {
         const t = s.totals;
-        s.weissman = t.returned_bytes ? +(t.raw_bytes / t.returned_bytes).toFixed(1) : null;
-        s.est_tokens_saved = Math.round((t.raw_bytes - t.returned_bytes) / 3.5);
+        const raw = t.raw_bytes + (t.lens_raw_bytes || 0), ret = t.returned_bytes + (t.lens_returned_bytes || 0);
+        s.weissman = ret ? +(raw / ret).toFixed(1) : null;
+        s.est_tokens_saved = Math.round((raw - ret) / 3.5);
         s.bypass = {};
         for (const v of Object.values(s.tools)) if (v.raw_calls) {
           const b = s.bypass[v.class || "unclassified"] ??= { calls: 0, bytes: 0 };
@@ -42549,12 +42580,14 @@ var init_stats2 = __esm({
       }
     });
     upsert = (cfg3, mutate) => upsertFile(cfg3.root, cfg3.stats, mutate);
-    TOOL_FRESH = () => ({ via_middleout: 0, runs: 0, raw_bytes: 0, returned_bytes: 0, raw_calls: 0, raw_bytes_seen: 0 });
+    TOOL_FRESH = () => ({ via_middleout: 0, runs: 0, raw_bytes: 0, returned_bytes: 0, raw_calls: 0, raw_bytes_seen: 0, lens_calls: 0, lens_raw: 0, lens_returned: 0 });
     toolStat = (s, ref) => s.tools[ref] = { ...TOOL_FRESH(), ...s.tools[ref] };
-    WRITE = /^(create|update|delete|add|remove|set|send|post|put|patch|move|merge|start|stop|attach|upsert|insert|edit|write|archive|unarchive|close|cancel|assign|react|share|trash|upload|publish|approve|respond|click|type|navigate|submit)$/i;
+    WRITE = /^(create|update|delete|add|remove|set|send|post|put|patch|move|merge|start|stop|attach|upsert|insert|edit|write|archive|unarchive|close|cancel|assign|react|share|trash|upload|publish|approve|respond|click|type|navigate|submit|execute|exec|run|eval|evaluate|drop|truncate|kill|deploy|invoke)$/i;
+    VERB = /^(get|list|search|find|fetch|read|describe|lookup|count|show|filter|retrieve|view|browse|query)$/i;
     isWrite = (tool) => {
       const seg = String(tool).replace(/([a-z0-9])([A-Z])/g, "$1_$2").split(/[_\-.]+/).filter(Boolean);
-      return WRITE.test(seg[0] || "") || seg.length > 2 && WRITE.test(seg[1]);
+      if (WRITE.test(seg[0] || "")) return true;
+      return !VERB.test(seg[0] || "") && seg.length >= 2 && WRITE.test(seg[1]);
     };
     BINARY_NAME = /(^|[_\-.])(screenshot|computer|image|capture|snapshot)([_\-.]|$)/i;
     norm = (name) => String(name).replace(/[^A-Za-z0-9]/g, "_").toLowerCase();
@@ -43311,11 +43344,11 @@ function toolInputElementCount(value, max) {
     if (node2 === null || typeof node2 !== "object")
       continue;
     if (Array.isArray(node2)) {
-      for (const child of node2) {
+      for (const child2 of node2) {
         if (++count > max)
           return count;
-        if (child !== null && typeof child === "object")
-          stack.push(child);
+        if (child2 !== null && typeof child2 === "object")
+          stack.push(child2);
       }
     } else {
       for (const key in node2) {
@@ -43323,9 +43356,9 @@ function toolInputElementCount(value, max) {
           continue;
         if (++count > max)
           return count;
-        const child = node2[key];
-        if (child !== null && typeof child === "object")
-          stack.push(child);
+        const child2 = node2[key];
+        if (child2 !== null && typeof child2 === "object")
+          stack.push(child2);
       }
     }
   }
@@ -44295,23 +44328,524 @@ init_config();
 init_engine();
 init_stats2();
 init_oauth();
-import fs6 from "node:fs";
-import path7 from "node:path";
+import fs7 from "node:fs";
+import path8 from "node:path";
 
 // packages/middleout/src/hook.mjs
 init_stats2();
 init_plan();
 init_oauth();
+import fs6 from "node:fs";
+import os4 from "node:os";
+import path7 from "node:path";
+
+// packages/middleout/src/lens.mjs
+var import_jmespath2 = __toESM(require_jmespath(), 1);
+init_hooks();
+init_paginate();
+import crypto3 from "node:crypto";
 import fs5 from "node:fs";
 import os3 from "node:os";
 import path6 from "node:path";
+var SIDE = "_middleout";
+var MAX_FANOUT = 50;
+var SIDE_TTL_MS = 6e4;
+var STATE_TTL_MS = 2 * 864e5;
+var MAX_RAW = 50;
+var kb = (n) => n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`;
+var READ = /^(get|list|search|find|fetch|read|describe|lookup|count|show|filter|retrieve|view|browse)$/i;
+var segs = (tool) => String(tool).replace(/([a-z0-9])([A-Z])/g, "$1_$2").split(/[_\-.]+/).filter(Boolean);
+var isRead = (tool) => {
+  const s = segs(tool);
+  return READ.test(s[0] || "") || s.length >= 2 && READ.test(s[1]);
+};
+var me = () => {
+  try {
+    if (typeof process.getuid === "function") return String(process.getuid());
+  } catch {
+  }
+  try {
+    return os3.userInfo().username.replace(/[^\w-]/g, "_") || "user";
+  } catch {
+    return "user";
+  }
+};
+var ownedByMe = (st) => typeof process.getuid !== "function" || st.uid === process.getuid();
+var DIR = { recursive: true, mode: 448 };
+function baseDir(cfg3) {
+  const base = path6.join(cfg3.lensDir || os3.tmpdir(), `middleout-lens-${me()}`);
+  if (!fs5.existsSync(base)) fs5.mkdirSync(base, DIR);
+  const st = fs5.statSync(base);
+  if (!st.isDirectory() || !ownedByMe(st)) throw new Error("lens folder is not ours");
+  try {
+    if (process.platform !== "win32" && st.mode & 63) fs5.chmodSync(base, 448);
+  } catch {
+  }
+  return base;
+}
+var SESSION_RE = /^[\w-]{1,80}$/;
+function sessionDir(cfg3, h) {
+  const base = baseDir(cfg3);
+  const name = String(h.sessionId || "nosession").replace(/[^\w-]/g, "_").slice(0, 80);
+  const d = path6.join(base, name);
+  if (!fs5.existsSync(d)) {
+    fs5.mkdirSync(d, DIR);
+    try {
+      for (const e of fs5.readdirSync(base, { withFileTypes: true })) {
+        if (!e.isDirectory() || !SESSION_RE.test(e.name) || e.name === name) continue;
+        const p = path6.join(base, e.name);
+        if (Date.now() - fs5.statSync(p).mtimeMs > STATE_TTL_MS) fs5.rmSync(p, { recursive: true, force: true });
+      }
+    } catch {
+    }
+  }
+  return d;
+}
+var OWN_FILE = /^(side-(tu|ak)-[\w-]+|state-[\w-]+|fan-[\w-]+|slot-[\w.-]+|raw-\d+-[0-9a-f]+)\.(json|done)$/;
+function tidy(d) {
+  try {
+    const raws = [];
+    for (const f of fs5.readdirSync(d)) {
+      if (!OWN_FILE.test(f)) continue;
+      const p = path6.join(d, f);
+      const m = fs5.statSync(p).mtimeMs;
+      if (f.startsWith("raw-")) raws.push([p, m]);
+      else if (Date.now() - m > STATE_TTL_MS) fs5.rmSync(p, { force: true });
+    }
+    raws.sort((a, b) => b[1] - a[1]);
+    for (const [p] of raws.slice(MAX_RAW)) fs5.rmSync(p, { force: true });
+  } catch {
+  }
+}
+var stable = (v) => Array.isArray(v) ? `[${v.map(stable).join(",")}]` : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable(v[k])}`).join(",")}}` : JSON.stringify(v);
+var bareTool = (tool) => String(tool || "").match(/^mcp__.+?__(.+)$/)?.[1] || String(tool || "");
+var argsKey = (tool, args) => crypto3.createHash("sha1").update(`${bareTool(tool)}
+${stable(args || {})}`).digest("hex").slice(0, 16);
+var readJson2 = (f) => {
+  try {
+    return JSON.parse(fs5.readFileSync(f, "utf8"));
+  } catch {
+    return null;
+  }
+};
+var writeJson = (f, v) => {
+  const tmp = `${f}.${process.pid}.tmp`;
+  fs5.writeFileSync(tmp, JSON.stringify(v), { mode: 384 });
+  fs5.renameSync(tmp, f);
+};
+var toolUseId = (h) => h.raw?.tool_use_id || h.raw?.toolUseId || h.raw?.tool_call_id || null;
+var safeId = (s) => String(s).replace(/[^\w-]/g, "_");
+function parseSidecar(v) {
+  if (v && typeof v === "object" && !Array.isArray(v)) return v;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (t.startsWith("{")) {
+      try {
+        const o = JSON.parse(t);
+        if (o && typeof o === "object") return o;
+      } catch {
+      }
+    }
+    if (t) return { select: t };
+  }
+  return null;
+}
+function parseLossless(text2) {
+  let out = "", big = 0, i = 0, inStr = false, last = 0;
+  while (i < text2.length) {
+    const ch = text2[i];
+    if (inStr) {
+      if (ch === "\\") {
+        i += 2;
+        continue;
+      }
+      if (ch === '"') inStr = false;
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = true;
+      i++;
+      continue;
+    }
+    if (ch === "-" || ch >= "0" && ch <= "9") {
+      let j = i + 1;
+      while (j < text2.length && text2[j] >= "0" && text2[j] <= "9") j++;
+      const tok = text2.slice(i, j);
+      if (tok.replace("-", "").length >= 16 && !/[.eE]/.test(text2[j] || "") && !Number.isSafeInteger(Number(tok))) {
+        out += `${text2.slice(last, i)}"${tok}"`;
+        last = j;
+        big++;
+      }
+      i = j;
+      continue;
+    }
+    i++;
+  }
+  return { value: JSON.parse(big ? out + text2.slice(last) : text2), big };
+}
+var bigNote = (big) => big ? [`${big} integer${big === 1 ? "" : "s"} beyond 2^53 kept as strings (exact digits)`] : [];
+function responseOf(r) {
+  const blocks = (arr) => ({ text: arr.map((x) => typeof x === "string" ? x : x?.text || "").join(""), binary: arr.some((x) => x && /^(image|audio|resource|blob)$/.test(x.type)) });
+  if (r == null) return { text: "", binary: false, error: false };
+  if (typeof r === "string") {
+    if (r.startsWith("{") && r.includes('"content"')) {
+      try {
+        const o = JSON.parse(r);
+        if (Array.isArray(o.content)) return { ...blocks(o.content), error: !!o.isError };
+      } catch {
+      }
+    }
+    return { text: r, binary: false, error: false };
+  }
+  if (Array.isArray(r)) return { ...blocks(r), error: false };
+  if (Array.isArray(r.content)) return { ...blocks(r.content), error: !!r.isError };
+  if (typeof r.textResultForLlm === "string") return { text: r.textResultForLlm, binary: false, error: r.resultType && r.resultType !== "success" };
+  if (typeof r.output === "string") return { text: r.output, binary: false, error: false };
+  return { text: JSON.stringify(r), binary: false, error: !!r.isError };
+}
+function fill(v, scope) {
+  if (typeof v === "string") {
+    const whole = v.match(/^\{\{\s*(.+?)\s*\}\}$/);
+    if (whole) return import_jmespath2.default.search(scope, whole[1]);
+    return v.replace(/\{\{\s*(.+?)\s*\}\}/g, (_, e) => String(import_jmespath2.default.search(scope, e) ?? ""));
+  }
+  if (Array.isArray(v)) return v.map((x) => fill(x, scope));
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fill(x, scope)]));
+  return v;
+}
+function lensPre(cfg3, h) {
+  if (!cfg3.lens || !canStripInput(h.platform) || !canRewriteOutput(h.platform)) return null;
+  const input2 = h.input || {};
+  if (!(SIDE in input2)) return null;
+  const side = parseSidecar(input2[SIDE]);
+  if (!side) return null;
+  const tool = bareTool(h.tool);
+  if (inputRewriteApproves(h.platform) && !isRead(tool)) {
+    return { deny: `${tool}: call again without ${SIDE} (it cannot be used on this tool here; it only shapes what read tools return).` };
+  }
+  const { [SIDE]: _drop, ...rest2 } = input2;
+  const d = sessionDir(cfg3, h);
+  const rec = { side, tool: h.tool, at: Date.now() };
+  const id = toolUseId(h);
+  writeJson(path6.join(d, id ? `side-tu-${safeId(id)}.json` : `side-ak-${argsKey(h.tool, rest2)}.json`), rec);
+  return { updatedInput: rest2, keepPermission: true };
+}
+function takeSide(cfg3, h) {
+  const d = sessionDir(cfg3, h);
+  const id = toolUseId(h);
+  const f = path6.join(d, id ? `side-tu-${safeId(id)}.json` : `side-ak-${argsKey(h.tool, h.input)}.json`);
+  const rec = readJson2(f);
+  if (rec) fs5.rmSync(f, { force: true });
+  if (!rec || Date.now() - (rec.at || 0) > SIDE_TTL_MS) return null;
+  return { side: rec.side, tool: rec.tool };
+}
+function lensPost(cfg3, h) {
+  if (!cfg3.lens || !canRewriteOutput(h.platform)) return null;
+  const r = responseOf(h.response);
+  const taken = takeSide(cfg3, h);
+  if (taken) {
+    const { side } = taken;
+    const ctx = { ...h, tool: called(h.tool, taken.tool) };
+    const d = sessionDir(cfg3, h);
+    let v, big = 0, err = null;
+    if (r.error) err = `error: ${r.text.slice(0, 300)}`;
+    else if (r.binary) err = "a binary result (image or file)";
+    else if (!r.text) err = "an empty result";
+    else {
+      try {
+        ({ value: v, big } = parseLossless(r.text));
+      } catch {
+        err = `not JSON: ${r.text.slice(0, 300)}`;
+      }
+    }
+    if (side.continue && side.slot != null) return child(cfg3, ctx, d, side, v, r.text.length, err, big);
+    if (side.continue) return nextPage(cfg3, ctx, d, side, v, r.text.length, err, big);
+    if (err) return null;
+    return firstCall(cfg3, ctx, d, side, v, r.text.length, big);
+  }
+  if (r.binary || r.error || !r.text) return null;
+  if (r.text.length > cfg3.nudgeBytes) return compactResult(cfg3, h, r.text);
+  return null;
+}
+var called = (postTool, preTool) => /^mcp__mcp__/.test(String(postTool)) && preTool && !/^mcp__mcp__/.test(String(preTool)) ? preTool : postTool;
+var shortName = (tool) => {
+  const m = String(tool).match(/^mcp__(.+?)__(.+)$/);
+  return !m ? String(tool) : m[1] === "mcp" ? m[2] : `${m[1]}.${m[2]}`;
+};
+var sameServerTool = (h, ref) => {
+  if (String(ref).startsWith("mcp__")) return ref;
+  if (String(ref).includes(".")) {
+    const [srv, t] = String(ref).split(/\.(.*)/s);
+    return `mcp__${srv}__${t}`;
+  }
+  const m = String(h.tool).match(/^mcp__(.+?)__(.+)$/);
+  if (!m || m[1] === "mcp") return String(ref);
+  return `mcp__${m[1]}__${ref}`;
+};
+function finish(h, side, value, { rawBytes, pages = 1, notes = [] }) {
+  let out = value;
+  try {
+    if (side.select) out = import_jmespath2.default.search(out, String(side.select));
+  } catch (e) {
+    notes.push(`select failed: ${e.message}`);
+  }
+  try {
+    if (side.then && !side.each) out = import_jmespath2.default.search(out, String(side.then));
+  } catch (e) {
+    notes.push(`then failed: ${e.message}`);
+  }
+  const body = JSON.stringify(out ?? null);
+  const info = notes.filter((n) => /kept as strings/.test(n));
+  const gaps = notes.filter((n) => !/kept as strings/.test(n));
+  const foot = `(middleout: ${pages > 1 ? `${pages} pages merged, ` : ""}${kb(rawBytes)} raw -> ${kb(body.length)}${info.length ? `; ${info.join("; ")}` : ""})`;
+  return { updatedOutput: `${body}
+${foot}${gaps.length ? `
+INCOMPLETE: ${gaps.join("; ")}` : ""}`, stat: { rawBytes, returnedBytes: body.length, pages } };
+}
+function continuation(h, d, state, n) {
+  const id = state.id;
+  writeJson(path6.join(d, `state-${id}.json`), state);
+  const add = Object.fromEntries(Object.entries(n.args).filter(([k, v]) => stable(h.input?.[k]) !== stable(v)));
+  return {
+    updatedOutput: `middleout: page ${state.pages} of ${shortName(h.tool)} stored (${state.items.length} items so far). Call ${shortName(h.tool)} again now with the same arguments plus ${JSON.stringify({ ...add, [SIDE]: { continue: id } })}. Do not answer yet: the merged result comes back with the last page.`,
+    stat: { rawBytes: state.rawBytes, returnedBytes: 0, pages: 0, pending: true }
+  };
+}
+function firstCall(cfg3, h, d, side, v, rawBytes, big) {
+  tidy(d);
+  const notes = bigNote(big);
+  const at = side.page === false ? null : findItems(v);
+  if (at !== null) {
+    const items = get(v, at) || [];
+    const n = nextRequest(v, h.input || {}, null, items);
+    if (n.args && items.length) {
+      const state = {
+        id: crypto3.randomBytes(6).toString("hex"),
+        tool: h.tool,
+        at,
+        first: v,
+        items: [...items],
+        pages: 1,
+        side,
+        rawBytes,
+        max: Number(side.pages) || 50,
+        fp: stable(items[0] ?? null),
+        big,
+        args: h.input || {}
+      };
+      return continuation(h, d, state, n);
+    }
+    if (n.stop === "no-param") notes.push(`the result says there is more, but which argument asks for the next page is unclear (${n.style}); fetch further pages yourself`);
+  }
+  return withEach(cfg3, h, d, side, v, { rawBytes, notes, parentArgs: h.input || {} });
+}
+function nextPage(cfg3, h, d, side, v, rawBytes, err, big) {
+  const f = path6.join(d, `state-${safeId(side.continue)}.json`);
+  const state = readJson2(f);
+  if (!state) {
+    if (err) return null;
+    return { updatedOutput: `middleout: continuation "${side.continue}" is unknown or expired; the result below is this page only.
+${JSON.stringify(v)}`, stat: { rawBytes, returnedBytes: rawBytes, pages: 1 } };
+  }
+  const pageNo = state.pages + 1;
+  const notes = [];
+  state.rawBytes += rawBytes;
+  state.big = (state.big || 0) + (big || 0);
+  let more = null;
+  if (err) notes.push(`page ${pageNo} failed: ${err}`);
+  else {
+    const page = get(v, state.at);
+    if (!Array.isArray(page)) notes.push(`page ${pageNo} had no item list where page 1 had one; stopped`);
+    else if (page.length && stable(page[0]) === state.fp) notes.push(`page ${pageNo} repeated the previous page (the server ignored the next-page argument); stopped`);
+    else if (page.length) {
+      state.items.push(...page);
+      state.pages++;
+      state.fp = stable(page[0]);
+      const n = nextRequest(v, h.input || {}, null, page);
+      if (n.args) {
+        if (state.pages < state.max) more = n;
+        else notes.push(`stopped at ${state.pages} pages (more exist; set "pages" higher)`);
+      } else if (n.stop === "no-param") notes.push(`the result says there is more, but which argument asks for the next page is unclear (${n.style})`);
+    }
+  }
+  if (more) return continuation(h, d, state, more);
+  fs5.rmSync(f, { force: true });
+  return withEach(
+    cfg3,
+    h,
+    d,
+    state.side,
+    set2(state.first, state.at, state.items),
+    { rawBytes: state.rawBytes, pages: state.pages, notes: [...bigNote(state.big), ...notes], parentArgs: state.args || {} }
+  );
+}
+function withEach(cfg3, h, d, side, value, meta3) {
+  if (!side.each) return finish(h, side, value, meta3);
+  let arr;
+  try {
+    arr = side.select ? import_jmespath2.default.search(value, String(side.select)) : value;
+  } catch (e) {
+    return finish(h, { ...side, each: null }, value, { ...meta3, notes: [...meta3.notes || [], `select failed: ${e.message}`] });
+  }
+  if (!Array.isArray(arr)) return finish(h, { ...side, each: null }, value, { ...meta3, notes: [...meta3.notes || [], '"each" needs the selected value to be an array'] });
+  const notes = [...meta3.notes || []];
+  if (arr.length > MAX_FANOUT) {
+    notes.push(`fan-out limited to the first ${MAX_FANOUT} of ${arr.length} items`);
+    arr = arr.slice(0, MAX_FANOUT);
+  }
+  const kids = [].concat(side.each);
+  if (!arr.length) return finish(h, { then: side.then }, [], { ...meta3, notes });
+  const id = crypto3.randomBytes(6).toString("hex");
+  const calls = [];
+  arr.forEach((el, i) => kids.forEach((k, j) => {
+    const scope = { ...el && typeof el === "object" ? el : { value: el }, _parent: meta3.parentArgs || {} };
+    const args = fill(k.args || {}, scope);
+    calls.push({ tool: sameServerTool(h, k.tool), slot: `${i}.${j}`, args: { ...args, [SIDE]: { continue: id, slot: `${i}.${j}`, ...k.select ? { select: k.select } : {} } } });
+  }));
+  writeJson(path6.join(d, `fan-${id}.json`), {
+    id,
+    parent: arr,
+    kids: kids.map((k) => ({ as: k.as || "children" })),
+    slots: calls.map((c) => c.slot),
+    expected: calls.length,
+    then: side.then || null,
+    notes,
+    rawBytes: meta3.rawBytes,
+    at: Date.now()
+  });
+  return {
+    updatedOutput: `middleout: ${calls.length} follow-up call${calls.length === 1 ? "" : "s"} needed. Issue all of them now (in parallel is fine), exactly as given, then wait: the call that completes the set returns the assembled result.
+${calls.map((c) => `- ${c.tool} ${JSON.stringify(c.args)}`).join("\n")}`,
+    stat: { rawBytes: meta3.rawBytes, returnedBytes: 0, pages: 0, pending: true, fanout: calls.length }
+  };
+}
+function child(cfg3, h, d, side, v, rawBytes, err, big) {
+  const id = safeId(side.continue);
+  const fan = readJson2(path6.join(d, `fan-${id}.json`));
+  if (!fan) return null;
+  const slot = String(side.slot);
+  const slots = fan.slots || [];
+  if (!slots.includes(slot)) return err ? null : { updatedOutput: `middleout: slot "${slot}" is not part of this fan-out; result below unchanged.
+${JSON.stringify(v)}`, stat: { rawBytes, returnedBytes: rawBytes, pages: 1 } };
+  let rec;
+  if (err) rec = { val: { error: err }, rawBytes, more: 0, failed: 1 };
+  else {
+    let val = v;
+    try {
+      if (side.select) val = import_jmespath2.default.search(v, String(side.select));
+    } catch {
+    }
+    const at = findItems(v);
+    const more = at !== null && nextRequest(v, h.input || {}, null, get(v, at) || []).args ? 1 : 0;
+    rec = { val, rawBytes, more, big: big || 0 };
+  }
+  writeJson(path6.join(d, `slot-${id}-${slot.replace(/[^\w.-]/g, "_")}.json`), rec);
+  const have = new Set(fs5.readdirSync(d).filter((f) => f.startsWith(`slot-${id}-`) && f.endsWith(".json")).map((f) => f.slice(`slot-${id}-`.length, -5)));
+  const done = slots.filter((s) => have.has(s.replace(/[^\w.-]/g, "_"))).length;
+  if (done < fan.expected) return { updatedOutput: `middleout: ${done}/${fan.expected} stored. Issue any remaining calls; the assembled result comes back with the last one.`, stat: { rawBytes, returnedBytes: 0, pages: 0, pending: true } };
+  try {
+    fs5.writeFileSync(path6.join(d, `fan-${id}.done`), "1", { flag: "wx", mode: 384 });
+  } catch {
+    return { updatedOutput: `middleout: ${fan.expected}/${fan.expected} stored; another call returned the assembled result.`, stat: { rawBytes, returnedBytes: 0, pages: 0, pending: true } };
+  }
+  let raw = fan.rawBytes || 0, moreN = 0, failed = 0, missing = 0, bigN = 0, firstErr = "";
+  const assembled = fan.parent.map((el, i) => {
+    const o = el && typeof el === "object" ? { ...el } : { value: el };
+    fan.kids.forEach((k, j) => {
+      const s = readJson2(path6.join(d, `slot-${id}-${i}.${j}.json`));
+      if (!s) missing++;
+      if (s?.failed) {
+        failed++;
+        firstErr ||= s.val?.error || "";
+      }
+      o[k.as] = s?.val ?? null;
+      raw += s?.rawBytes || 0;
+      moreN += s?.more || 0;
+      bigN += s?.big || 0;
+    });
+    return o;
+  });
+  const notes = [...bigNote(bigN), ...fan.notes || []];
+  if (failed) notes.push(`${failed} of ${fan.expected} per-item calls failed (their entries hold {"error": ...}; first: ${firstErr.slice(0, 160)})`);
+  if (missing) notes.push(`${missing} of ${fan.expected} per-item results are missing (null)`);
+  if (moreN) notes.push(`${moreN} per-item result${moreN === 1 ? "" : "s"} had more pages that were not fetched`);
+  for (const f of fs5.readdirSync(d)) if (f.startsWith(`slot-${id}-`) || f.startsWith(`fan-${id}.`)) fs5.rmSync(path6.join(d, f), { force: true });
+  const out = finish(h, { then: fan.then }, assembled, { rawBytes: raw, notes });
+  out.stat.fanout = fan.expected;
+  return out;
+}
+var LONG = 400;
+var KEEP = 300;
+var empty = (v) => v == null || v === "" || Array.isArray(v) && !v.length || v && typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length;
+function compact(v, stats = { packed: 0, trimmed: 0 }, inList = false) {
+  if (typeof v === "string") {
+    if (inList && v.length > LONG) {
+      stats.trimmed = (stats.trimmed || 0) + 1;
+      return `${v.slice(0, KEEP)}\u2026[+${v.length - KEEP} chars]`;
+    }
+    return v;
+  }
+  if (Array.isArray(v)) {
+    const arr = v.map((x) => compact(x, stats, inList || v.length >= 4));
+    const objs = arr.length >= 4 && arr.every((x) => x && typeof x === "object" && !Array.isArray(x));
+    if (objs) {
+      const cols = [...new Set(arr.flatMap(Object.keys))];
+      const avg = arr.reduce((a, x) => a + Object.keys(x).length, 0) / arr.length;
+      if (cols.length && cols.length <= avg * 1.5) {
+        stats.packed = (stats.packed || 0) + 1;
+        const same = {};
+        for (const c of cols) {
+          const first = stable(arr[0][c] ?? null);
+          if (arr.every((x) => stable(x[c] ?? null) === first)) same[c] = arr[0][c] ?? null;
+        }
+        const vary = cols.filter((c) => !(c in same));
+        return { ...Object.keys(same).length ? { _same: same } : {}, _cols: vary, _rows: arr.map((x) => vary.map((c) => c in x ? x[c] : null)) };
+      }
+    }
+    return arr;
+  }
+  if (v && typeof v === "object") {
+    const out = {};
+    for (const [k, x] of Object.entries(v)) {
+      const c = compact(x, stats, inList);
+      if (!empty(c)) out[k] = c;
+    }
+    return out;
+  }
+  return v;
+}
+function compactResult(cfg3, h, text2) {
+  let v, big;
+  try {
+    ({ value: v, big } = parseLossless(text2));
+  } catch {
+    return null;
+  }
+  const st = { packed: 0, trimmed: 0 };
+  const body = JSON.stringify(compact(v, st));
+  if (body.length > text2.length * 0.8) return null;
+  const d = sessionDir(cfg3, h);
+  const file2 = path6.join(d, `raw-${Date.now()}-${crypto3.randomBytes(3).toString("hex")}.json`);
+  fs5.writeFileSync(file2, text2, { mode: 384 });
+  tidy(d);
+  const how = ["empty fields dropped", st.trimmed && "long strings trimmed", st.packed && "record arrays packed as _cols/_rows (_same: values every record shares)", ...bigNote(big)].filter(Boolean).join(", ");
+  return {
+    updatedOutput: `${body}
+(middleout: compacted ${kb(text2.length)} -> ${kb(body.length)}: ${how}. Full result: ${file2.split(path6.sep).join("/")} (read it if you need more), or call again with "${SIDE}": {"select": "<JMESPath>"} for exactly the fields you need.)`,
+    stat: { rawBytes: text2.length, returnedBytes: body.length, pages: 1, compacted: true }
+  };
+}
+
+// packages/middleout/src/hook.mjs
+init_hooks();
 var parse3 = (name) => {
   const m = name.match(/^mcp__(.+?)__(.+)$/);
   return m ? { server: m[1], tool: m[2] } : null;
 };
 var srvName = (cfg3, server2) => Object.keys(cfg3.servers || {}).find((n) => norm(n) === norm(server2)) || server2;
 var isOurs = (server2) => server2 === "middleout" || /middleout/.test(server2);
-var mark = (kind, session, server2) => path6.join(os3.tmpdir(), `middleout-${kind}-${String(session || "x").replace(/[^\w-]/g, "_")}-${norm(server2)}`);
+var mark = (kind, session, server2) => path7.join(os4.tmpdir(), `middleout-${kind}-${String(session || "x").replace(/[^\w-]/g, "_")}-${norm(server2)}`);
 function hasBinary(v, depth = 0) {
   if (!v || typeof v !== "object" || depth > 4) return false;
   if (Array.isArray(v)) return v.some((x) => hasBinary(x, depth + 1));
@@ -44332,8 +44866,8 @@ function converted(cfg3, h) {
   let n = 0;
   for (const srv of servers) {
     const f = mark("nudge", h.sessionId, srv);
-    if (fs5.existsSync(f)) {
-      fs5.rmSync(f, { force: true });
+    if (fs6.existsSync(f)) {
+      fs6.rmSync(f, { force: true });
       n++;
     }
   }
@@ -44352,13 +44886,36 @@ function post(cfg3, h) {
       return null;
     }
   }
+  let lp = null;
+  try {
+    lp = lensPost(cfg3, h);
+  } catch {
+    lp = null;
+  }
+  if (lp?.updatedOutput != null) {
+    const raw = responseOf(h.response).text.length, returned = lp.updatedOutput.length;
+    upsert(cfg3, (s, day) => {
+      s.totals.lens_calls++;
+      s.totals.lens_raw_bytes += raw;
+      s.totals.lens_returned_bytes += returned;
+      day.lens_calls = (day.lens_calls || 0) + 1;
+      if (lp.stat?.pending && !lp.stat?.fanout) s.totals.lens_pages++;
+      if (lp.stat?.fanout && lp.stat?.pending) s.totals.lens_fanouts++;
+      if (lp.stat?.compacted) s.totals.lens_compactions++;
+      const k = toolStat(s, `${t.server}.${t.tool}`);
+      k.lens_calls++;
+      k.lens_raw += raw;
+      k.lens_returned += returned;
+    });
+    return { updatedOutput: lp.updatedOutput };
+  }
   const bytes = JSON.stringify(h.response ?? "").length;
   const cls = classify(cfg3, t, h.response);
   const nudge = cfg3.mode !== "off" && cls === "addressable" && bytes > cfg3.nudgeBytes;
   let tracked = false;
   if (nudge) {
     try {
-      fs5.writeFileSync(mark("nudge", h.sessionId, t.server), String(Date.now()), { flag: "wx" });
+      fs6.writeFileSync(mark("nudge", h.sessionId, t.server), String(Date.now()), { flag: "wx" });
       tracked = true;
     } catch {
     }
@@ -44375,14 +44932,23 @@ function post(cfg3, h) {
     if (tracked) s.totals.nudges_tracked++;
   });
   if (!nudge) return null;
+  if (cfg3.lens && canRewriteOutput(h.platform)) return { context: `That raw ${t.server}.${t.tool} result was ${Math.round(bytes / 1024)} KB (~${Math.round(bytes / 3.5 / 1e3)}k tokens). On the next call, add an argument "_middleout": {"select": "<JMESPath>"} to get only the fields you need (middleout strips it before the server sees it, and fetches every page).` };
   return { context: `That raw ${t.server}.${t.tool} result was ${Math.round(bytes / 1024)} KB (~${Math.round(bytes / 3.5 / 1e3)}k tokens). For the next fetch from ${t.server}, use middleout_run with a "select" (and "each" for per-item calls): it returns only the fields you need and fetches every page.` + (maybeNeedsLogin(srvName(cfg3, t.server), cfg3.servers[srvName(cfg3, t.server)]) ? ` If middleout says ${t.server} needs sign-in, ask the user to run \`${loginCommand(srvName(cfg3, t.server))}\` once, and fetch raw until then.` : "") };
 }
 function pre(cfg3, h) {
   const t = parse3(h.tool || "");
+  if (t && !isOurs(t.server)) {
+    try {
+      const lp = lensPre(cfg3, h);
+      if (lp) return lp;
+    } catch {
+    }
+  }
+  if (cfg3.lens && canRewriteOutput(h.platform)) return null;
   if (cfg3.mode !== "gate" || !t || !isWrapped(cfg3, t.server) || isWrite(t.tool)) return null;
   const f = mark("gate", h.sessionId, t.server);
-  if (fs5.existsSync(f)) return null;
-  fs5.writeFileSync(f, "1");
+  if (fs6.existsSync(f)) return null;
+  fs6.writeFileSync(f, "1");
   upsert(cfg3, (s) => {
     s.totals.gated++;
   });
@@ -44406,9 +44972,9 @@ async function main() {
   if (!["hook", "mcp"].includes(cmd) && (rest.includes("--help") || rest.includes("-h"))) return console.log(HELP);
   switch (cmd) {
     case "init": {
-      const f = path7.join(cfg2.root, "middleout.config.json");
-      if (fs6.existsSync(f)) return console.log(`${f} already exists`);
-      fs6.writeFileSync(f, JSON.stringify({ readonly: true, mode: "nudge", nudgeBytes: 8e3 }, null, 2) + "\n");
+      const f = path8.join(cfg2.root, "middleout.config.json");
+      if (fs7.existsSync(f)) return console.log(`${f} already exists`);
+      fs7.writeFileSync(f, JSON.stringify({ readonly: true, mode: "nudge", nudgeBytes: 8e3 }, null, 2) + "\n");
       return console.log(`wrote ${f}
 wrapping (from .mcp.json): ${Object.keys(cfg2.servers).join(", ") || 'none yet: add "servers" or a .mcp.json'}`);
     }
@@ -44448,7 +45014,7 @@ wrapping (from .mcp.json): ${Object.keys(cfg2.servers).join(", ") || 'none yet: 
     case "stats": {
       let s;
       try {
-        s = JSON.parse(fs6.readFileSync(path7.join(cfg2.root, cfg2.stats || ".middleout-stats.json"), "utf8"));
+        s = JSON.parse(fs7.readFileSync(path8.join(cfg2.root, cfg2.stats || ".middleout-stats.json"), "utf8"));
       } catch {
         return console.log("no stats yet");
       }

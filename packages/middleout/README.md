@@ -28,7 +28,7 @@ It is a combination, shipped as one Claude Code plugin:
 |---|---|
 | **Tool** (MCP server) | `middleout_tools`, `middleout_shape`, `middleout_run`. It wraps the MCP servers in your project's `.mcp.json` (stdio, Streamable HTTP and SSE; no config needed), or the ones you list. |
 | **Skill** | How to write plans: recipes for projection, fan-out, nesting and aggregation, plus the pitfalls. |
-| **Hook** | Watches every raw MCP call. It measures the payload, and when a big result came from a server middleout wraps, it tells the agent to fetch through middleout next time. In `gate` mode it blocks the first raw call to a wrapped server per session (useful for small models). |
+| **Hook (the lens)** | Shapes the native MCP call's result, through the agent's own connection and sign-in: an extra `"_middleout": {"select": ...}` argument is stripped before the server sees it and applied to the result; more pages come back as a one-line "call again with ..." until the merged result arrives; `each` fans out into per-item calls; a big result without a sidecar is compacted, with the full result saved to a file. Elsewhere it measures raw calls and nudges toward middleout. In `gate` mode, on harnesses without the lens, it blocks the first raw call to a wrapped server per session. |
 | **Stats** | Upserts `.middleout-stats.json`: calls, bytes in and out, the Weissman score, tokens kept out of context, and the raw traffic that bypassed middleout. |
 
 A plan looks like this:
@@ -45,7 +45,22 @@ A plan looks like this:
 
 It handles the API mechanics that small models get wrong:
 
-- **Pagination is automatic.** `next_page`, `has_more` + `page`, and cursor fields are followed, and the pages are merged into the normal shape. (Haiku used 1-based pages on a 0-based API, and forgot to paginate.)
+- **Pagination is automatic, in every common style:** cursors and tokens (top level or nested, as in Slack, HubSpot and GraphQL `pageInfo`), next-page URLs and Link headers, page numbers (0- or 1-based), offsets, Stripe's `starting_after`, and DynamoDB keys. The request uses the tool's own parameter names, loops are caught, and a capped or incomplete result says so. (Haiku used 1-based pages on a 0-based API, and forgot to paginate.)
+
+### The lens, harness by harness
+
+The lens needs a hook that can rewrite a tool result. Each harness gets the best it supports:
+
+| Harness | Result rewrite | Sidecar stripping | What middleout does there |
+|---|---|---|---|
+| Claude Code | `updatedToolOutput` | `updatedInput`, permission flow untouched | full lens |
+| Cursor | `updated_mcp_tool_output` (MCP only) | `updated_input` (counts as an approval) | full lens; write-like tools never get a sidecar |
+| Copilot CLI / VS Code | `modifiedResult` | `modifiedArgs` (counts as an approval) | full lens; write-like tools never get a sidecar |
+| Codex | `block` + `reason` replaces the result | `updatedInput` + allow (counts as an approval) | full lens; write-like tools never get a sidecar |
+| Gemini CLI | none clean (deny shows as an error) | merge only, a key cannot be removed | `middleout_run` + nudges |
+| Windsurf | none | none | `middleout_run` + gate |
+
+`"lens": false` in `middleout.config.json` (or `MIDDLEOUT_LENS=0`) turns it off.
 - **Empty-string arguments are dropped.** Models send `""` for optional params, and APIs reject them.
 - **Fan-out runs in parallel** with a concurrency cap.
 - **Errors name the node that failed** (`at plan[0].deals[3].calls: ...`), so the agent can fix the plan.

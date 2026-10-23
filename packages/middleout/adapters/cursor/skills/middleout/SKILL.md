@@ -5,7 +5,21 @@ description: Fetch data from this project's MCP servers or JSON APIs without flo
 
 # middleout
 
-`middleout_run` runs a whole fetch plan on the server side: chained calls, one-to-many loops, nesting and pagination. Only the fields you select come back. On real APIs this cuts tokens 2-8x for list work and 7-28x for per-item fan-out, with the same answers.
+Two ways to fetch less. Both return only the fields you select and fetch every page.
+
+**The lens (no setup, any MCP tool, the tool's own sign-in).** Call the tool you were going to call, and add one extra argument, `"_middleout"`. middleout removes it before the server sees it and shapes the result:
+
+```json
+{ "stage": "negotiation", "_middleout": { "select": "deals[].{id: id, name: name}" } }
+```
+
+- More pages: the result is a one-line instruction ("call again with ... `"_middleout": {"continue": "..."}`"). Follow it exactly, without answering in between, until the merged result comes back.
+- Per item: add `"each": {"tool": "get_contact", "args": {"id": "{{cid}}"}, "select": "email", "as": "email"}`. The result lists the calls to issue (in parallel is fine), and the last one returns everything assembled.
+- `"then"` reshapes the final result, `"page": false` keeps only the first page, and `"pages": N` raises the cap of 50.
+- A big result without `_middleout` comes back compacted, with the path of the full result. Read that file if you need more.
+- The lens works where the agent harness can rewrite a tool result: Claude Code, Cursor, Copilot and Codex. Elsewhere, use `middleout_run`.
+
+**`middleout_run` (the power mode).** It runs a whole fetch plan on the server side: chained calls, one-to-many loops, nesting and pagination, in one step. On real APIs it cuts tokens 2-8x for list work and 7-28x for per-item fan-out, with the same answers. It reaches the servers in the project's `.mcp.json`; a server that signs in with OAuth needs `middleout login <server>` once.
 
 ## Workflow
 

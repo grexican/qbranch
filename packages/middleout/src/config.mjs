@@ -12,7 +12,9 @@ export const DEFAULTS = {
   allow: null,        // optional regex on "server.tool"
   concurrency: 8,     // parallel calls inside an "each"
   mode: 'nudge',      // hook behavior on raw MCP calls to wrapped servers: off | nudge | gate
-  nudgeBytes: 8000,   // nudge when a raw result is bigger than this
+  nudgeBytes: 8000,   // nudge when a raw result is bigger than this (and the lens compacts results bigger than this)
+  lens: true,         // shrink native MCP results in the hooks, where the platform can rewrite a result (see lens.mjs)
+  lensDir: null,      // where the owner-only middleout-lens-<user> folder (per-session state, saved raw results) goes; null = os tmpdir
   stats: '.middleout-stats.json',
 };
 
@@ -35,6 +37,7 @@ export function loadConfig(root = projectRoot()) {
     for (const [name, s] of Object.entries(cfg.servers)) { const r = toServer(s); if (r.server) cfg.servers[name] = r.server; else { delete cfg.servers[name]; cfg.skipped[name] = r.why; } }
   }
   if (process.env.MIDDLEOUT_STATS === '0') cfg.stats = false;
+  if (process.env.MIDDLEOUT_LENS === '0') cfg.lens = false;
   return cfg;
 }
 

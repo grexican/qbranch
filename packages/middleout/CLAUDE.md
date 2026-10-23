@@ -5,6 +5,8 @@ middleout is a declarative fetch layer over MCP servers and JSON APIs: hierarchi
 ## Map
 - `src/engine.mjs`: `createEngine()`: connects downstream servers, read-only filter (server `readOnlyHint`), plan runner, auto-pagination, empty-arg cleanup
 - `src/mcp.mjs`: `middleout_tools` / `middleout_shape` / `middleout_run`
+- `src/paginate.mjs`: every common pagination style, request params from the tool's schema, loop guards, never-silent truncation
+- `src/lens.mjs`: the lens (sidecar strip/apply, pagination ping-pong, fan-out slots, auto-compaction); per-harness capability lives in `@qbranch/core/hooks`
 - `src/hook.mjs`: post (measure raw MCP traffic split addressable/unwrapped/binary/write, nudge, count nudge conversions) and pre (gate mode)
 - `src/config.mjs`: `middleout.config.json`; default servers = the project's `.mcp.json` servers (stdio, http, sse; `${VAR}` expansion; `skipped` says why an entry is not wrapped)
 - `src/oauth.mjs`: OAuth client for HTTP servers: `middleout login` (browser, once) and the runtime provider (stored tokens + SDK refresh; never a browser, never registers)
