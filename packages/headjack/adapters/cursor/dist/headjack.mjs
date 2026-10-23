@@ -98,10 +98,38 @@ function lock(file3) {
   return () => {
   };
 }
+function ensureIgnored(root, file3) {
+  const key = path2.join(root, file3);
+  if (ignored.has(key)) return;
+  ignored.add(key);
+  try {
+    let git = path2.join(root, ".git");
+    if (fs2.statSync(git).isFile()) {
+      git = path2.resolve(root, fs2.readFileSync(git, "utf8").match(/gitdir:\s*(.+)/)[1].trim());
+      try {
+        git = path2.resolve(git, fs2.readFileSync(path2.join(git, "commondir"), "utf8").trim());
+      } catch {
+      }
+    }
+    const ex = path2.join(git, "info", "exclude");
+    const line = `/${file3.split(path2.sep).join("/")}*`;
+    let cur = "";
+    try {
+      cur = fs2.readFileSync(ex, "utf8");
+    } catch {
+    }
+    if (cur.split(/\r?\n/).some((l) => l.trim() === line || l.trim() === file3 || l.trim() === `/${file3}`)) return;
+    fs2.mkdirSync(path2.dirname(ex), { recursive: true });
+    fs2.appendFileSync(ex, `${cur && !cur.endsWith("\n") ? "\n" : ""}${line}
+`);
+  } catch {
+  }
+}
 function createStats({ tool, fresh, dayFresh, derive }) {
   return function upsert2(root, file3, mutate) {
     if (!file3 || process.env[`${tool.toUpperCase()}_STATS`] === "0") return;
     const f = path2.join(root, file3);
+    ensureIgnored(root, file3);
     const release = lock(f);
     try {
       let s;
@@ -129,11 +157,12 @@ function createStats({ tool, fresh, dayFresh, derive }) {
     }
   };
 }
-var KEEP_DAYS, today;
+var KEEP_DAYS, today, ignored;
 var init_stats = __esm({
   "packages/core/src/stats.mjs"() {
     KEEP_DAYS = 90;
     today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    ignored = /* @__PURE__ */ new Set();
   }
 });
 
@@ -721,7 +750,7 @@ function summarize(s) {
   const pct = (a, b) => b ? `${Math.round(100 * a / b)}%` : "-";
   const per = s.startup_tokens_per_context || 0, saved = t.startup_tokens_saved, net = saved - t.est_tokens_injected;
   const top = Object.entries(s.skills).filter(([, v]) => v.loaded).sort((a, b) => b[1].loaded - a[1].loaded).slice(0, 10);
-  const ignored = Object.entries(s.skills).filter(([, v]) => v.suggested >= 3 && v.loaded === 0).sort((a, b) => b[1].suggested - a[1].suggested);
+  const ignored2 = Object.entries(s.skills).filter(([, v]) => v.suggested >= 3 && v.loaded === 0).sort((a, b) => b[1].suggested - a[1].suggested);
   const example = (id) => (s.trail || []).filter((e) => e.ids.includes(id)).at(-1);
   const verdict = !t.prompts ? "no prompts seen yet" : !t.sessions ? `startup saving not measured yet (stats predate session counting) | ${num(t.est_tokens_injected)} tokens injected | suggestion -> load conversion ${pct(t.suggested_then_loaded, t.suggestions)} (${t.suggested_then_loaded}/${t.suggestions}) | loads ${t.loads}` : `${net >= 0 ? "net +" : "net "}${num(net)} tokens (${num(saved)} kept out of startup, ${num(t.est_tokens_injected)} injected) | suggestion -> load conversion ${pct(t.suggested_then_loaded, t.suggestions)} (${t.suggested_then_loaded}/${t.suggestions}) | loads ${t.loads}`;
   return [
@@ -731,8 +760,8 @@ function summarize(s) {
     `prompts ${t.prompts} | with suggestions ${t.suggested_prompts} (${pct(t.suggested_prompts, t.prompts)}) | harness prompts skipped ${t.skipped_system} | repeats suppressed ${t.repeat_suppressed}`,
     `searches ${t.searches} (weak ${t.weak_searches}, external ${t.external_searches}) | registry suggestions ${t.external_suggestions} | acquires ${t.acquires}`,
     top.length ? `most loaded (loads/suggested): ${top.map(([k, v]) => `${k} ${v.loaded}/${v.suggested}`).join(", ")}` : "no skills loaded yet",
-    ignored.length ? `suggested often, never loaded (tune its description or remove it):
-  ${ignored.slice(0, 8).map(([k, v]) => {
+    ignored2.length ? `suggested often, never loaded (tune its description or remove it):
+  ${ignored2.slice(0, 8).map(([k, v]) => {
       const e = example(k);
       return `${k} x${v.suggested}${e ? ` -- e.g. "${e.q.replace(/\s+/g, " ").slice(0, 80)}"${e.sim != null ? ` (sim ${e.sim})` : ""}` : ""}`;
     }).join("\n  ")}` : "",

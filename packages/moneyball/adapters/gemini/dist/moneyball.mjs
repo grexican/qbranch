@@ -1703,10 +1703,39 @@ function lock(file) {
   return () => {
   };
 }
+var ignored = /* @__PURE__ */ new Set();
+function ensureIgnored(root, file) {
+  const key = path2.join(root, file);
+  if (ignored.has(key)) return;
+  ignored.add(key);
+  try {
+    let git3 = path2.join(root, ".git");
+    if (fs2.statSync(git3).isFile()) {
+      git3 = path2.resolve(root, fs2.readFileSync(git3, "utf8").match(/gitdir:\s*(.+)/)[1].trim());
+      try {
+        git3 = path2.resolve(git3, fs2.readFileSync(path2.join(git3, "commondir"), "utf8").trim());
+      } catch {
+      }
+    }
+    const ex = path2.join(git3, "info", "exclude");
+    const line = `/${file.split(path2.sep).join("/")}*`;
+    let cur = "";
+    try {
+      cur = fs2.readFileSync(ex, "utf8");
+    } catch {
+    }
+    if (cur.split(/\r?\n/).some((l) => l.trim() === line || l.trim() === file || l.trim() === `/${file}`)) return;
+    fs2.mkdirSync(path2.dirname(ex), { recursive: true });
+    fs2.appendFileSync(ex, `${cur && !cur.endsWith("\n") ? "\n" : ""}${line}
+`);
+  } catch {
+  }
+}
 function createStats({ tool, fresh, dayFresh, derive }) {
   return function upsert2(root, file, mutate) {
     if (!file || process.env[`${tool.toUpperCase()}_STATS`] === "0") return;
     const f = path2.join(root, file);
+    ensureIgnored(root, file);
     const release = lock(f);
     try {
       let s;
