@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Skills, loaded the moment you need them. Two root skills + a per-prompt retrieval hook replace a preloaded skill listing: the library stays indexed and out of context until a task needs it.",
-    "version": "0.4.0"
+    "version": "0.5.0"
   },
   "plugins": [
     {
       "name": "headjack",
       "source": "./adapters/codex",
       "description": "Skills, loaded the moment you need them. Two root skills + a per-prompt retrieval hook replace a preloaded skill listing: the library stays indexed and out of context until a task needs it.",
-      "version": "0.4.0"
+      "version": "0.5.0"
     }
   ]
 }

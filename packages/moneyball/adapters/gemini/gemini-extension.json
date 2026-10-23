@@ -1,5 +1,5 @@
 {
   "name": "moneyball",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Right-size your agents on evidence: measure every subagent run's cost and success from transcripts, graduate repeatable jobs to cheaper models, and route dispatches with a hook."
 }

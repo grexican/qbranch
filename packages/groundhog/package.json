@@ -1,6 +1,6 @@
 {
   "name": "groundhog",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Find the work your agents keep re-doing by hand: mine transcripts for repeated procedures and re-learned lessons, keep a lessons ledger, and enforce it with hooks.",
   "tagline": "Stop re-living the same session: re-learned lessons become a committed ledger that hooks enforce, and repeated procedures become runbooks.",
   "spec": "lessons that stick",
@@ -21,7 +21,7 @@
     "node": ">=22.13"
   },
   "dependencies": {
-    "@qbranch/core": "0.4.0"
+    "@qbranch/core": "0.5.0"
   },
   "repository": {
     "type": "git",

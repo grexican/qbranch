@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.0 (2026-10-23)
+
+**sync**
+- sync generated bundles
+
+**groundhog**
+- groundhog: guard for doubled backslashes in inline scripts under bash on Windows (measured 39.8% failure, 5.3x ordinary commands; annotate once per session), lessons from shell-to-Write/Edit recoveries and from rtk proxy retries, counted once per incident and gated on distinct sessions
+
+**middleout**
+- middleout: lens mode, no login needed: the native MCP call runs with the harness's own auth and a hook reshapes its result (_middleout sidecar: select/then, pagination ping-pong, each fan-out; big results auto-compacted with the full raw result saved owner-only). Sidecars only on read verbs where a rewrite would approve the call; big integers kept exact; failed pages/slots reported INCOMPLETE. Cursor/Copilot shapes are not yet verified on live installs
+
+**core**
+- core: hooks render a replacement tool result per harness (Claude updatedToolOutput, Cursor updated_mcp_tool_output, Copilot modifiedResult, Codex block+reason; Gemini/Windsurf have no clean path) and read Gemini/Cursor MCP tool names correctly
+
 ## v0.4.0 (2026-10-23)
 
 **middleout**
