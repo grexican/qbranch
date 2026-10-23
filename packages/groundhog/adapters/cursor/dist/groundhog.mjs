@@ -77,6 +77,10 @@ function createStats({ tool, fresh, dayFresh, derive }) {
       } catch {
         s = { tool, schema: 1, since: (/* @__PURE__ */ new Date()).toISOString(), ...fresh() };
       }
+      for (const [k, v] of Object.entries(fresh())) {
+        if (!(k in s)) s[k] = v;
+        else if (v && typeof v === "object" && !Array.isArray(v) && s[k] && typeof s[k] === "object") s[k] = { ...v, ...s[k] };
+      }
       s.days ??= {};
       s.days[today()] ??= dayFresh();
       mutate(s, s.days[today()]);
@@ -222,8 +226,16 @@ function claudeProjectDirs(root) {
   const enc = encodeProject(root);
   return fs3.readdirSync(base).filter((d) => d === enc || d.startsWith(enc + "-")).map((d) => path4.join(base, d));
 }
+var tag = (s, n) => s.match(new RegExp(`<${n}>([\\s\\S]*?)</${n}>`))?.[1];
+function lateResult(text, agents) {
+  const id = tag(text, "tool-use-id") || agents.get(tag(text, "task-id"));
+  if (!id) return null;
+  const status = tag(text, "status") || "";
+  return { t: "result", id, late: true, isError: !!status && status !== "completed", text: tag(text, "result") ?? tag(text, "summary") ?? "" };
+}
 function* claudeEvents(file2) {
   const seen = /* @__PURE__ */ new Map();
+  const agents = /* @__PURE__ */ new Map();
   let meta = false;
   for (const line of fs3.readFileSync(file2, "utf8").split("\n")) {
     if (!line) continue;
@@ -243,15 +255,22 @@ function* claudeEvents(file2) {
         if (b.type === "tool_use") yield { t: "tool", name: b.name, input: b.input || {}, id: b.id };
         else if (b.type === "text" && b.text) yield { t: "text", text: b.text };
       }
-    } else if (m.type === "user" && m.message) {
-      const c = m.message.content;
+    } else if (m.type === "user" || m.type === "attachment" && m.attachment?.type === "queued_command") {
+      const c = m.type === "user" ? m.message?.content : m.attachment.prompt;
       if (typeof c === "string") {
-        if (!c.startsWith("<")) yield { t: "user", text: c };
+        if (c.startsWith("<task-notification>")) {
+          const r = lateResult(c, agents);
+          if (r) yield r;
+        } else if (!c.startsWith("<")) yield { t: "user", text: c };
         continue;
       }
       for (const b of c || []) {
-        if (b.type === "tool_result") yield { t: "result", id: b.tool_use_id, isError: !!b.is_error, text: typeof b.content === "string" ? b.content : JSON.stringify(b.content || "") };
-        else if (b.type === "text" && !b.text.startsWith("<")) yield { t: "user", text: b.text };
+        if (b.type === "tool_result") {
+          const text = typeof b.content === "string" ? b.content : JSON.stringify(b.content || "");
+          const a = text.slice(0, 600).match(/Async agent launched[\s\S]{0,400}?agentId: (\w+)/);
+          if (a) agents.set(a[1], b.tool_use_id);
+          yield { t: "result", id: b.tool_use_id, isError: !!b.is_error, text };
+        } else if (b.type === "text" && !b.text.startsWith("<")) yield { t: "user", text: b.text };
       }
     }
   }
@@ -2035,15 +2054,15 @@ function snapshotSandbox(root, ref) {
   };
   return { base, root: work, dir: work, git: true, env, status, cleanup, links };
 }
-function killStrays(tag) {
-  if (!/^qbranch-replay-\w{6}$/.test(tag)) return;
+function killStrays(tag2) {
+  if (!/^qbranch-replay-\w{6}$/.test(tag2)) return;
   if (process.platform === "win32") spawnSync2("powershell", [
     "-NoProfile",
     "-NonInteractive",
     "-Command",
-    `Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*${tag}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
+    `Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*${tag2}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
   ], { windowsHide: true, timeout: 3e4 });
-  else spawnSync2("pkill", ["-9", "-f", tag], { timeout: 3e4 });
+  else spawnSync2("pkill", ["-9", "-f", tag2], { timeout: 3e4 });
 }
 function applyFiles(work, root, sha, entries) {
   for (const e of entries) {
