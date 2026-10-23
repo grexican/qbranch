@@ -61,9 +61,11 @@ export function binaryNote({ sessionId = '', version = VERSION, env = process.en
     fs.mkdirSync(markDir, { recursive: true, mode: 0o700 });
     fs.writeFileSync(mark, version, { mode: 0o600 });
     // when the binary's bin/ comes first on PATH, its older commands shadow the plugin's newer ones
-    const dirs = (env.PATH || env.Path || '').split(path.delimiter).filter(Boolean).map(d => path.resolve(d).toLowerCase());
-    const homeBin = dirs.indexOf(path.resolve(home, 'bin').toLowerCase());
-    const pluginBin = dirs.findIndex(d => /[\\/]plugins[\\/]/.test(d) && /[\\/]bin$/.test(d) && SHIMS.some(s => fs.existsSync(path.join(d, s))));
+    // compare case-insensitively only where the file system is (Windows, macOS); look files up by the real spelling
+    const fold = platform === 'linux' ? (d) => d : (d) => d.toLowerCase();
+    const dirs = (env.PATH || env.Path || '').split(path.delimiter).filter(Boolean).map(d => path.resolve(d));
+    const homeBin = dirs.findIndex(d => fold(d) === fold(path.resolve(home, 'bin')));
+    const pluginBin = dirs.findIndex(d => /[\\/]plugins[\\/]/i.test(d) && /[\\/]bin$/i.test(d) && SHIMS.some(s => fs.existsSync(path.join(d, s))));
     const shadow = homeBin >= 0 && pluginBin >= 0 && homeBin < pluginBin
       ? ` Until then its commands (${path.join(home, 'bin')}) come first on PATH and shadow the plugins' newer ones.` : '';
     const what = bin ? `qbranch binary v${bin.replace(/^v/, '')} is older than the plugins (v${version})` : `qbranch binary is older than the plugins (v${version}; it was installed before versions were tracked)`;

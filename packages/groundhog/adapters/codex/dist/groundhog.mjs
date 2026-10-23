@@ -1223,9 +1223,10 @@ function binaryNote({ sessionId = "", version = VERSION, env = process.env, plat
     if (fs4.existsSync(mark)) return null;
     fs4.mkdirSync(markDir2, { recursive: true, mode: 448 });
     fs4.writeFileSync(mark, version, { mode: 384 });
-    const dirs = (env.PATH || env.Path || "").split(path5.delimiter).filter(Boolean).map((d) => path5.resolve(d).toLowerCase());
-    const homeBin = dirs.indexOf(path5.resolve(home2, "bin").toLowerCase());
-    const pluginBin = dirs.findIndex((d) => /[\\/]plugins[\\/]/.test(d) && /[\\/]bin$/.test(d) && SHIMS.some((s) => fs4.existsSync(path5.join(d, s))));
+    const fold = platform === "linux" ? (d) => d : (d) => d.toLowerCase();
+    const dirs = (env.PATH || env.Path || "").split(path5.delimiter).filter(Boolean).map((d) => path5.resolve(d));
+    const homeBin = dirs.findIndex((d) => fold(d) === fold(path5.resolve(home2, "bin")));
+    const pluginBin = dirs.findIndex((d) => /[\\/]plugins[\\/]/i.test(d) && /[\\/]bin$/i.test(d) && SHIMS.some((s) => fs4.existsSync(path5.join(d, s))));
     const shadow = homeBin >= 0 && pluginBin >= 0 && homeBin < pluginBin ? ` Until then its commands (${path5.join(home2, "bin")}) come first on PATH and shadow the plugins' newer ones.` : "";
     const what = bin ? `qbranch binary v${bin.replace(/^v/, "")} is older than the plugins (v${version})` : `qbranch binary is older than the plugins (v${version}; it was installed before versions were tracked)`;
     const alt = platform === "win32" ? `Command Prompt: ${installCommand(platform, env)}` : installCommand(platform, env);
