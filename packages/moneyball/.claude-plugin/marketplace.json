@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Right-size your agents on evidence: measure every subagent run's cost and success from transcripts, graduate repeatable jobs to cheaper models, and route dispatches with a hook.",
-    "version": "0.5.2"
+    "version": "0.5.3"
   },
   "plugins": [
     {
       "name": "moneyball",
       "source": "./",
       "description": "Right-size your agents on evidence: measure every subagent run's cost and success from transcripts, graduate repeatable jobs to cheaper models, and route dispatches with a hook.",
-      "version": "0.5.2"
+      "version": "0.5.3"
     }
   ]
 }

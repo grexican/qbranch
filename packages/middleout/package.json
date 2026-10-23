@@ -1,6 +1,6 @@
 {
   "name": "middleout",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "API calls, compressed. A declarative fetch layer over MCP servers and JSON APIs: hierarchical plans, fan-out, automatic pagination and projection, so only the fields an agent needs reach its context.",
   "tagline": "API calls, compressed: agents write one small plan, and only the fields they selected reach the model.",
   "spec": "API calls, compressed",
@@ -33,7 +33,7 @@
     "@modelcontextprotocol/sdk": "^1.32.1",
     "jmespath": "^0.16.0",
     "zod": "^4.6.7",
-    "@qbranch/core": "0.5.2"
+    "@qbranch/core": "0.5.3"
   },
   "repository": {
     "type": "git",

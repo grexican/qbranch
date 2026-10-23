@@ -544,7 +544,7 @@ var VERSION, qbranchHome, repoOf, user, markDirDefault, SHIMS, DAY, STALE_LOCK, 
 var init_binary = __esm({
   "packages/core/src/binary.mjs"() {
     init_project();
-    VERSION = true ? "0.5.2" : null;
+    VERSION = true ? "0.5.3" : null;
     qbranchHome = (env = process.env) => env.QBRANCH_HOME || path4.join(os3.homedir(), ".qbranch");
     repoOf = (env) => env.QBRANCH_REPO || "grexican/qbranch";
     user = () => {

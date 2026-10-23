@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.3 (2026-10-23)
+
+**core**
+- core: plugins say once per session when they are behind the latest release (cached latest.json refreshed in the background once a day via gh or the GitHub API; QBRANCH_UPDATE_CHECK=0 opts out), naming the installed plugins and the exact upgrade commands per harness, combined with the binary note
+
 ## v0.5.2 (2026-10-23)
 
 **core**

@@ -1176,7 +1176,7 @@ import fs4 from "node:fs";
 import os3 from "node:os";
 import path5 from "node:path";
 import { execFileSync, spawn } from "node:child_process";
-var VERSION = true ? "0.5.2" : null;
+var VERSION = true ? "0.5.3" : null;
 var qbranchHome = (env = process.env) => env.QBRANCH_HOME || path5.join(os3.homedir(), ".qbranch");
 var repoOf = (env) => env.QBRANCH_REPO || "grexican/qbranch";
 function installCommand(platform = process.platform, env = process.env) {
