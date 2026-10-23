@@ -1,6 +1,6 @@
 {
   "name": "headjack",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Skills, loaded the moment you need them. A just-in-time skill library for LLM agents: indexed, searched and loaded on demand instead of preloaded.",
   "tagline": "Skills, loaded the moment you need them: an indexed skill library and a per-prompt retrieval hook instead of a preloaded listing.",
   "spec": "skills, on demand",
@@ -31,7 +31,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "zod": "^4.6.7",
-    "@qbranch/core": "0.3.1"
+    "@qbranch/core": "0.3.2"
   },
   "optionalDependencies": {
     "@huggingface/transformers": "^4.3.1"

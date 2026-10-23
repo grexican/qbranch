@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.2 (2026-10-23)
+
+**core**
+- core: stats files keep themselves out of git through the clone's .git/info/exclude (worktrees too), so per-person usage never collides in commits
+
+**other**
+- install: replace only what the release ships, so middleout sign-ins and cached models survive upgrades; gadget commands live in bin/, apart from the tools' data folders (0.3.1's ~/.qbranch/middleout shim blocked middleout's data dir)
+
 ## v0.3.1 (2026-10-23)
 
 **middleout**
