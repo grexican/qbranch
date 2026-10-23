@@ -19,7 +19,8 @@ const SELF = process.argv[1]; // this script (bundled or not); the native binary
 
 const HELP = `moneyball: pay for the model each job needs, not the one you defaulted to.
 
-  moneyball scan [--days N] [--all-projects] [--quiet]   measure subagent runs from transcripts, rebuild routes
+  moneyball scan [--days N] [--all-projects] [--quiet]   measure subagent runs from the last N days of transcripts (default 30;
+                                                        the index keeps older runs), rebuild routes
   moneyball report [--json] [--all]                      per-class recommendation: graduate | explore | try-effort | keep
   moneyball stats [--json]                               usage + what routing is worth (.moneyball-stats.json)
   moneyball overhead [--days N] [--json]                 the startup tax: fixed prompt per session/subagent, apart from the work
@@ -67,13 +68,15 @@ function printOverhead(m, st, attr) {
 }
 
 async function doScan(cfg) {
-  const r = await scan(cfg, { days: Number(opt('--days', cfg.days)), allProjects: flag('--all-projects') });
+  const days = Number(opt('--days', cfg.days));
+  if (!(days > 0)) throw new Error(`--days needs a positive number of days, got "${opt('--days')}"`);
+  const r = await scan(cfg, { days, allProjects: flag('--all-projects') });
   const p = plan(cfg);
   const rt = routes(cfg);
   writeRoutes(cfg, rt);
   const last = overview(cfg, p);
   upsert(cfg, (s) => { s.totals.scans++; s.last_scan = last; });
-  return { ...r, ...last };
+  return { ...r, ...last, days };
 }
 
 const cacheDir = (cfg) => (opt('--cache') ? path.resolve(opt('--cache')) : process.env.QBRANCH_SCENARIOS_DIR || scenariosDir(cfg.root));
@@ -140,11 +143,12 @@ async function scenarios(cfg) {
 }
 
 async function main() {
+  if (cmd !== 'hook' && (rest.includes('--help') || rest.includes('-h'))) return console.log(HELP);
   const cfg = loadConfig();
   switch (cmd) {
     case 'scan': {
       const r = await doScan(cfg);
-      if (!flag('--quiet')) console.log(`scanned ${r.scanned} subagent transcripts (+${r.added} new): ${r.runs} runs over ${r.window_days} days, ${r.classes} classes, ${money(r.spend)} (API-equivalent); `
+      if (!flag('--quiet')) console.log(`read ${r.scanned} subagent transcripts from the last ${r.days} days (+${r.added} new); the index (older runs kept): ${r.runs} runs over ${r.window_days} days, ${r.classes} classes, ${money(r.spend)} (API-equivalent); `
         + `${r.graduate} graduated, ${r.explore} exploring, est. saving ${money(r.est_saving)} (${money(r.est_saving_30d || 0)}/30d)${r.est_minutes_30d != null ? `, ~${num(r.est_minutes_30d)} min/30d` : ''}`);
       return;
     }

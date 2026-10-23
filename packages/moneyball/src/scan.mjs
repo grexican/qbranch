@@ -119,6 +119,9 @@ export async function scan(cfg, { days = cfg.days, allProjects = false, onProgre
   d.exec('begin');
   // rows indexed before the cross-vendor ladder carry the old Claude-only tier: re-key them from their model
   for (const x of d.prepare('select id, model, tier from runs').all()) { const k = rung(x.model).key; if (k !== x.tier) d.prepare('update runs set tier = ? where id = ?').run(k, x.id); }
+  // rows indexed under an older class-key rule move to today's key (the description is stored, so no transcript is needed)
+  const rekey = d.prepare('update runs set class_id = ? where id = ?');
+  for (const x of d.prepare('select id, agent_type, description, class_id from runs').all()) { const c = classify(cfg, x.agent_type, x.description); if (c !== x.class_id) rekey.run(c, x.id); }
   for (const r of rows) {
     const ok = !r.redo && !r.fail_words && !r.rework && !(r.tool_calls >= 4 && r.tool_errors / r.tool_calls > 0.5) ? 1 : 0;
     ins.run(r.id, r.session, r.platform, r.agent_type, r.description, r.class_id, r.model, r.tier, r.cost, r.calls, r.tool_calls, r.tool_errors, r.redo || 0, r.fail_words, ok, r.mtime,

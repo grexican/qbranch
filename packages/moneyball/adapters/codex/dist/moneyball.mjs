@@ -1923,7 +1923,7 @@ var prior = (verb) => JUDGMENT.test(verb) ? "judgment" : MECHANICAL.test(verb) ?
 var STOP = new Set("the a an and or for to of in on at with from by this that is are be it as into via run lane task new".split(" "));
 var stem = (w) => /(ss|us|is)$/.test(w) ? w : w.replace(/(ing|ed|es|s)$/, (m) => w.length - m.length >= 3 ? "" : m);
 function lexKey(agentType, desc) {
-  const words2 = (desc || "").toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter((w) => w.length > 1 && !STOP.has(w));
+  const words2 = (desc || "").toLowerCase().split(/\s+/).filter((t) => !/\d/.test(t)).flatMap((t) => t.replace(/^\/+/, "").split(":").pop().replace(/^re-(?=[a-z])/, "").replace(/[^a-z]/g, " ").split(" ")).filter((w) => w.length > 1 && !STOP.has(w));
   return `${agentType || "general-purpose"}:${words2.length ? stem(words2[0]) : "misc"}`;
 }
 function classify(cfg, agentType, desc) {
@@ -2075,6 +2075,11 @@ async function scan(cfg, { days = cfg.days, allProjects = false, onProgress } = 
   for (const x of d.prepare("select id, model, tier from runs").all()) {
     const k = rung(x.model).key;
     if (k !== x.tier) d.prepare("update runs set tier = ? where id = ?").run(k, x.id);
+  }
+  const rekey = d.prepare("update runs set class_id = ? where id = ?");
+  for (const x of d.prepare("select id, agent_type, description, class_id from runs").all()) {
+    const c = classify(cfg, x.agent_type, x.description);
+    if (c !== x.class_id) rekey.run(c, x.id);
   }
   for (const r of rows) {
     const ok = !r.redo && !r.fail_words && !r.rework && !(r.tool_calls >= 4 && r.tool_errors / r.tool_calls > 0.5) ? 1 : 0;
@@ -3474,7 +3479,8 @@ var opt = (n, d) => {
 var SELF = process.argv[1];
 var HELP = `moneyball: pay for the model each job needs, not the one you defaulted to.
 
-  moneyball scan [--days N] [--all-projects] [--quiet]   measure subagent runs from transcripts, rebuild routes
+  moneyball scan [--days N] [--all-projects] [--quiet]   measure subagent runs from the last N days of transcripts (default 30;
+                                                        the index keeps older runs), rebuild routes
   moneyball report [--json] [--all]                      per-class recommendation: graduate | explore | try-effort | keep
   moneyball stats [--json]                               usage + what routing is worth (.moneyball-stats.json)
   moneyball overhead [--days N] [--json]                 the startup tax: fixed prompt per session/subagent, apart from the work
@@ -3524,7 +3530,9 @@ probe attribution (${attr.model}, ${money2(attr.spent)} spent): full startup pro
   for (const p of attr.parts) console.log(`  ${p.id.padEnd(13)} ${num(p.tokens).padStart(7)}  ${p.label}${p.note ? ` [${p.note}]` : ""}`);
 }
 async function doScan(cfg) {
-  const r = await scan(cfg, { days: Number(opt("--days", cfg.days)), allProjects: flag("--all-projects") });
+  const days = Number(opt("--days", cfg.days));
+  if (!(days > 0)) throw new Error(`--days needs a positive number of days, got "${opt("--days")}"`);
+  const r = await scan(cfg, { days, allProjects: flag("--all-projects") });
   const p = plan(cfg);
   const rt = routes(cfg);
   writeRoutes(cfg, rt);
@@ -3533,7 +3541,7 @@ async function doScan(cfg) {
     s.totals.scans++;
     s.last_scan = last;
   });
-  return { ...r, ...last };
+  return { ...r, ...last, days };
 }
 var cacheDir = (cfg) => opt("--cache") ? path13.resolve(opt("--cache")) : process.env.QBRANCH_SCENARIOS_DIR || scenariosDir(cfg.root);
 var secs = (ms) => `${Math.round((ms || 0) / 1e3)}s`;
@@ -3609,11 +3617,12 @@ async function scenarios(cfg) {
   }
 }
 async function main() {
+  if (cmd !== "hook" && (rest.includes("--help") || rest.includes("-h"))) return console.log(HELP);
   const cfg = loadConfig();
   switch (cmd) {
     case "scan": {
       const r = await doScan(cfg);
-      if (!flag("--quiet")) console.log(`scanned ${r.scanned} subagent transcripts (+${r.added} new): ${r.runs} runs over ${r.window_days} days, ${r.classes} classes, ${money2(r.spend)} (API-equivalent); ${r.graduate} graduated, ${r.explore} exploring, est. saving ${money2(r.est_saving)} (${money2(r.est_saving_30d || 0)}/30d)${r.est_minutes_30d != null ? `, ~${num(r.est_minutes_30d)} min/30d` : ""}`);
+      if (!flag("--quiet")) console.log(`read ${r.scanned} subagent transcripts from the last ${r.days} days (+${r.added} new); the index (older runs kept): ${r.runs} runs over ${r.window_days} days, ${r.classes} classes, ${money2(r.spend)} (API-equivalent); ${r.graduate} graduated, ${r.explore} exploring, est. saving ${money2(r.est_saving)} (${money2(r.est_saving_30d || 0)}/30d)${r.est_minutes_30d != null ? `, ~${num(r.est_minutes_30d)} min/30d` : ""}`);
       return;
     }
     case "report": {

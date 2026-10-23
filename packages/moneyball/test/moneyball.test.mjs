@@ -24,6 +24,12 @@ test('class keys are agent type + leading verb; priors split mechanical from jud
   assert.equal(lexKey('general-purpose', 'QA ticket #2256 on dev'), 'general-purpose:qa');
   assert.equal(lexKey('Explore', 'Finding the auth entrypoints'), 'Explore:find');
   assert.equal(lexKey('general-purpose', 'Status of the nightly build'), 'general-purpose:status');
+  // ids, namespaced commands and a re- prefix do not hide the verb
+  assert.equal(lexKey('general-purpose', '/ns:qa on #1917 compliance flag'), 'general-purpose:qa');
+  assert.equal(lexKey('general-purpose', 'Run /ns:build images'), 'general-purpose:build');
+  assert.equal(lexKey('general-purpose', 'Re-QA Settings tabs CU-123'), 'general-purpose:qa');
+  assert.equal(lexKey('general-purpose', 'Lane D: #1592 CV3 QA local'), 'general-purpose:qa');
+  assert.equal(lexKey('general-purpose', 'Branch-update #12'), 'general-purpose:branch');
   assert.equal(prior('summariz'), 'mechanical');
   assert.equal(prior('fix'), 'judgment');
   assert.equal(prior('ashgrove'), 'unclear');

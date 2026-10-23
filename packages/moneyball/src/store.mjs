@@ -42,9 +42,13 @@ const stem = (w) => (/(ss|us|is)$/.test(w) ? w : w.replace(/(ing|ed|es|s)$/, (m)
  * Class key: agent type + the leading verb of the description ("general-purpose:check", "Explore:find").
  * Deliberately coarse. Measured on 1.2k real dispatches, descriptions are near-unique (1,083 distinct 4-word keys), so
  * fine-grained classes never collect evidence; the verb is also all the hook can see at dispatch time.
+ * Before the verb is picked: tokens with digits are ids ("#12", "CU-123", "CV3"), a namespaced command keeps its last
+ * part ("/ns:qa" -> qa), and a "re-" prefix is dropped ("Re-QA" pools with "QA").
  */
 export function lexKey(agentType, desc) {
-  const words = (desc || '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(w => w.length > 1 && !STOP.has(w));
+  const words = (desc || '').toLowerCase().split(/\s+/).filter(t => !/\d/.test(t))
+    .flatMap(t => t.replace(/^\/+/, '').split(':').pop().replace(/^re-(?=[a-z])/, '').replace(/[^a-z]/g, ' ').split(' '))
+    .filter(w => w.length > 1 && !STOP.has(w));
   return `${agentType || 'general-purpose'}:${words.length ? stem(words[0]) : 'misc'}`;
 }
 
