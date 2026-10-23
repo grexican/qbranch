@@ -11,24 +11,24 @@ This repository is that workshop for **AI agents**. Every gadget here makes codi
 <td width="50%" valign="top">
 <a href="packages/headjack"><img src="packages/headjack/docs/headjack-icon.svg" width="56" align="left" alt=""></a>
 <h3><a href="packages/headjack">headjack</a></h3>
-<b>Skills, loaded the moment you need them.</b> An indexed skill library and a per-prompt retrieval hook replace a preloaded skill listing. The right skill got loaded 67% of the time, against 33% when all skills were preloaded.
+<b>Skills, loaded the moment you need them.</b> An indexed skill library and a per-prompt retrieval hook replace a preloaded skill listing. The right skill got loaded 67% of the time, against 33% when all skills were preloaded.<br><br><i>Use it when</i> you have more skills than an agent reliably uses: past the listing budget Claude Code drops skill descriptions, and even preloaded skills get skipped.
 </td>
 <td width="50%" valign="top">
 <a href="packages/middleout"><img src="packages/middleout/docs/middleout-icon.svg" width="56" align="left" alt=""></a>
 <h3><a href="packages/middleout">middleout</a></h3>
-<b>API calls, compressed.</b> Agents write one small plan over their MCP servers (fan-out, nesting, pagination), and only the fields they selected reach the model. 7–28× cheaper on per-item fan-out.
+<b>API calls, compressed.</b> Agents write one small plan over their MCP servers (fan-out, nesting, pagination), and only the fields they selected reach the model. 7–28× cheaper on per-item fan-out.<br><br><i>Use it when</i> your agents work through MCP servers (a ticketing system, a CRM, any API) and ask questions that touch many items: one call per item, bloated payloads, page after page.
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top">
 <a href="packages/moneyball"><img src="packages/moneyball/docs/moneyball-icon.svg" width="56" align="left" alt=""></a>
 <h3><a href="packages/moneyball">moneyball</a></h3>
-<b>Pay for the model each job needs.</b> Measures every subagent run from transcripts, graduates repeat work to cheaper models at 90% success over 10+ runs, and routes dispatches with a hook.
+<b>Pay for the model each job needs.</b> Measures every subagent run from transcripts, graduates repeat work to cheaper models at 90% success over 10+ runs, and routes dispatches with a hook. Also measures the startup tax every session pays.<br><br><i>Use it when</i> subagents are a real share of your spend and they all run on your most expensive model because nobody checked whether a cheaper one would do.
 </td>
 <td width="50%" valign="top">
 <a href="packages/groundhog"><img src="packages/groundhog/docs/groundhog-icon.svg" width="56" align="left" alt=""></a>
 <h3><a href="packages/groundhog">groundhog</a></h3>
-<b>Stop re-living the same session.</b> Finds the lessons agents re-learn and the procedures they repeat by hand. Accepted lessons go in a committed ledger that hooks enforce; repeated procedures become runbooks.
+<b>Stop re-living the same session.</b> Finds the lessons agents re-learn and the procedures they repeat by hand. Accepted lessons go in a committed ledger that hooks enforce; repeated procedures become runbooks.<br><br><i>Use it when</i> your agents re-learn the same lesson every session (the command that fails before the one that works) or run the same steps by hand again and again.
 </td>
 </tr>
 </table>
@@ -37,19 +37,23 @@ Each gadget has its own page in its folder: what it does, how it works, an examp
 
 ## Install
 
-One marketplace holds every gadget. Install only the ones you want:
+One marketplace holds every gadget. To get all four:
 
 ```bash
 claude plugin marketplace add grexican/qbranch
+claude plugin install headjack@qbranch
+claude plugin install middleout@qbranch
 claude plugin install moneyball@qbranch
-claude plugin install groundhog@qbranch       # each installs, updates and uninstalls on its own; add -s project to share
+claude plugin install groundhog@qbranch
 ```
+
+Or install only the ones you want: each gadget installs, updates and uninstalls on its own. Add `-s project` to share one with your team.
 
 **Other agents** (Cursor, Codex, Gemini CLI, Copilot, Windsurf), one command from a clone:
 
 ```bash
 git clone https://github.com/grexican/qbranch
-node qbranch/scripts/install.mjs moneyball groundhog --platform cursor --project .    # or: all
+node qbranch/scripts/install.mjs all --platform cursor --project .    # or name the ones you want: moneyball groundhog
 ```
 
 The installer copies the skills, merges hooks and MCP config into that platform's project files, and is safe to re-run. `--uninstall` removes exactly what it added.
